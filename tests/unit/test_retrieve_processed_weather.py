@@ -1,5 +1,5 @@
 import json
-from lambdas.retrieval import handler
+from lambdas.retrieval.handler import lambda_handler
 from constants import *
 
 PATH = "/ese/v1/retrieve/processed/weather"
@@ -21,7 +21,7 @@ def test_processed_valid(setup_s3):
         "queryStringParameters": { "date": DATE_1 }
     }
 
-    response = handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_OK
     assert json.loads(response["body"]) == processed_data
 
@@ -31,7 +31,7 @@ def test_raw_missing_hub():
         "queryStringParameters": { "date": DATE_1 }
     }
 
-    response = handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Missing hub_id"}
 
@@ -42,7 +42,7 @@ def test_raw_invalid_hub():
         "queryStringParameters": { "date": DATE_1 }
     }
 
-    response = handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Invalid hub_id"}
 
@@ -52,7 +52,7 @@ def test_raw_missing_date():
         "pathParameters": { "hub_id": HUB_ID_1 },
     }
 
-    response = handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Missing date"}
 
@@ -63,7 +63,7 @@ def test_raw_invalid_date():
         "queryStringParameters": { "date": DATE_INVALID }
     }
 
-    response = handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Invalid date format. Use DD-MM-YYYY"}
 
@@ -74,6 +74,6 @@ def test_raw_object_not_found():
         "queryStringParameters": { "date": DATE_1 }
     }
 
-    response = handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_NOT_FOUND
     assert json.loads(response["body"]) == {"error": "Data for hub_id and date not found"}
