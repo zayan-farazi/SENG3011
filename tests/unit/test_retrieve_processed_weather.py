@@ -25,9 +25,10 @@ def test_processed_valid(setup_s3):
     assert response["statusCode"] == STATUS_OK
     assert json.loads(response["body"]) == processed_data
 
-def test_raw_missing_hub():
+def test_processed_missing_hub():
     event = {
         "rawPath": PATH,
+        "pathParameters": { },
         "queryStringParameters": { "date": DATE_1 }
     }
 
@@ -35,7 +36,7 @@ def test_raw_missing_hub():
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Missing hub_id"}
 
-def test_raw_invalid_hub():
+def test_processed_invalid_hub(setup_s3):
     event = {
         "rawPath": PATH,
         "pathParameters": { "hub_id": HUB_INVALID },
@@ -46,7 +47,7 @@ def test_raw_invalid_hub():
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Invalid hub_id"}
 
-def test_raw_missing_date():
+def test_processed_missing_date():
     event = {
         "rawPath": PATH,
         "pathParameters": { "hub_id": HUB_ID_1 },
@@ -56,7 +57,7 @@ def test_raw_missing_date():
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Missing date"}
 
-def test_raw_invalid_date():
+def test_processed_invalid_date():
     event = {
         "rawPath": PATH,
         "pathParameters": { "hub_id": HUB_ID_1 },
@@ -67,7 +68,7 @@ def test_raw_invalid_date():
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Invalid date format. Use DD-MM-YYYY"}
 
-def test_raw_object_not_found():
+def test_processed_object_not_found(setup_s3):
     event = {
         "rawPath": PATH,
         "pathParameters": { "hub_id": HUB_ID_1 },
