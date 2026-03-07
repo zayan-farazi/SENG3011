@@ -1,0 +1,20 @@
+# Terraform local files
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+terraform.tfstate.d/
+
+# Sensitive / local variable files
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+
+# Local CLI config
+.terraformrc
+terraform.rc
+
+# Optional: local installer you accidentally added
+terraform/AWSCLIV2.pkg
+AWSCLIV2.pkg
