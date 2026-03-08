@@ -18,15 +18,22 @@ variable "stage_name" {
   default     = "dev"
 }
 
+variable "enable_lambda_integrations" {
+  type        = bool
+  description = "Whether to create API Gateway methods, Lambda integrations, and Lambda permissions."
+  default     = false
+}
+
 variable "lambda_bindings" {
   description = "Lambda function names and invoke ARNs keyed by weather API route identifier"
   type = map(object({
     function_name = string
     invoke_arn    = string
   }))
+  default = {}
 
   validation {
-    condition = length(setsubtract(toset([
+    condition = !var.enable_lambda_integrations || length(setsubtract(toset([
       "weather_ingest",
       "weather_retrieve_raw",
       "weather_retrieve_processed",
@@ -34,7 +41,7 @@ variable "lambda_bindings" {
       "risk_region",
       "risk_location"
     ]), toset(keys(var.lambda_bindings)))) == 0
-    error_message = "lambda_bindings must define weather_ingest, weather_retrieve_raw, weather_retrieve_processed, weather_process, risk_region, and risk_location."
+    error_message = "When enable_lambda_integrations is true, lambda_bindings must define weather_ingest, weather_retrieve_raw, weather_retrieve_processed, weather_process, risk_region, and risk_location."
   }
 }
 
@@ -245,6 +252,8 @@ locals {
       validate_parameters = true
     }
   }
+
+  active_routes = var.enable_lambda_integrations ? local.routes : {}
 }
 
 ############################
@@ -263,7 +272,7 @@ resource "aws_api_gateway_request_validator" "required_params" {
 ############################
 
 resource "aws_api_gateway_method" "route_methods" {
-  for_each = local.routes
+  for_each = local.active_routes
 
   rest_api_id          = aws_api_gateway_rest_api.weather_api.id
   resource_id          = each.value.resource_id
@@ -278,7 +287,7 @@ resource "aws_api_gateway_method" "route_methods" {
 ############################
 
 resource "aws_api_gateway_integration" "route_integrations" {
-  for_each = local.routes
+  for_each = local.active_routes
 
   rest_api_id             = aws_api_gateway_rest_api.weather_api.id
   resource_id             = each.value.resource_id
@@ -293,7 +302,7 @@ resource "aws_api_gateway_integration" "route_integrations" {
 ############################
 
 resource "aws_lambda_permission" "allow_apigw" {
-  for_each = local.routes
+  for_each = local.active_routes
 
   statement_id  = "AllowAPIGatewayInvoke-${each.key}"
   action        = "lambda:InvokeFunction"
