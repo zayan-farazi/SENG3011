@@ -1,0 +1,283 @@
+openapi: 3.0.3
+info:
+  title: Weather and Supply Chain Risk API
+  version: 1.0.0
+  description: >
+    OpenAPI contract for the weather ingestion, retrieval, processing, and risk
+    analytics endpoints exposed through API Gateway and backed by AWS Lambda.
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    description: AWS API Gateway deployment
+    variables:
+      apiId:
+        default: your-api-id
+      region:
+        default: us-east-1
+      stage:
+        default: dev
+tags:
+  - name: Data collection microservice
+  - name: Data retrieval microservice
+  - name: Data processing microservice
+  - name: Analytics microservice
+paths:
+  /ese/v1/ingest/weather/{hub_id}:
+    post:
+      tags:
+        - Data collection microservice
+      summary: Ingest weather forecast for a hub
+      description: >
+        Resolves latitude and longitude from `hub_id`, fetches the next week's
+        weather forecast from Pirate Weather, and stores the raw data in the
+        datalake using a date string derived from the UNIX timestamp.
+      parameters:
+        - $ref: '#/components/parameters/HubIdPath'
+      responses:
+        '200':
+          description: Weather forecast was fetched and stored successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              examples:
+                success:
+                  value:
+                    hub_id: HUB123
+                    status: stored
+                    dates_written:
+                      - 08-03-2026
+                      - 09-03-2026
+        '400':
+          description: Invalid hub ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/retrieve/raw/weather/{hub_id}:
+    get:
+      tags:
+        - Data retrieval microservice
+      summary: Retrieve raw Pirate Weather payload for a hub and date
+      description: Reads raw weather data from the datalake for the specified hub and date.
+      parameters:
+        - $ref: '#/components/parameters/HubIdPath'
+        - $ref: '#/components/parameters/DateQuery'
+      responses:
+        '200':
+          description: Raw Pirate Weather JSON response for the requested date.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RawWeatherResponse'
+        '400':
+          description: Invalid hub ID or missing/invalid date. `date` must be `DD-MM-YYYY`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Raw weather data was not found for the given hub and date.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/retrieve/processed/weather/{hub_id}:
+    get:
+      tags:
+        - Data retrieval microservice
+      summary: Retrieve processed weather payload for a hub and date
+      description: >
+        Reads processed weather data from the datalake for the specified hub and
+        date using the ML model input schema.
+      parameters:
+        - $ref: '#/components/parameters/HubIdPath'
+        - $ref: '#/components/parameters/DateQuery'
+      responses:
+        '200':
+          description: Processed weather data in the ML model input schema.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessedWeatherResponse'
+        '400':
+          description: Invalid hub ID or missing/invalid date. `date` must be `DD-MM-YYYY`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Processed weather data was not found for the given hub and date.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/process/weather:
+    post:
+      tags:
+        - Data processing microservice
+      summary: Process raw weather data into 6-hour forecast objects
+      description: >
+        Processes raw weather data for a given date by extracting hourly forecast
+        entries and producing separate processed objects every 6 hours for the
+        next 7 days. Existing processed objects for the same date are overwritten.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessWeatherRequest'
+      responses:
+        '200':
+          description: Processed weather objects created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessedWeatherResponse'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/risk/region:
+    get:
+      tags:
+        - Analytics microservice
+      summary: List risk scores for hubs in a region
+      description: Returns supply chain hubs in the specified region and their risk scores.
+      parameters:
+        - $ref: '#/components/parameters/RegionQuery'
+      responses:
+        '200':
+          description: Risk scores for hubs in the region.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskRegionResponse'
+        '400':
+          description: Missing or invalid region query parameter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/risk/location/{hub_id}:
+    get:
+      tags:
+        - Analytics microservice
+      summary: Retrieve the latest risk score for a hub
+      description: Returns the most recent risk score for the specified hub.
+      parameters:
+        - $ref: '#/components/parameters/HubIdPath'
+      responses:
+        '200':
+          description: Latest risk score for the hub.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskLocationResponse'
+        '400':
+          description: Invalid hub ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  parameters:
+    HubIdPath:
+      name: hub_id
+      in: path
+      required: true
+      description: Unique identifier for the supply chain hub.
+      schema:
+        type: string
+      example: HUB123
+    DateQuery:
+      name: date
+      in: query
+      required: true
+      description: Target date in `DD-MM-YYYY` format.
+      schema:
+        type: string
+        pattern: '^\d{2}-\d{2}-\d{4}$'
+      example: 08-03-2026
+    RegionQuery:
+      name: region
+      in: query
+      required: true
+      description: Region name used to filter hubs for analytics.
+      schema:
+        type: string
+      example: sydney
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: INVALID_DATE
+        message:
+          type: string
+          example: date must be in DD-MM-YYYY format
+    RawWeatherResponse:
+      type: object
+      description: Placeholder schema for the raw Pirate Weather API payload.
+      additionalProperties: true
+    ProcessWeatherRequest:
+      type: object
+      required:
+        - raw_data
+      properties:
+        raw_data:
+          type: object
+          description: Raw Pirate Weather payload to process.
+          additionalProperties: true
+    ProcessedWeatherResponse:
+      type: object
+      description: Placeholder schema for processed weather objects matching the ML model input.
+      additionalProperties: true
+      example:
+        hub_id: HUB123
+        generated_at: 08-03-2026
+        forecast_windows:
+          - timestamp: 1741392000
+            date: 08-03-2026
+            risk_score: 42
+    RiskRegionResponse:
+      type: object
+      required:
+        - hubs
+      properties:
+        hubs:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - risk_score
+            properties:
+              name:
+                type: string
+                example: Sydney Hub
+              risk_score:
+                type: integer
+                example: 72
+    RiskLocationResponse:
+      type: object
+      required:
+        - hub_name
+        - risk_score
+        - risk_level
+      properties:
+        hub_name:
+          type: string
+          example: Sydney Hub
+        risk_score:
+          type: integer
+          example: 72
+        risk_level:
+          type: string
+          example: HIGH

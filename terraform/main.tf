@@ -18,55 +18,24 @@ variable "stage_name" {
   default     = "dev"
 }
 
-# Lambda details supplied by teammates
-variable "list_items_lambda_function_name" {
-  type        = string
-  description = "Lambda function name for GET /items"
-}
+variable "lambda_bindings" {
+  description = "Lambda function names and invoke ARNs keyed by weather API route identifier"
+  type = map(object({
+    function_name = string
+    invoke_arn    = string
+  }))
 
-variable "list_items_lambda_invoke_arn" {
-  type        = string
-  description = "Lambda invoke ARN for GET /items"
-}
-
-variable "create_item_lambda_function_name" {
-  type        = string
-  description = "Lambda function name for POST /items"
-}
-
-variable "create_item_lambda_invoke_arn" {
-  type        = string
-  description = "Lambda invoke ARN for POST /items"
-}
-
-variable "get_item_lambda_function_name" {
-  type        = string
-  description = "Lambda function name for GET /items/{id}"
-}
-
-variable "get_item_lambda_invoke_arn" {
-  type        = string
-  description = "Lambda invoke ARN for GET /items/{id}"
-}
-
-variable "update_item_lambda_function_name" {
-  type        = string
-  description = "Lambda function name for PUT /items/{id}"
-}
-
-variable "update_item_lambda_invoke_arn" {
-  type        = string
-  description = "Lambda invoke ARN for PUT /items/{id}"
-}
-
-variable "delete_item_lambda_function_name" {
-  type        = string
-  description = "Lambda function name for DELETE /items/{id}"
-}
-
-variable "delete_item_lambda_invoke_arn" {
-  type        = string
-  description = "Lambda invoke ARN for DELETE /items/{id}"
+  validation {
+    condition = length(setsubtract(toset([
+      "weather_ingest",
+      "weather_retrieve_raw",
+      "weather_retrieve_processed",
+      "weather_process",
+      "risk_region",
+      "risk_location"
+    ]), toset(keys(var.lambda_bindings)))) == 0
+    error_message = "lambda_bindings must define weather_ingest, weather_retrieve_raw, weather_retrieve_processed, weather_process, risk_region, and risk_location."
+  }
 }
 
 ############################
@@ -86,9 +55,9 @@ resource "aws_s3_bucket" "seng_3011_bkt" {
 # API Gateway REST API
 ############################
 
-resource "aws_api_gateway_rest_api" "crud_api" {
-  name        = "crud-api"
-  description = "CRUD API Gateway for items service"
+resource "aws_api_gateway_rest_api" "weather_api" {
+  name        = "weather-supply-chain-api"
+  description = "Weather and supply-chain risk API Gateway"
 
   endpoint_configuration {
     types = ["REGIONAL"]
@@ -100,18 +69,112 @@ resource "aws_api_gateway_rest_api" "crud_api" {
   }
 }
 
-# /items
-resource "aws_api_gateway_resource" "items" {
-  rest_api_id = aws_api_gateway_rest_api.crud_api.id
-  parent_id   = aws_api_gateway_rest_api.crud_api.root_resource_id
-  path_part   = "items"
+resource "aws_api_gateway_resource" "ese" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_rest_api.weather_api.root_resource_id
+  path_part   = "ese"
 }
 
-# /items/{id}
-resource "aws_api_gateway_resource" "item_id" {
-  rest_api_id = aws_api_gateway_rest_api.crud_api.id
-  parent_id   = aws_api_gateway_resource.items.id
-  path_part   = "{id}"
+resource "aws_api_gateway_resource" "v1" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.ese.id
+  path_part   = "v1"
+}
+
+resource "aws_api_gateway_resource" "ingest" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.v1.id
+  path_part   = "ingest"
+}
+
+resource "aws_api_gateway_resource" "ingest_weather" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.ingest.id
+  path_part   = "weather"
+}
+
+resource "aws_api_gateway_resource" "ingest_weather_hub_id" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.ingest_weather.id
+  path_part   = "{hub_id}"
+}
+
+resource "aws_api_gateway_resource" "retrieve" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.v1.id
+  path_part   = "retrieve"
+}
+
+resource "aws_api_gateway_resource" "retrieve_raw" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.retrieve.id
+  path_part   = "raw"
+}
+
+resource "aws_api_gateway_resource" "retrieve_raw_weather" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.retrieve_raw.id
+  path_part   = "weather"
+}
+
+resource "aws_api_gateway_resource" "retrieve_raw_weather_hub_id" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.retrieve_raw_weather.id
+  path_part   = "{hub_id}"
+}
+
+resource "aws_api_gateway_resource" "retrieve_processed" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.retrieve.id
+  path_part   = "processed"
+}
+
+resource "aws_api_gateway_resource" "retrieve_processed_weather" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.retrieve_processed.id
+  path_part   = "weather"
+}
+
+resource "aws_api_gateway_resource" "retrieve_processed_weather_hub_id" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.retrieve_processed_weather.id
+  path_part   = "{hub_id}"
+}
+
+resource "aws_api_gateway_resource" "process" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.v1.id
+  path_part   = "process"
+}
+
+resource "aws_api_gateway_resource" "process_weather" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.process.id
+  path_part   = "weather"
+}
+
+resource "aws_api_gateway_resource" "risk" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.v1.id
+  path_part   = "risk"
+}
+
+resource "aws_api_gateway_resource" "risk_region" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.risk.id
+  path_part   = "region"
+}
+
+resource "aws_api_gateway_resource" "risk_location" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.risk.id
+  path_part   = "location"
+}
+
+resource "aws_api_gateway_resource" "risk_location_hub_id" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
+  parent_id   = aws_api_gateway_resource.risk_location.id
+  path_part   = "{hub_id}"
 }
 
 ############################
@@ -120,46 +183,79 @@ resource "aws_api_gateway_resource" "item_id" {
 
 locals {
   routes = {
-    list_items = {
-      resource_id   = aws_api_gateway_resource.items.id
-      http_method   = "GET"
-      function_name = var.list_items_lambda_function_name
-      invoke_arn    = var.list_items_lambda_invoke_arn
-      path_pattern  = "items"
+    weather_ingest = {
+      resource_id         = aws_api_gateway_resource.ingest_weather_hub_id.id
+      http_method         = "POST"
+      lambda_binding_key  = "weather_ingest"
+      path_pattern        = "ese/v1/ingest/weather/*"
+      request_parameters  = { "method.request.path.hub_id" = true }
+      validate_parameters = true
     }
 
-    create_item = {
-      resource_id   = aws_api_gateway_resource.items.id
-      http_method   = "POST"
-      function_name = var.create_item_lambda_function_name
-      invoke_arn    = var.create_item_lambda_invoke_arn
-      path_pattern  = "items"
+    weather_retrieve_raw = {
+      resource_id        = aws_api_gateway_resource.retrieve_raw_weather_hub_id.id
+      http_method        = "GET"
+      lambda_binding_key = "weather_retrieve_raw"
+      path_pattern       = "ese/v1/retrieve/raw/weather/*"
+      request_parameters = {
+        "method.request.path.hub_id"      = true
+        "method.request.querystring.date" = true
+      }
+      validate_parameters = true
     }
 
-    get_item = {
-      resource_id   = aws_api_gateway_resource.item_id.id
-      http_method   = "GET"
-      function_name = var.get_item_lambda_function_name
-      invoke_arn    = var.get_item_lambda_invoke_arn
-      path_pattern  = "items/*"
+    weather_retrieve_processed = {
+      resource_id        = aws_api_gateway_resource.retrieve_processed_weather_hub_id.id
+      http_method        = "GET"
+      lambda_binding_key = "weather_retrieve_processed"
+      path_pattern       = "ese/v1/retrieve/processed/weather/*"
+      request_parameters = {
+        "method.request.path.hub_id"      = true
+        "method.request.querystring.date" = true
+      }
+      validate_parameters = true
     }
 
-    update_item = {
-      resource_id   = aws_api_gateway_resource.item_id.id
-      http_method   = "PUT"
-      function_name = var.update_item_lambda_function_name
-      invoke_arn    = var.update_item_lambda_invoke_arn
-      path_pattern  = "items/*"
+    weather_process = {
+      resource_id         = aws_api_gateway_resource.process_weather.id
+      http_method         = "POST"
+      lambda_binding_key  = "weather_process"
+      path_pattern        = "ese/v1/process/weather"
+      request_parameters  = {}
+      validate_parameters = false
     }
 
-    delete_item = {
-      resource_id   = aws_api_gateway_resource.item_id.id
-      http_method   = "DELETE"
-      function_name = var.delete_item_lambda_function_name
-      invoke_arn    = var.delete_item_lambda_invoke_arn
-      path_pattern  = "items/*"
+    risk_region = {
+      resource_id        = aws_api_gateway_resource.risk_region.id
+      http_method        = "GET"
+      lambda_binding_key = "risk_region"
+      path_pattern       = "ese/v1/risk/region"
+      request_parameters = {
+        "method.request.querystring.region" = true
+      }
+      validate_parameters = true
+    }
+
+    risk_location = {
+      resource_id         = aws_api_gateway_resource.risk_location_hub_id.id
+      http_method         = "GET"
+      lambda_binding_key  = "risk_location"
+      path_pattern        = "ese/v1/risk/location/*"
+      request_parameters  = { "method.request.path.hub_id" = true }
+      validate_parameters = true
     }
   }
+}
+
+############################
+# Request validation
+############################
+
+resource "aws_api_gateway_request_validator" "required_params" {
+  rest_api_id                 = aws_api_gateway_rest_api.weather_api.id
+  name                        = "required-request-params"
+  validate_request_body       = false
+  validate_request_parameters = true
 }
 
 ############################
@@ -169,10 +265,12 @@ locals {
 resource "aws_api_gateway_method" "route_methods" {
   for_each = local.routes
 
-  rest_api_id   = aws_api_gateway_rest_api.crud_api.id
-  resource_id   = each.value.resource_id
-  http_method   = each.value.http_method
-  authorization = "NONE"
+  rest_api_id          = aws_api_gateway_rest_api.weather_api.id
+  resource_id          = each.value.resource_id
+  http_method          = each.value.http_method
+  authorization        = "NONE"
+  request_parameters   = each.value.request_parameters
+  request_validator_id = each.value.validate_parameters ? aws_api_gateway_request_validator.required_params.id : null
 }
 
 ############################
@@ -182,12 +280,12 @@ resource "aws_api_gateway_method" "route_methods" {
 resource "aws_api_gateway_integration" "route_integrations" {
   for_each = local.routes
 
-  rest_api_id             = aws_api_gateway_rest_api.crud_api.id
+  rest_api_id             = aws_api_gateway_rest_api.weather_api.id
   resource_id             = each.value.resource_id
   http_method             = aws_api_gateway_method.route_methods[each.key].http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = each.value.invoke_arn
+  uri                     = var.lambda_bindings[each.value.lambda_binding_key].invoke_arn
 }
 
 ############################
@@ -199,18 +297,18 @@ resource "aws_lambda_permission" "allow_apigw" {
 
   statement_id  = "AllowAPIGatewayInvoke-${each.key}"
   action        = "lambda:InvokeFunction"
-  function_name = each.value.function_name
+  function_name = var.lambda_bindings[each.value.lambda_binding_key].function_name
   principal     = "apigateway.amazonaws.com"
 
-  source_arn = "${aws_api_gateway_rest_api.crud_api.execution_arn}/*/${each.value.http_method}/${each.value.path_pattern}"
+  source_arn = "${aws_api_gateway_rest_api.weather_api.execution_arn}/*/${each.value.http_method}/${each.value.path_pattern}"
 }
 
 ############################
 # Deployment + Stage
 ############################
 
-resource "aws_api_gateway_deployment" "crud_api" {
-  rest_api_id = aws_api_gateway_rest_api.crud_api.id
+resource "aws_api_gateway_deployment" "weather_api" {
+  rest_api_id = aws_api_gateway_rest_api.weather_api.id
 
   depends_on = [
     aws_api_gateway_integration.route_integrations
@@ -220,11 +318,15 @@ resource "aws_api_gateway_deployment" "crud_api" {
     redeployment = sha1(jsonencode({
       methods = [
         for k, v in aws_api_gateway_method.route_methods :
-        "${k}:${v.http_method}:${v.resource_id}"
+        "${k}:${v.http_method}:${v.resource_id}:${jsonencode(v.request_parameters)}:${coalesce(v.request_validator_id, "none")}"
       ]
       integrations = [
         for k, v in aws_api_gateway_integration.route_integrations :
         "${k}:${v.uri}"
+      ]
+      permissions = [
+        for k, v in aws_lambda_permission.allow_apigw :
+        "${k}:${v.source_arn}:${v.function_name}"
       ]
     }))
   }
@@ -234,9 +336,9 @@ resource "aws_api_gateway_deployment" "crud_api" {
   }
 }
 
-resource "aws_api_gateway_stage" "dev" {
-  rest_api_id   = aws_api_gateway_rest_api.crud_api.id
-  deployment_id = aws_api_gateway_deployment.crud_api.id
+resource "aws_api_gateway_stage" "api_stage" {
+  rest_api_id   = aws_api_gateway_rest_api.weather_api.id
+  deployment_id = aws_api_gateway_deployment.weather_api.id
   stage_name    = var.stage_name
 
   tags = {
@@ -250,21 +352,33 @@ resource "aws_api_gateway_stage" "dev" {
 ############################
 
 output "api_id" {
-  value = aws_api_gateway_rest_api.crud_api.id
+  value = aws_api_gateway_rest_api.weather_api.id
 }
 
 output "api_stage_name" {
-  value = aws_api_gateway_stage.dev.stage_name
+  value = aws_api_gateway_stage.api_stage.stage_name
 }
 
 output "base_invoke_url" {
-  value = "https://${aws_api_gateway_rest_api.crud_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.dev.stage_name}"
+  value = "https://${aws_api_gateway_rest_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.api_stage.stage_name}"
 }
 
-output "items_url" {
-  value = "https://${aws_api_gateway_rest_api.crud_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.dev.stage_name}/items"
+output "weather_ingest_url_example" {
+  value = "https://${aws_api_gateway_rest_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.api_stage.stage_name}/ese/v1/ingest/weather/HUB123"
 }
 
-output "item_by_id_url_example" {
-  value = "https://${aws_api_gateway_rest_api.crud_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.dev.stage_name}/items/123"
+output "weather_retrieve_raw_url_example" {
+  value = "https://${aws_api_gateway_rest_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.api_stage.stage_name}/ese/v1/retrieve/raw/weather/HUB123?date=08-03-2026"
+}
+
+output "weather_retrieve_processed_url_example" {
+  value = "https://${aws_api_gateway_rest_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.api_stage.stage_name}/ese/v1/retrieve/processed/weather/HUB123?date=08-03-2026"
+}
+
+output "risk_region_url_example" {
+  value = "https://${aws_api_gateway_rest_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.api_stage.stage_name}/ese/v1/risk/region?region=sydney"
+}
+
+output "risk_location_url_example" {
+  value = "https://${aws_api_gateway_rest_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.api_stage.stage_name}/ese/v1/risk/location/HUB123"
 }
