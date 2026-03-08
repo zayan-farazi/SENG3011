@@ -4,7 +4,9 @@ info:
   version: 1.0.0
   description: >
     OpenAPI contract for the weather ingestion, retrieval, processing, and risk
-    analytics endpoints exposed through API Gateway and backed by AWS Lambda.
+    analytics endpoints exposed through API Gateway HTTP API and backed by AWS
+    Lambda. Parameter presence and format validation are enforced by the backend
+    service rather than API Gateway.
 servers:
   - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
     description: AWS API Gateway deployment
@@ -29,7 +31,8 @@ paths:
       description: >
         Resolves latitude and longitude from `hub_id`, fetches the next week's
         weather forecast from Pirate Weather, and stores the raw data in the
-        datalake using a date string derived from the UNIX timestamp.
+        datalake using a date string derived from the UNIX timestamp. The
+        backend validates `hub_id`.
       parameters:
         - $ref: '#/components/parameters/HubIdPath'
       responses:
@@ -59,7 +62,9 @@ paths:
       tags:
         - Data retrieval microservice
       summary: Retrieve raw Pirate Weather payload for a hub and date
-      description: Reads raw weather data from the datalake for the specified hub and date.
+      description: >
+        Reads raw weather data from the datalake for the specified hub and date.
+        The backend validates both `hub_id` and the `DD-MM-YYYY` date format.
       parameters:
         - $ref: '#/components/parameters/HubIdPath'
         - $ref: '#/components/parameters/DateQuery'
@@ -89,7 +94,8 @@ paths:
       summary: Retrieve processed weather payload for a hub and date
       description: >
         Reads processed weather data from the datalake for the specified hub and
-        date using the ML model input schema.
+        date using the ML model input schema. The backend validates both
+        `hub_id` and the `DD-MM-YYYY` date format.
       parameters:
         - $ref: '#/components/parameters/HubIdPath'
         - $ref: '#/components/parameters/DateQuery'
@@ -120,7 +126,8 @@ paths:
       description: >
         Processes raw weather data for a given date by extracting hourly forecast
         entries and producing separate processed objects every 6 hours for the
-        next 7 days. Existing processed objects for the same date are overwritten.
+        next 7 days. Existing processed objects for the same date are
+        overwritten. Request-body validation is handled by the backend service.
       requestBody:
         required: true
         content:
@@ -145,7 +152,9 @@ paths:
       tags:
         - Analytics microservice
       summary: List risk scores for hubs in a region
-      description: Returns supply chain hubs in the specified region and their risk scores.
+      description: >
+        Returns supply chain hubs in the specified region and their risk scores.
+        The backend validates the required `region` query parameter.
       parameters:
         - $ref: '#/components/parameters/RegionQuery'
       responses:
@@ -166,7 +175,9 @@ paths:
       tags:
         - Analytics microservice
       summary: Retrieve the latest risk score for a hub
-      description: Returns the most recent risk score for the specified hub.
+      description: >
+        Returns the most recent risk score for the specified hub. The backend
+        validates `hub_id`.
       parameters:
         - $ref: '#/components/parameters/HubIdPath'
       responses:
