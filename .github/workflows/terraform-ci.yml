@@ -5,18 +5,75 @@ on:
     paths:
       - "terraform/**"
       - ".github/workflows/**"
+      - "**/*.py"
+      - "**/pyproject.toml"
+      - "**/requirements*.txt"
+      - "**/pytest.ini"
+      - "**/.coveragerc"
+      - "**/mypy.ini"
+      - "**/.flake8"
   push:
     branches-ignore:
       - main
     paths:
       - "terraform/**"
       - ".github/workflows/**"
+      - "**/*.py"
+      - "**/pyproject.toml"
+      - "**/requirements*.txt"
+      - "**/pytest.ini"
+      - "**/.coveragerc"
+      - "**/mypy.ini"
+      - "**/.flake8"
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
+  detect-python:
+    name: Detect Python project
+    runs-on: ubuntu-latest
+    outputs:
+      has_python: ${{ steps.detect.outputs.has_python }}
+      project_dir: ${{ steps.detect.outputs.project_dir }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Python files
+        id: detect
+        run: |
+          set -euo pipefail
+
+          project_dir=""
+
+          while IFS= read -r file; do
+            candidate="$(dirname "$file")"
+            project_dir="${candidate#./}"
+            if [ -z "$project_dir" ]; then
+              project_dir="."
+            fi
+            break
+          done < <(find . -path './.git' -prune -o -path './terraform/.terraform' -prune -o \( -name 'pyproject.toml' -o -name 'requirements.txt' -o -name 'requirements-dev.txt' \) -print | sort)
+
+          if [ -z "$project_dir" ] && find . -path './.git' -prune -o -path './terraform/.terraform' -prune -o -name '*.py' -print | grep -q .; then
+            project_dir="."
+          fi
+
+          if [ -n "$project_dir" ]; then
+            echo "has_python=true" >> "$GITHUB_OUTPUT"
+            echo "project_dir=$project_dir" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_python=false" >> "$GITHUB_OUTPUT"
+            echo "project_dir=." >> "$GITHUB_OUTPUT"
+          fi
+
   static-checks:
     name: Static Terraform and OpenAPI checks
     runs-on: ubuntu-latest
@@ -44,6 +101,58 @@ jobs:
       - name: Parse OpenAPI YAML
         run: |
           ruby -e 'require "yaml"; data = YAML.load_file("terraform/weather-api.openapi.yaml"); abort("missing openapi key") unless data["openapi"]'
+
+  python-quality:
+    name: Python lint, types, tests, and coverage
+    runs-on: ubuntu-latest
+    needs: detect-python
+    if: ${{ needs.detect-python.outputs.has_python == 'true' }}
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ needs.detect-python.outputs.project_dir }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies and tooling
+        run: |
+          set -euo pipefail
+
+          python -m pip install --upgrade pip
+          python -m pip install ruff mypy pytest pytest-cov
+
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          fi
+
+          if [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
+          fi
+
+          if [ -f pyproject.toml ]; then
+            python -m pip install -e .
+          fi
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Mypy type check
+        env:
+          PYTHONPATH: ${{ needs.detect-python.outputs.project_dir }}
+        run: mypy .
+
+      - name: Pytest with coverage
+        env:
+          PYTHONPATH: ${{ needs.detect-python.outputs.project_dir }}
+        run: pytest --cov=. --cov-report=term-missing --cov-report=xml
 
   plan-dev:
     name: Terraform plan against dev

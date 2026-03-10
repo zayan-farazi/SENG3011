@@ -2,7 +2,7 @@
 
 This repository uses two GitHub Actions workflows:
 
-- `terraform-ci.yml`: runs on pull requests and non-`main` pushes for Terraform formatting, backend-free validation, and OpenAPI YAML parsing; it also runs a dev-backed Terraform plan only when the `dev` environment is configured
+- `terraform-ci.yml`: runs on pull requests and non-`main` pushes for Terraform formatting, backend-free validation, OpenAPI YAML parsing, and Python quality checks; it also runs a dev-backed Terraform plan only when the `dev` environment is configured
 - `terraform-deploy-dev.yml`: runs on pushes to `main` and applies Terraform to the `dev` environment
 
 ## GitHub setup
@@ -86,7 +86,25 @@ Example trust policy:
 ## Deployment flow
 
 - Pull request or branch push touching `terraform/**` or `.github/workflows/**` runs static CI checks without requiring AWS credentials or remote backend access
+- If Python project files are present, the CI workflow also runs Python linting, type checking, tests, and coverage
 - If `AWS_ROLE_ARN` and `TF_STATE_BUCKET` are configured in the GitHub `dev` environment, the CI workflow also runs a Terraform plan against the dev backend
 - Merge to `main` touching those paths runs the dev deploy workflow
 - Keep `ENABLE_LAMBDA_INTEGRATIONS=false` until the six Lambda bindings are available
 - After Lambda deployment, set `ENABLE_LAMBDA_INTEGRATIONS=true` and populate `TF_VAR_lambda_bindings`
+
+## Python quality checks
+
+The CI workflow auto-detects a Python project by looking for:
+
+- `pyproject.toml`
+- `requirements.txt`
+- `requirements-dev.txt`
+- or Python source files
+
+When detected, it runs:
+
+- `ruff check .`
+- `mypy .`
+- `pytest --cov=. --cov-report=term-missing --cov-report=xml`
+
+If no Python project exists yet, the Python quality job is skipped rather than failing the workflow.
