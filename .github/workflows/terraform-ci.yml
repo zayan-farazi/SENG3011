@@ -126,14 +126,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r requirements-dev.txt
 
           if [ -f requirements.txt ]; then
             python -m pip install -r requirements.txt
-          fi
-
-          if [ -f requirements-dev.txt ]; then
-            python -m pip install -r requirements-dev.txt
           fi
 
           if [ -f pyproject.toml ]; then
