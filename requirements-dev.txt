@@ -1,3 +1,8 @@
 pytest
 moto
 requests
+ruff
+mypy
+pytest-cov
+types-requests
+boto3-stubs

@@ -149,15 +149,15 @@ jobs:
           PYTHONPATH: ${{ needs.detect-python.outputs.project_dir }}
         run: mypy .
 
-      - name: Pytest with coverage
+      - name: Pytest (unit tests) with coverage
         env:
           PYTHONPATH: ${{ needs.detect-python.outputs.project_dir }}
-        run: pytest --cov=. --cov-report=term-missing --cov-report=xml
+        run: pytest tests/unit --cov=lambdas --cov-report=term-missing --cov-report=xml --cov-fail-under=85
 
   plan-dev:
     name: Terraform plan against dev
     runs-on: ubuntu-latest
-    needs: static-checks
+    needs: [static-checks, python-quality]
     environment: dev
     if: ${{ vars.AWS_ROLE_ARN != '' && vars.TF_STATE_BUCKET != '' }}
     env:
