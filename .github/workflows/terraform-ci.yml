@@ -17,10 +17,40 @@ permissions:
   id-token: write
 
 jobs:
-  terraform:
-    name: Validate Terraform and OpenAPI
+  static-checks:
+    name: Static Terraform and OpenAPI checks
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt
+        run: terraform -chdir=terraform fmt -check
+
+      - name: Terraform init
+        run: terraform -chdir=terraform init -backend=false -input=false
+
+      - name: Terraform validate
+        run: terraform -chdir=terraform validate
+
+      - name: Parse OpenAPI YAML
+        run: |
+          ruby -e 'require "yaml"; data = YAML.load_file("terraform/weather-api.openapi.yaml"); abort("missing openapi key") unless data["openapi"]'
+
+  plan-dev:
+    name: Terraform plan against dev
+    runs-on: ubuntu-latest
+    needs: static-checks
     environment: dev
+    if: ${{ vars.AWS_ROLE_ARN != '' && vars.TF_STATE_BUCKET != '' }}
     env:
       AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
@@ -39,19 +69,11 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Check required GitHub environment variables
-        run: |
-          test -n "${{ vars.AWS_ROLE_ARN }}"
-          test -n "$TF_STATE_BUCKET"
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-
-      - name: Terraform fmt
-        run: terraform -chdir=terraform fmt -check
 
       - name: Terraform init
         run: |
@@ -60,9 +82,6 @@ jobs:
             -backend-config="key=${TF_STATE_KEY}" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="use_lockfile=true"
-
-      - name: Terraform validate
-        run: terraform -chdir=terraform validate
 
       - name: Terraform plan
         run: |
@@ -74,7 +93,3 @@ jobs:
           fi
 
           terraform -chdir=terraform plan -refresh=false -input=false -no-color
-
-      - name: Parse OpenAPI YAML
-        run: |
-          ruby -e 'require "yaml"; data = YAML.load_file("terraform/weather-api.openapi.yaml"); abort("missing openapi key") unless data["openapi"]'
