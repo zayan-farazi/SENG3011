@@ -141,17 +141,17 @@ jobs:
           fi
 
       - name: Ruff lint
-        run: ruff check .
+        run: python -m ruff check .
 
       - name: Mypy type check
         env:
           PYTHONPATH: ${{ needs.detect-python.outputs.project_dir }}
-        run: mypy .
+        run: python -m mypy .
 
       - name: Pytest (unit tests) with coverage
         env:
           PYTHONPATH: ${{ needs.detect-python.outputs.project_dir }}
-        run: pytest tests/unit --cov=lambdas --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+        run: python -m pytest tests/unit --cov=lambdas --cov-report=term-missing --cov-report=xml --cov-fail-under=85
 
   plan-dev:
     name: Terraform plan against dev
