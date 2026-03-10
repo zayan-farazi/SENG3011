@@ -9,8 +9,10 @@ def lambda_handler(event, context):
     bucket_name = os.environ.get("DATA_BUCKET", "seng-3011-bkt-zayan-dev")
 
     path = event.get("rawPath", "")
-    hub_id = event["pathParameters"].get("hub_id")
-    date = event.get("queryStringParameters", {}).get("date")
+    path_params = event.get("pathParameters") or {}
+    query_params = event.get("queryStringParameters") or {}
+    hub_id = path_params.get("hub_id")
+    date = query_params.get("date")
 
     if not hub_id:
         return response(STATUS_BAD_REQUEST, {"error": "Missing hub_id"})

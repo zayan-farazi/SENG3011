@@ -1,8 +1,7 @@
 import json
 from lambdas.retrieval.handler import lambda_handler
+from test_constants import *
 from constants import *
-
-PATH = "/ese/v1/retrieve/raw/weather"
 
 def test_raw_valid(setup_s3):
     s3 = setup_s3
@@ -16,7 +15,7 @@ def test_raw_valid(setup_s3):
     )
 
     event = {
-        "rawPath": PATH,
+        "rawPath": RETRIEVE_RAW_WEATHER_PATH,
         "pathParameters": { "hub_id": HUB_ID_1 },
         "queryStringParameters": { "date": DATE_1 }
     }
@@ -27,7 +26,7 @@ def test_raw_valid(setup_s3):
 
 def test_raw_missing_hub():
     event = {
-        "rawPath": PATH,
+        "rawPath": RETRIEVE_RAW_WEATHER_PATH,
         "pathParameters": { },
         "queryStringParameters": { "date": DATE_1 }
     }
@@ -38,7 +37,7 @@ def test_raw_missing_hub():
 
 def test_raw_invalid_hub(setup_s3):
     event = {
-        "rawPath": PATH,
+        "rawPath": RETRIEVE_RAW_WEATHER_PATH,
         "pathParameters": { "hub_id": HUB_INVALID },
         "queryStringParameters": { "date": DATE_1 }
     }
@@ -49,7 +48,7 @@ def test_raw_invalid_hub(setup_s3):
 
 def test_raw_missing_date():
     event = {
-        "rawPath": PATH,
+        "rawPath": RETRIEVE_RAW_WEATHER_PATH,
         "pathParameters": { "hub_id": HUB_ID_1 },
     }
 
@@ -59,7 +58,7 @@ def test_raw_missing_date():
 
 def test_raw_invalid_date():
     event = {
-        "rawPath": PATH,
+        "rawPath": RETRIEVE_RAW_WEATHER_PATH,
         "pathParameters": { "hub_id": HUB_ID_1 },
         "queryStringParameters": { "date": DATE_INVALID }
     }
@@ -70,7 +69,7 @@ def test_raw_invalid_date():
 
 def test_raw_object_not_found(setup_s3):
     event = {
-        "rawPath": PATH,
+        "rawPath": RETRIEVE_RAW_WEATHER_PATH,
         "pathParameters": { "hub_id": HUB_ID_1 },
         "queryStringParameters": { "date": DATE_1 }
     }
