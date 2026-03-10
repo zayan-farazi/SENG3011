@@ -111,7 +111,6 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: ${{ needs.detect-python.outputs.project_dir }}
 
     steps:
       - name: Checkout
@@ -127,10 +126,13 @@ jobs:
           set -euo pipefail
 
           python -m pip install --upgrade pip wheel
-          python -m pip install -r ./SENG3011/requirements-dev.txt
 
-          if [ -f ./SENG3011/requirements.txt ]; then
-            python -m pip install -r ./SENG3011/requirements.txt
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          fi
+
+          if [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
           fi
 
           if [ -f pyproject.toml ]; then
