@@ -20,8 +20,8 @@
     "H004":
     {
         "name": "Port of Melbourne",
-        "lat": -37.824,
-        "lon": 144.911
+        "lat": -37.814,
+        "lon": 144.966
     },
     "H005":
     {
@@ -32,19 +32,19 @@
     "H006":
     {
         "name": "Port of Durban",
-        "lat": -29.858,
-        "lon": 31.029
+        "lat": -29.867,
+        "lon": 31.021
     },
     "H007":
     {
         "name": "Jebel Ali Port",
-        "lat": 25.011,
-        "lon": 55.061
+        "lat": 25.065,
+        "lon": 55.130
     },
     "H008":
     {
         "name": "Port of Santos",
-        "lat": -23.976,
-        "lon": -46.289
+        "lat": -23.960,
+        "lon": -46.300
     }
 }
