@@ -13,39 +13,9 @@ Create a GitHub environment named `dev` and add these variables:
 - `AWS_REGION`: AWS region for Terraform and the provider, for example `us-east-1`
 - `TF_STATE_BUCKET`: S3 bucket name used for remote Terraform state
 - `TF_STATE_KEY`: state object path, for example `dev/terraform.tfstate`
-- `ENABLE_LAMBDA_INTEGRATIONS`: `false` until the Lambda functions exist, then `true`
-- `TF_VAR_lambda_bindings`: optional JSON object containing the six Lambda bindings once the Lambdas are deployed
+- `TF_VAR_data_bucket_name`: app bucket name for retrieval data, for example `seng3011-app-zayan-360990919154-dev`
 
-Example `TF_VAR_lambda_bindings` value:
-
-```json
-{
-  "weather_ingest": {
-    "function_name": "weather-ingest",
-    "invoke_arn": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:weather-ingest/invocations"
-  },
-  "weather_retrieve_raw": {
-    "function_name": "weather-retrieve-raw",
-    "invoke_arn": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:weather-retrieve-raw/invocations"
-  },
-  "weather_retrieve_processed": {
-    "function_name": "weather-retrieve-processed",
-    "invoke_arn": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:weather-retrieve-processed/invocations"
-  },
-  "weather_process": {
-    "function_name": "weather-process",
-    "invoke_arn": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:weather-process/invocations"
-  },
-  "risk_region": {
-    "function_name": "risk-region",
-    "invoke_arn": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:risk-region/invocations"
-  },
-  "risk_location": {
-    "function_name": "risk-location",
-    "invoke_arn": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:risk-location/invocations"
-  }
-}
-```
+AWS IAM setup details and example policies are in [docs/aws/README.md](/Users/zayanfarazi/Developer/uni/seng3011/docs/aws/README.md).
 
 Add branch protection on `main` so the Terraform CI workflow must pass before merge.
 
@@ -56,7 +26,7 @@ Create the remote-state S3 bucket before enabling the workflows.
 Create an IAM role for GitHub OIDC with:
 
 - a trust policy allowing this repository to assume the role from `token.actions.githubusercontent.com`
-- permissions for the Terraform-managed API Gateway, S3 resources, and state bucket access
+- permissions for the Terraform-managed API Gateway, Lambda, S3 resources, and state bucket access
 
 Example trust policy:
 
@@ -89,8 +59,8 @@ Example trust policy:
 - If Python project files are present, the CI workflow also runs Python linting, type checking, tests, and coverage
 - If `AWS_ROLE_ARN` and `TF_STATE_BUCKET` are configured in the GitHub `dev` environment, the CI workflow also runs a Terraform plan against the dev backend
 - Merge to `main` touching those paths runs the dev deploy workflow
-- Keep `ENABLE_LAMBDA_INTEGRATIONS=false` until the six Lambda bindings are available
-- After Lambda deployment, set `ENABLE_LAMBDA_INTEGRATIONS=true` and populate `TF_VAR_lambda_bindings`
+- Terraform now packages and deploys the retrieval Lambda directly, seeds the development S3 data, and wires the two retrieval routes to API Gateway
+- The Terraform state bucket stays `seng3011-tf-state-zayan-360990919154`; the application data bucket should be passed separately as `TF_VAR_data_bucket_name`
 
 ## Python quality checks
 
