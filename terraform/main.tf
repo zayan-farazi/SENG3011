@@ -18,43 +18,126 @@ variable "stage_name" {
   default     = "dev"
 }
 
-variable "enable_lambda_integrations" {
-  type        = bool
-  description = "Whether to create HTTP API routes, Lambda integrations, and Lambda permissions."
-  default     = false
+variable "data_bucket_name" {
+  type        = string
+  description = "S3 bucket name for retrieval data and seeded development objects"
 }
 
-variable "lambda_bindings" {
-  description = "Lambda function names and invoke ARNs keyed by weather API route identifier"
-  type = map(object({
-    function_name = string
-    invoke_arn    = string
-  }))
-  default = {}
+############################
+# Locals
+############################
 
-  validation {
-    condition = !var.enable_lambda_integrations || length(setsubtract(toset([
-      "weather_ingest",
-      "weather_retrieve_raw",
-      "weather_retrieve_processed",
-      "weather_process",
-      "risk_region",
-      "risk_location"
-    ]), toset(keys(var.lambda_bindings)))) == 0
-    error_message = "When enable_lambda_integrations is true, lambda_bindings must define weather_ingest, weather_retrieve_raw, weather_retrieve_processed, weather_process, risk_region, and risk_location."
+locals {
+  retrieval_lambda_name = "weather-retrieval-handler"
+  seeded_hub_id         = "H001"
+  seeded_date           = "10-03-2026"
+
+  retrieval_routes = {
+    retrieve_raw = {
+      route_key    = "GET /ese/v1/retrieve/raw/weather/{hub_id}"
+      path_pattern = "GET/ese/v1/retrieve/raw/weather/*"
+    }
+
+    retrieve_processed = {
+      route_key    = "GET /ese/v1/retrieve/processed/weather/{hub_id}"
+      path_pattern = "GET/ese/v1/retrieve/processed/weather/*"
+    }
   }
 }
 
 ############################
-# S3 bucket
+# Lambda package
+############################
+
+data "archive_file" "retrieval_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/.terraform/retrieval_lambda.zip"
+
+  source {
+    content  = file("${path.module}/../constants.py")
+    filename = "constants.py"
+  }
+
+  source {
+    content  = file("${path.module}/../lambdas/__init__.py")
+    filename = "lambdas/__init__.py"
+  }
+
+  source {
+    content  = file("${path.module}/../lambdas/retrieval/__init__.py")
+    filename = "lambdas/retrieval/__init__.py"
+  }
+
+  source {
+    content  = file("${path.module}/../lambdas/retrieval/handler.py")
+    filename = "lambdas/retrieval/handler.py"
+  }
+}
+
+############################
+# Existing IAM role
+############################
+
+data "aws_iam_role" "lab_role" {
+  name = "LabRole"
+}
+
+############################
+# S3 bucket and seed data
 ############################
 
 resource "aws_s3_bucket" "seng_3011_bkt" {
-  bucket = "seng-3011-bkt-zayan-dev"
+  bucket = var.data_bucket_name
 
   tags = {
-    Name        = "seng-3011-bkt"
+    Name        = var.data_bucket_name
     Environment = "dev"
+  }
+}
+
+resource "aws_s3_object" "hubs_file" {
+  bucket = aws_s3_bucket.seng_3011_bkt.id
+  key    = "hubs.json"
+  source = "${path.module}/../hubs.json"
+  etag   = filemd5("${path.module}/../hubs.json")
+}
+
+resource "aws_s3_object" "sample_raw_weather" {
+  bucket = aws_s3_bucket.seng_3011_bkt.id
+  key    = "raw/weather/${local.seeded_hub_id}/${local.seeded_date}.json"
+  source = "${path.module}/../tests/data/pirate_weather_raw_sample.json"
+  etag   = filemd5("${path.module}/../tests/data/pirate_weather_raw_sample.json")
+}
+
+resource "aws_s3_object" "sample_processed_weather" {
+  bucket = aws_s3_bucket.seng_3011_bkt.id
+  key    = "processed/weather/${local.seeded_hub_id}/${local.seeded_date}.json"
+  source = "${path.module}/../tests/data/processed_sample.json"
+  etag   = filemd5("${path.module}/../tests/data/processed_sample.json")
+}
+
+############################
+# Lambda
+############################
+
+resource "aws_lambda_function" "retrieval" {
+  function_name    = local.retrieval_lambda_name
+  role             = data.aws_iam_role.lab_role.arn
+  runtime          = "python3.12"
+  handler          = "lambdas.retrieval.handler.lambda_handler"
+  filename         = data.archive_file.retrieval_lambda.output_path
+  source_code_hash = data.archive_file.retrieval_lambda.output_base64sha256
+  timeout          = 10
+
+  environment {
+    variables = {
+      DATA_BUCKET = aws_s3_bucket.seng_3011_bkt.bucket
+    }
+  }
+
+  tags = {
+    Environment = "dev"
+    Project     = "seng3011"
   }
 }
 
@@ -64,7 +147,7 @@ resource "aws_s3_bucket" "seng_3011_bkt" {
 
 resource "aws_apigatewayv2_api" "weather_api" {
   name          = "weather-supply-chain-api"
-  description   = "Weather and supply-chain risk HTTP API"
+  description   = "Weather retrieval HTTP API"
   protocol_type = "HTTP"
 
   tags = {
@@ -73,96 +156,32 @@ resource "aws_apigatewayv2_api" "weather_api" {
   }
 }
 
-############################
-# Route definitions
-############################
-
-locals {
-  routes = {
-    weather_ingest = {
-      route_key          = "POST /ese/v1/ingest/weather/{hub_id}"
-      lambda_binding_key = "weather_ingest"
-      path_pattern       = "POST/ese/v1/ingest/weather/*"
-    }
-
-    weather_retrieve_raw = {
-      route_key          = "GET /ese/v1/retrieve/raw/weather/{hub_id}"
-      lambda_binding_key = "weather_retrieve_raw"
-      path_pattern       = "GET/ese/v1/retrieve/raw/weather/*"
-    }
-
-    weather_retrieve_processed = {
-      route_key          = "GET /ese/v1/retrieve/processed/weather/{hub_id}"
-      lambda_binding_key = "weather_retrieve_processed"
-      path_pattern       = "GET/ese/v1/retrieve/processed/weather/*"
-    }
-
-    weather_process = {
-      route_key          = "POST /ese/v1/process/weather"
-      lambda_binding_key = "weather_process"
-      path_pattern       = "POST/ese/v1/process/weather"
-    }
-
-    risk_region = {
-      route_key          = "GET /ese/v1/risk/region"
-      lambda_binding_key = "risk_region"
-      path_pattern       = "GET/ese/v1/risk/region"
-    }
-
-    risk_location = {
-      route_key          = "GET /ese/v1/risk/location/{hub_id}"
-      lambda_binding_key = "risk_location"
-      path_pattern       = "GET/ese/v1/risk/location/*"
-    }
-  }
-
-  active_routes = var.enable_lambda_integrations ? local.routes : {}
-}
-
-############################
-# Lambda proxy integrations
-############################
-
-resource "aws_apigatewayv2_integration" "route_integrations" {
-  for_each = local.active_routes
-
+resource "aws_apigatewayv2_integration" "retrieval" {
   api_id                 = aws_apigatewayv2_api.weather_api.id
   integration_type       = "AWS_PROXY"
-  integration_uri        = var.lambda_bindings[each.value.lambda_binding_key].invoke_arn
+  integration_uri        = aws_lambda_function.retrieval.invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
-############################
-# Routes
-############################
-
-resource "aws_apigatewayv2_route" "routes" {
-  for_each = local.active_routes
+resource "aws_apigatewayv2_route" "retrieval" {
+  for_each = local.retrieval_routes
 
   api_id    = aws_apigatewayv2_api.weather_api.id
   route_key = each.value.route_key
-  target    = "integrations/${aws_apigatewayv2_integration.route_integrations[each.key].id}"
+  target    = "integrations/${aws_apigatewayv2_integration.retrieval.id}"
 }
 
-############################
-# Allow API Gateway to invoke each Lambda
-############################
-
 resource "aws_lambda_permission" "allow_apigw" {
-  for_each = local.active_routes
+  for_each = local.retrieval_routes
 
   statement_id  = "AllowHttpApiInvoke-${each.key}"
   action        = "lambda:InvokeFunction"
-  function_name = var.lambda_bindings[each.value.lambda_binding_key].function_name
+  function_name = aws_lambda_function.retrieval.function_name
   principal     = "apigateway.amazonaws.com"
 
   source_arn = "${aws_apigatewayv2_api.weather_api.execution_arn}/*/${each.value.path_pattern}"
 }
-
-############################
-# Stage
-############################
 
 resource "aws_apigatewayv2_stage" "api_stage" {
   api_id      = aws_apigatewayv2_api.weather_api.id
@@ -191,22 +210,10 @@ output "base_invoke_url" {
   value = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
 }
 
-output "weather_ingest_url_example" {
-  value = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}/ese/v1/ingest/weather/HUB123"
-}
-
 output "weather_retrieve_raw_url_example" {
-  value = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}/ese/v1/retrieve/raw/weather/HUB123?date=08-03-2026"
+  value = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}/ese/v1/retrieve/raw/weather/${local.seeded_hub_id}?date=${local.seeded_date}"
 }
 
 output "weather_retrieve_processed_url_example" {
-  value = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}/ese/v1/retrieve/processed/weather/HUB123?date=08-03-2026"
-}
-
-output "risk_region_url_example" {
-  value = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}/ese/v1/risk/region?region=sydney"
-}
-
-output "risk_location_url_example" {
-  value = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}/ese/v1/risk/location/HUB123"
+  value = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}/ese/v1/retrieve/processed/weather/${local.seeded_hub_id}?date=${local.seeded_date}"
 }

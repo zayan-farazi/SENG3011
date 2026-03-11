@@ -6,7 +6,8 @@ info:
     OpenAPI contract for the weather ingestion, retrieval, processing, and risk
     analytics endpoints exposed through API Gateway HTTP API and backed by AWS
     Lambda. Parameter presence and format validation are enforced by the backend
-    service rather than API Gateway.
+    service rather than API Gateway. In sprint 1, only the two retrieval
+    endpoints are deployed live.
 servers:
   - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
     description: AWS API Gateway deployment
