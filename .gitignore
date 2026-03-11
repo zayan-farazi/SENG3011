@@ -18,3 +18,7 @@ terraform.rc
 # Optional: local installer you accidentally added
 terraform/AWSCLIV2.pkg
 AWSCLIV2.pkg
+
+.coverage
+coverage.xml
+__pycache__/

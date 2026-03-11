@@ -1,0 +1,50 @@
+{
+    "H001":
+    {
+        "name": "Port of Singapore",
+        "lat":  1.264,
+        "lon": 103.820
+    },
+    "H002":
+    {
+        "name": "Port of Shanghai",
+        "lat": 31.389,
+        "lon": 121.618
+    },
+    "H003":
+    {
+        "name": "Port of Rotterdam",
+        "lat": 51.943,
+        "lon": 4.056
+    },
+    "H004":
+    {
+        "name": "Port of Melbourne",
+        "lat": -37.814,
+        "lon": 144.966
+    },
+    "H005":
+    {
+        "name": "Port of Los Angeles",
+        "lat": 33.729,
+        "lon": -118.262
+    },
+    "H006":
+    {
+        "name": "Port of Durban",
+        "lat": -29.867,
+        "lon": 31.021
+    },
+    "H007":
+    {
+        "name": "Jebel Ali Port",
+        "lat": 25.065,
+        "lon": 55.130
+    },
+    "H008":
+    {
+        "name": "Port of Santos",
+        "lat": -23.960,
+        "lon": -46.300
+    }
+}
