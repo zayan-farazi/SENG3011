@@ -1,0 +1,103 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageHttpApiGateway",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:GET",
+        "apigateway:POST",
+        "apigateway:PUT",
+        "apigateway:PATCH",
+        "apigateway:DELETE"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageRetrievalLambda",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:DeleteFunction",
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:AddPermission",
+        "lambda:RemovePermission",
+        "lambda:GetPolicy",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:ListTags"
+      ],
+      "Resource": [
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-retrieval-handler",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-retrieval-handler:*"
+      ]
+    },
+    {
+      "Sid": "PassExistingLabRoleToLambda",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:PassRole"
+      ],
+      "Resource": "arn:aws:iam::<aws-account-id>:role/LabRole"
+    },
+    {
+      "Sid": "ManageApplicationBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:GetBucketLocation",
+        "s3:ListBucket",
+        "s3:PutBucketTagging",
+        "s3:GetBucketTagging",
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::seng3011-app-zayan-360990919154-dev",
+        "arn:aws:s3:::seng3011-app-zayan-360990919154-dev/*"
+      ]
+    },
+    {
+      "Sid": "AccessTerraformStateBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetBucketLocation",
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::<tf-state-bucket-name>"
+    },
+    {
+      "Sid": "AccessTerraformStateObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::<tf-state-bucket-name>/*"
+    },
+    {
+      "Sid": "ManageLambdaLogGroups",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:DescribeLogGroups",
+        "logs:TagResource",
+        "logs:UntagResource",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-retrieval-handler",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-retrieval-handler:*"
+      ]
+    }
+  ]
+}
