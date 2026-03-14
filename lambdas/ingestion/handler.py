@@ -2,7 +2,7 @@ import json
 import boto3
 import requests
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 import constants
 
 s3 = boto3.client("s3")
