@@ -77,3 +77,15 @@ def test_raw_object_not_found(setup_s3):
     response = lambda_handler(event, None)
     assert json.loads(response["body"]) == {"error": "Data for hub_id and date not found"}
     assert response["statusCode"] == STATUS_NOT_FOUND
+
+def test_raw_missing_data_bucket_env(monkeypatch):
+    monkeypatch.delenv("DATA_BUCKET", raising=False)
+    event = {
+        "rawPath": RETRIEVE_RAW_WEATHER_PATH,
+        "pathParameters": { "hub_id": HUB_ID_1 },
+        "queryStringParameters": { "date": DATE_1 }
+    }
+
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 500
+    assert json.loads(response["body"]) == {"error": "Missing DATA_BUCKET configuration"}
