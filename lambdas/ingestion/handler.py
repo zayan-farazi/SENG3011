@@ -17,7 +17,7 @@ def load_hubs():
 
 def fetch_weather(lat, lon):
     url = f"https://api.pirateweather.net/forecast/{api_key}/{lat},{lon}"
-    querystring = {"exclude":"","extend":"","lang":"","units":"","version":"","tmextra":"","icon":""}
+    querystring = {"exclude":"","extend":"hourly","lang":"","units":"","version":"","tmextra":"","icon":""}
 
     weather_data = requests.get(url, params=querystring)
     weather_data.raise_for_status()
