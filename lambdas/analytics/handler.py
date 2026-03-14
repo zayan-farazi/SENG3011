@@ -185,7 +185,7 @@ def _build_adage_response(body, scored_days):
     return {
         "data_source": "Pirate Weather API (GFS)",
         "dataset_type": "Supply Chain Disruption Risk Assessment",
-        "dataset_id": f"s3://{os.environ.get('DATA_BUCKET', 'supply-chain-data')}/risk/hub_id={hub_id}/latest.json",
+        "dataset_id": f"s3://{os.environ.get('DATA_BUCKET', 'supply-chain-data')}/risk/weather/{hub_id}/latest.json",
         "time_object": {"timestamp": now, "timezone": "UTC"},
         "events": events,
     }
@@ -224,41 +224,53 @@ def _compute_and_store_risk(s3, bucket, hub_id, processed):
 
     s3.put_object(
         Bucket=bucket,
-        Key=f"risk/hub_id={hub_id}/latest.json",
+        Key=f"risk/weather/{hub_id}/latest.json",
         Body=json.dumps(adage_response),
         ContentType="application/json",
     )
-    log.info(f"Stored risk scores to risk/hub_id={hub_id}/latest.json")
+    log.info(f"Stored risk scores to risk/weather/{hub_id}/latest.json")
     return adage_response
 
 
 def _handle_s3_event(event):
     """Handle an S3 trigger, compute risk scores and store latest.json."""
     s3 = boto3.client("s3")
-    bucket = event["Records"][0]["s3"]["bucket"]["name"]
-    key = event["Records"][0]["s3"]["object"]["key"]
-    log.info(f"S3 event received for s3://{bucket}/{key}")
+    results = []
 
-    # Extract hub_id from key pattern, processed/weather/{hub_id}/{date}.json
-    parts = key.split("/")
-    if len(parts) < 4 or parts[0] != "processed" or parts[1] != "weather":
-        log.info(f"Ignoring S3 key outside processed/weather prefix: {key}")
-        return {"status": "ignored", "key": key}
+    for record in event.get("Records", []):
+        try:
+            bucket = record["s3"]["bucket"]["name"]
+            key = record["s3"]["object"]["key"]
+            log.info(f"S3 event received for s3://{bucket}/{key}")
 
-    hub_id = parts[2]
+            # Extract hub_id from key pattern, processed/weather/{hub_id}/{date}.json
+            parts = key.split("/")
+            if len(parts) < 4 or parts[0] != "processed" or parts[1] != "weather":
+                log.info(f"Ignoring S3 key outside processed/weather prefix: {key}")
+                results.append({"status": "ignored", "key": key})
+                continue
 
-    # Validate hub_id against hubs.json
-    hubs_obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
-    hubs = json.loads(hubs_obj["Body"].read())
-    if hub_id not in hubs:
-        log.warning(f"S3 event for invalid hub_id: {hub_id}")
-        return {"status": "ignored", "reason": "invalid hub_id", "key": key}
+            hub_id = parts[2]
 
-    obj = s3.get_object(Bucket=bucket, Key=key)
-    processed = json.loads(obj["Body"].read())
+            # Validate hub_id against hubs.json
+            hubs_obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
+            hubs = json.loads(hubs_obj["Body"].read())
+            if hub_id not in hubs:
+                log.warning(f"S3 event for invalid hub_id: {hub_id}")
+                results.append({"status": "ignored", "reason": "invalid hub_id", "key": key})
+                continue
 
-    _compute_and_store_risk(s3, bucket, hub_id, processed)
-    return {"status": "scored", "hub_id": hub_id, "key": key}
+            date_str = parts[3].replace(".json", "")
+            processed = _fetch_processed_data(hub_id, date_str)
+
+            _compute_and_store_risk(s3, bucket, hub_id, processed)
+            results.append({"status": "scored", "hub_id": hub_id, "key": key})
+
+        except Exception as e:
+            log.exception(f"Error processing record for {record.get('s3', {}).get('object', {}).get('key', 'unknown')}: {e}")
+            results.append({"status": "error", "error": str(e), "key": record.get("s3", {}).get("object", {}).get("key", "unknown")})
+
+    return results
 
 
 def _handle_api_event(event):
@@ -280,7 +292,7 @@ def _handle_api_event(event):
     # Try to return the precomputed cached result
     try:
         cached = s3.get_object(
-            Bucket=bucket, Key=f"risk/hub_id={hub_id}/latest.json"
+            Bucket=bucket, Key=f"risk/weather/{hub_id}/latest.json"
         )
         adage_response = json.loads(cached["Body"].read())
         log.info(f"Returning cached risk scores for hub {hub_id}")

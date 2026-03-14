@@ -213,27 +213,23 @@ def _make_s3_event(bucket, key):
     }
 
 
-def test_s3_event_triggers_risk_computation(setup_analytics_s3):
+@patch("lambdas.analytics.handler.requests.get")
+def test_s3_event_triggers_risk_computation(mock_get, setup_analytics_s3):
     s3 = setup_analytics_s3
-    with open(PROCESSED_WEATHER_DATA_FILE, "r") as f:
-        processed = json.load(f)
+    mock_get.return_value = _mock_retrieval_response()
 
     s3_key = f"processed/weather/{HUB_ID_1}/10-03-2026.json"
-    s3.put_object(
-        Bucket=TEST_BUCKET_NAME, Key=s3_key,
-        Body=json.dumps(processed),
-    )
 
     event = _make_s3_event(TEST_BUCKET_NAME, s3_key)
     result = lambda_handler(event, None)
 
-    assert result["status"] == "scored"
-    assert result["hub_id"] == HUB_ID_1
+    assert result[0]["status"] == "scored"
+    assert result[0]["hub_id"] == HUB_ID_1
 
     # Verify latest.json was written
     obj = s3.get_object(
         Bucket=TEST_BUCKET_NAME,
-        Key=f"risk/hub_id={HUB_ID_1}/latest.json",
+        Key=f"risk/weather/{HUB_ID_1}/latest.json",
     )
     cached = json.loads(obj["Body"].read())
     assert "events" in cached
@@ -251,7 +247,7 @@ def test_s3_event_ignores_irrelevant_key(setup_analytics_s3):
     event = _make_s3_event(TEST_BUCKET_NAME, "raw/weather/H001/10-03-2026.json")
     result = lambda_handler(event, None)
 
-    assert result["status"] == "ignored"
+    assert result[0]["status"] == "ignored"
 
 
 def test_api_returns_cached_result(setup_analytics_s3):
@@ -259,7 +255,7 @@ def test_api_returns_cached_result(setup_analytics_s3):
     cached_body = {"events": [], "cached": True}
     s3.put_object(
         Bucket=TEST_BUCKET_NAME,
-        Key=f"risk/hub_id={HUB_ID_1}/latest.json",
+        Key=f"risk/weather/{HUB_ID_1}/latest.json",
         Body=json.dumps(cached_body),
         ContentType="application/json",
     )
@@ -303,8 +299,60 @@ def test_s3_event_ignores_invalid_hub(setup_analytics_s3):
     event = _make_s3_event(TEST_BUCKET_NAME, s3_key)
     result = lambda_handler(event, None)
 
-    assert result["status"] == "ignored"
-    assert result["reason"] == "invalid hub_id"
+    assert result[0]["status"] == "ignored"
+    assert result[0]["reason"] == "invalid hub_id"
+
+
+@patch("lambdas.analytics.handler.requests.get")
+def test_s3_event_multiple_records(mock_get, setup_analytics_s3):
+    """Multiple S3 records in one event including one valid, one irrelevant prefix, one invalid hub."""
+    mock_get.return_value = _mock_retrieval_response()
+
+    valid_key = f"processed/weather/{HUB_ID_1}/10-03-2026.json"
+    irrelevant_key = "raw/weather/H001/10-03-2026.json"
+    invalid_hub_key = "processed/weather/FAKE_HUB/10-03-2026.json"
+
+    event = {
+        "Records": [
+            {
+                "eventSource": "aws:s3",
+                "s3": {
+                    "bucket": {"name": TEST_BUCKET_NAME},
+                    "object": {"key": valid_key},
+                },
+            },
+            {
+                "eventSource": "aws:s3",
+                "s3": {
+                    "bucket": {"name": TEST_BUCKET_NAME},
+                    "object": {"key": irrelevant_key},
+                },
+            },
+            {
+                "eventSource": "aws:s3",
+                "s3": {
+                    "bucket": {"name": TEST_BUCKET_NAME},
+                    "object": {"key": invalid_hub_key},
+                },
+            },
+        ],
+    }
+
+    result = lambda_handler(event, None)
+
+    assert len(result) == 3
+
+    # valid hub, should be scored
+    assert result[0]["status"] == "scored"
+    assert result[0]["hub_id"] == HUB_ID_1
+
+    # irrelevant prefix, should be ignored
+    assert result[1]["status"] == "ignored"
+    assert result[1]["key"] == irrelevant_key
+
+    # invalid hub, should be ignored
+    assert result[2]["status"] == "ignored"
+    assert result[2]["reason"] == "invalid hub_id"
 
 
 def test_api_invalid_date_format(setup_analytics_s3):
