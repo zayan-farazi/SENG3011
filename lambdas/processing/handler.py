@@ -48,7 +48,7 @@ def check_six_hour_point(timestamp):
 def handle_s3_event(event):
     base_url = os.environ["API_BASE_URL"]
     url = f"{base_url}{constants.RETRIEVE_RAW_WEATHER_PATH}"
-    res = []; 
+    res = []
     for record in event["Records"]:
         path = record["s3"]["object"]["key"]
         _, _, _, hub_id, date = path.split("/")
@@ -124,7 +124,7 @@ def processing_data(body):
     obj_key = f"{processed_key}/{hub_id}/{date}.json"
     s3_client.put_object(Bucket=bucket_name, Key=obj_key, Body=json.dumps(res_data),
                          ContentType="application/json")
-    return res_data; 
+    return res_data
 
 
 def lambda_handler(event, context):
