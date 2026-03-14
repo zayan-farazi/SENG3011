@@ -148,29 +148,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /ese/v1/risk/region:
-    get:
-      tags:
-        - Analytics microservice
-      summary: List risk scores for hubs in a region
-      description: >
-        Returns supply chain hubs in the specified region and their risk scores.
-        The backend validates the required `region` query parameter.
-      parameters:
-        - $ref: '#/components/parameters/RegionQuery'
-      responses:
-        '200':
-          description: Risk scores for hubs in the region.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RiskRegionResponse'
-        '400':
-          description: Missing or invalid region query parameter.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /ese/v1/risk/location/{hub_id}:
     get:
       tags:
@@ -213,14 +190,7 @@ components:
         type: string
         pattern: '^\d{2}-\d{2}-\d{4}$'
       example: 08-03-2026
-    RegionQuery:
-      name: region
-      in: query
-      required: true
-      description: Region name used to filter hubs for analytics.
-      schema:
-        type: string
-      example: sydney
+
   schemas:
     ErrorResponse:
       type: object
@@ -258,25 +228,7 @@ components:
           - timestamp: 1741392000
             date: 08-03-2026
             risk_score: 42
-    RiskRegionResponse:
-      type: object
-      required:
-        - hubs
-      properties:
-        hubs:
-          type: array
-          items:
-            type: object
-            required:
-              - name
-              - risk_score
-            properties:
-              name:
-                type: string
-                example: Sydney Hub
-              risk_score:
-                type: integer
-                example: 72
+
     RiskLocationResponse:
       type: object
       required:
