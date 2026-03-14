@@ -1,25 +1,25 @@
 import json
 from datetime import datetime, timezone
-import urllib.request
-import urllib.parse
 import boto3
+import logging
 import botocore
+import requests
 import os
 import constants
 
 
 hub_key = constants.HUBS_FILE_KEY
 processed_key = "processed/weather"
-get_raw_url = "https://ese/v1/retrieve/raw/weather"
-
+log = logging.getLogger()
+log.setLevel(logging.INFO)
 
 def response(status, body):
     return {"statusCode": status, "body": json.dumps(body)}
 
 
 def get_hub_info_from_pos(lat, lon):
-    bucket_name = os.environ.get("DATA_BUCKET", "seng-3011-bkt-zayan-dev")
     s3_client = boto3.client("s3")
+    bucket_name = os.environ.get("DATA_BUCKET")
     try:
         response_obj = s3_client.get_object(Bucket=bucket_name, Key=hub_key)
         content = json.loads(response_obj["Body"].read().decode("utf-8"))
@@ -46,23 +46,35 @@ def check_six_hour_point(timestamp):
 
 
 def handle_s3_event(event):
+    base_url = os.environ["API_BASE_URL"]
+    url = f"{base_url}{constants.RETRIEVE_RAW_WEATHER_PATH}"
+    res = []; 
     for record in event["Records"]:
         path = record["s3"]["object"]["key"]
         _, _, _, hub_id, date = path.split("/")
-        query_params = urllib.parse.urlencode({"date": date})
+        query_params_input = {"date": date}
         try:
-            with urllib.request.urlopen(f"{get_raw_url}/{hub_id}?{query_params}") as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                processing_data(data)
+            resp = requests.get(f"{url}/{hub_id}", query_params = query_params_input)
+
+            if resp.statusCode == constants.STATUS_NOT_FOUND:
+                raise LookupError(f"Processed data not found for hub {hub_id} on {date}")
+            if resp.status_code != constants.STATUS_OK:
+                raise RuntimeError(f"Retrieval service returned {resp.status_code}: {resp.text}")
+            
+            data = resp.json() 
+            res_data = processing_data(data)
+            res.append({"status": "processed", "processed_data": json.dumps(res_data)})
+
         except Exception as e:
-            return response(constants.STATUS_INTERNAL_SERVER_ERROR,
-                            {"error": f"Failed processing S3 object {path}: {e}"})
-    return response(constants.STATUS_OK, {"message": "S3 event processed successfully"})
+            log.exception(f"Error processing record for {record.get('s3', {}).get('object', {}).get('key', 'unknown')}: {e}")
+            res.append({"status": "error", "error": str(e), "key": record.get("s3", {}).get("object", {}).get("key", "unknown")})
+            
+    return res
 
 
 def processing_data(body):
-    bucket_name = os.environ.get("DATA_BUCKET", "seng-3011-bkt-zayan-dev")
     s3_client = boto3.client("s3")
+    bucket_name = os.environ.get("DATA_BUCKET")
     curr_unix_time = body["currently"]["time"]
     lat, lon = body["latitude"], body["longitude"]
     hourly_data = body["hourly"]["data"]
@@ -112,6 +124,7 @@ def processing_data(body):
     obj_key = f"{processed_key}/{hub_id}/{date}.json"
     s3_client.put_object(Bucket=bucket_name, Key=obj_key, Body=json.dumps(res_data),
                          ContentType="application/json")
+    return res_data; 
 
 
 def lambda_handler(event, context):
@@ -119,11 +132,11 @@ def lambda_handler(event, context):
         if "Records" in event and event["Records"][0].get("eventSource") == "aws:s3":
             return handle_s3_event(event)
         elif "body" in event:
-            processing_data(json.loads(event["body"]))
-            return response(constants.STATUS_OK, {"message": "Data processed successfully"})
+            res = processing_data(json.loads(event["body"]))
+            return response(constants.STATUS_OK, {"message": f"Data processed successfully for {res["hub_id"]}", "processed_data": json.dumps(res)})
         else:
             return response(constants.STATUS_BAD_REQUEST,
-                            {"error": "Missing 'body' or 'Records' in event"})
+                            {"error": "Raw data not provided"}) 
     except Exception as e:
         msg = str(e)
         if "No hub found" in msg:
