@@ -3,7 +3,7 @@ import json
 import logging
 import numpy as np
 import boto3
-import joblib
+import joblib  # type: ignore[import-untyped]
 import requests
 from datetime import datetime, timezone
 import tempfile

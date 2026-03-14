@@ -4,9 +4,9 @@ import io
 import tempfile
 import pytest
 import numpy as np
-import joblib
+import joblib  # type: ignore[import-untyped]
 from unittest.mock import patch, Mock
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor  # type: ignore[import-untyped]
 from moto import mock_aws
 import boto3
 
