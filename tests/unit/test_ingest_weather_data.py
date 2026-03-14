@@ -1,7 +1,10 @@
 import json
 from unittest.mock import patch
-from lambdas.ingestion.handler import lambda_handler
+import os
 
+os.environ["DATA_BUCKET"] = "test-bucket"
+os.environ["API_KEY"] = "test-key"
+from lambdas.ingestion.handler import lambda_handler
 
 @patch("lambdas.ingestion.handler.store_weather")
 @patch("lambdas.ingestion.handler.fetch_weather")
