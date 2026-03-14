@@ -210,7 +210,7 @@ def lambda_handler(event, context):
         if not hub_id:
             return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id"})
 
-        bucket = os.environ.get("DATA_BUCKET", "seng-3011-bkt-zayan-dev")
+        bucket = os.environ["DATA_BUCKET"]
         obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
         hubs = json.loads(obj["Body"].read())
         if hub_id not in hubs:
