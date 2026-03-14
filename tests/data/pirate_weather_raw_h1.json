@@ -1,6 +1,6 @@
 {
-  "latitude": 37.3035,
-  "longitude": -89.523,
+  "latitude": 1.264,
+  "longitude": 103.820,
   "timezone": "America/Chicago",
   "offset": -6,
   "elevation": 105,
@@ -60,7 +60,7 @@
     "icon": "wind",
     "data": [
       {
-        "time": 1762718400,
+        "time": 1762668000,
         "summary": "Breezy and Mostly Clear",
         "icon": "wind",
         "precipIntensity": 0,

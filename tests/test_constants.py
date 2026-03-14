@@ -5,6 +5,10 @@ HUB_INVALID = "invalid_hub"
 
 DATE_1 = "10-03-2026"
 DATE_INVALID = "invalid-date"
+DATE_H1 = "09-11-2025"
 
 RAW_WEATHER_DATA_FILE = "tests/data/pirate_weather_raw_sample.json"
 PROCESSED_WEATHER_DATA_FILE = "tests/data/processed_sample.json"
+
+RAW_WEATHER_DATA_H1 = "tests/data/pirate_weather_raw_h1.json"
+PROCESSED_WEATHER_DATA_H1 = "tests/data/processed_sample_h1.json"

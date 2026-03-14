@@ -1,18 +1,18 @@
 {
     "schema_version": "1.0",
     "hub_id": "H001",
-    "hub_name": "Cape Girardeau",
-    "lat": 37.3035,
-    "lon": -89.523,
-    "forecast_origin": "2026-03-10T00:00:00Z",
+    "hub_name": "Port of Singapore",
+    "lat": 1.264,
+    "lon": 103.820,
+    "forecast_origin": "2025-11-09T01:00:00Z",
     "days": [
       {
-        "date": "2026-03-10",
+        "date": "2025-11-09",
         "day": 1,
         "snapshots": [
           {
-            "forecast_timestamp": "2026-03-10T00:00:00Z",
-            "forecast_lead_hours": 0,
+            "forecast_timestamp": "2025-11-09T06:00:00Z",
+            "forecast_lead_hours": 5,
             "features": {
               "temperature": 42.22,
               "wind_speed": 16.98,

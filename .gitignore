@@ -22,3 +22,4 @@ AWSCLIV2.pkg
 .coverage
 coverage.xml
 __pycache__/
+venv/
