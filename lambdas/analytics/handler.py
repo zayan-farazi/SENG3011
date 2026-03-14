@@ -195,57 +195,125 @@ def _fetch_processed_data(hub_id, date):
     base_url = os.environ["API_BASE_URL"]
     url = f"{base_url}{constants.RETRIEVE_PROCESSED_WEATHER_PATH}/{hub_id}"
     resp = requests.get(url, params={"date": date}, timeout=10)
+    if resp.status_code == constants.STATUS_NOT_FOUND:
+        raise LookupError(f"Processed data not found for hub {hub_id} on {date}")
     if resp.status_code != constants.STATUS_OK:
         raise RuntimeError(f"Retrieval service returned {resp.status_code}: {resp.text}")
     return resp.json()
 
 
+def _is_s3_event(event):
+    """Return True if the event came from an S3 bucket notification."""
+    try:
+        return event["Records"][0]["eventSource"] == "aws:s3"
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
+def _compute_and_store_risk(s3, bucket, hub_id, processed):
+    """Run the ML model on processed data and write latest.json to S3."""
+    days = processed.get("days", [])
+    if not days:
+        raise ValueError(f"No forecast days available for hub {hub_id}")
+    if len(days) != 7:
+        log.warning(f"Expected 7 day objects, received {len(days)}")
+
+    model = _load_model()
+    scored_days = [_score_day(model, d) for d in days]
+    adage_response = _build_adage_response(processed, scored_days)
+
+    s3.put_object(
+        Bucket=bucket,
+        Key=f"risk/hub_id={hub_id}/latest.json",
+        Body=json.dumps(adage_response),
+        ContentType="application/json",
+    )
+    log.info(f"Stored risk scores to risk/hub_id={hub_id}/latest.json")
+    return adage_response
+
+
+def _handle_s3_event(event):
+    """Handle an S3 trigger, compute risk scores and store latest.json."""
+    s3 = boto3.client("s3")
+    bucket = event["Records"][0]["s3"]["bucket"]["name"]
+    key = event["Records"][0]["s3"]["object"]["key"]
+    log.info(f"S3 event received for s3://{bucket}/{key}")
+
+    # Extract hub_id from key pattern, processed/weather/{hub_id}/{date}.json
+    parts = key.split("/")
+    if len(parts) < 4 or parts[0] != "processed" or parts[1] != "weather":
+        log.info(f"Ignoring S3 key outside processed/weather prefix: {key}")
+        return {"status": "ignored", "key": key}
+
+    hub_id = parts[2]
+
+    # Validate hub_id against hubs.json
+    hubs_obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
+    hubs = json.loads(hubs_obj["Body"].read())
+    if hub_id not in hubs:
+        log.warning(f"S3 event for invalid hub_id: {hub_id}")
+        return {"status": "ignored", "reason": "invalid hub_id", "key": key}
+
+    obj = s3.get_object(Bucket=bucket, Key=key)
+    processed = json.loads(obj["Body"].read())
+
+    _compute_and_store_risk(s3, bucket, hub_id, processed)
+    return {"status": "scored", "hub_id": hub_id, "key": key}
+
+
+def _handle_api_event(event):
+    """Handle an API Gateway request, return cached risk or compute on demand."""
+    s3 = boto3.client("s3")
+    path_params = event.get("pathParameters") or {}
+    query_params = event.get("queryStringParameters") or {}
+    hub_id = path_params.get("hub_id")
+
+    if not hub_id:
+        return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id"})
+
+    bucket = os.environ["DATA_BUCKET"]
+    obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
+    hubs = json.loads(obj["Body"].read())
+    if hub_id not in hubs:
+        return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
+
+    # Try to return the precomputed cached result
+    try:
+        cached = s3.get_object(
+            Bucket=bucket, Key=f"risk/hub_id={hub_id}/latest.json"
+        )
+        adage_response = json.loads(cached["Body"].read())
+        log.info(f"Returning cached risk scores for hub {hub_id}")
+        return response(constants.STATUS_OK, adage_response)
+    except s3.exceptions.NoSuchKey:
+        log.info(f"No cached risk for hub {hub_id}, computing on demand")
+
+    # Fallback ie compute on demand
+    date = query_params.get("date")
+    if date:
+        try:
+            datetime.strptime(date, constants.DATE_FORMAT)
+        except ValueError:
+            return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid date format. Use DD-MM-YYYY"})
+    else:
+        date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
+
+    processed = _fetch_processed_data(hub_id, date)
+
+    adage_response = _compute_and_store_risk(s3, bucket, hub_id, processed)
+    return response(constants.STATUS_OK, adage_response)
+
+
 def lambda_handler(event, context):
     try:
-        s3 = boto3.client("s3")
-        path_params = event.get("pathParameters") or {}
-        query_params = event.get("queryStringParameters") or {}
-        hub_id = path_params.get("hub_id")
-
-        if not hub_id:
-            return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id"})
-
-        bucket = os.environ["DATA_BUCKET"]
-        obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
-        hubs = json.loads(obj["Body"].read())
-        if hub_id not in hubs:
-            return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
-
-        date = query_params.get(
-            "date", datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
-        )
-
-        processed = _fetch_processed_data(hub_id, date)
-
-        days = processed.get("days", [])
-        if not days:
-            return response(constants.STATUS_BAD_REQUEST, {"error": "No forecast days available"})
-        if len(days) != 7:
-            log.warning(f"Expected 7 day objects, received {len(days)}")
-
-        model = _load_model()
-        scored_days = [_score_day(model, d) for d in days]
-        adage_response = _build_adage_response(processed, scored_days)
-
-        try:
-            s3.put_object(
-                Bucket=bucket,
-                Key=f"risk/hub_id={hub_id}/latest.json",
-                Body=json.dumps(adage_response),
-                ContentType="application/json",
-            )
-        except Exception as e:
-            log.warning(f"S3 cache write failed (non-fatal): {e}")
-
-        return response(constants.STATUS_OK, adage_response)
+        if _is_s3_event(event):
+            return _handle_s3_event(event)
+        return _handle_api_event(event)
 
     except ValueError as e:
         return response(constants.STATUS_BAD_REQUEST, {"error": str(e)})
+    except LookupError as e:
+        return response(constants.STATUS_NOT_FOUND, {"error": str(e)})
     except RuntimeError as e:
         return response(502, {"error": str(e)})
     except Exception:

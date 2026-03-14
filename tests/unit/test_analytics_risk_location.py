@@ -16,7 +16,7 @@ from test_constants import (
     TEST_BUCKET_NAME, HUB_ID_1, HUB_INVALID, PROCESSED_WEATHER_DATA_FILE,
 )
 from constants import (
-    STATUS_OK, STATUS_BAD_REQUEST, STATUS_INTERNAL_SERVER_ERROR,
+    STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, STATUS_INTERNAL_SERVER_ERROR,
     HUBS_FILE_KEY, MODEL_S3_KEY,
 )
 
@@ -148,6 +148,23 @@ def test_retrieval_fails(mock_get, setup_analytics_s3):
 
 
 @patch("lambdas.analytics.handler.requests.get")
+def test_retrieval_not_found(mock_get, setup_analytics_s3):
+    mock_resp = Mock()
+    mock_resp.status_code = STATUS_NOT_FOUND
+    mock_resp.text = "Not found"
+    mock_get.return_value = mock_resp
+
+    event = {
+        "pathParameters": {"hub_id": HUB_ID_1},
+        "queryStringParameters": {"date": "10-03-2026"},
+    }
+
+    result = lambda_handler(event, None)
+    assert result["statusCode"] == STATUS_NOT_FOUND
+    assert "not found" in json.loads(result["body"])["error"].lower()
+
+
+@patch("lambdas.analytics.handler.requests.get")
 def test_model_not_found(mock_get, setup_analytics_s3):
     s3 = setup_analytics_s3
     s3.delete_object(Bucket=TEST_BUCKET_NAME, Key=MODEL_S3_KEY)
@@ -181,3 +198,121 @@ def test_missing_feature(mock_get, setup_analytics_s3):
     result = lambda_handler(event, None)
     assert result["statusCode"] == STATUS_BAD_REQUEST
     assert "temperature" in json.loads(result["body"])["error"]
+
+
+def _make_s3_event(bucket, key):
+    """Build a minimal S3 notification event."""
+    return {
+        "Records": [{
+            "eventSource": "aws:s3",
+            "s3": {
+                "bucket": {"name": bucket},
+                "object": {"key": key},
+            },
+        }],
+    }
+
+
+def test_s3_event_triggers_risk_computation(setup_analytics_s3):
+    s3 = setup_analytics_s3
+    with open(PROCESSED_WEATHER_DATA_FILE, "r") as f:
+        processed = json.load(f)
+
+    s3_key = f"processed/weather/{HUB_ID_1}/10-03-2026.json"
+    s3.put_object(
+        Bucket=TEST_BUCKET_NAME, Key=s3_key,
+        Body=json.dumps(processed),
+    )
+
+    event = _make_s3_event(TEST_BUCKET_NAME, s3_key)
+    result = lambda_handler(event, None)
+
+    assert result["status"] == "scored"
+    assert result["hub_id"] == HUB_ID_1
+
+    # Verify latest.json was written
+    obj = s3.get_object(
+        Bucket=TEST_BUCKET_NAME,
+        Key=f"risk/hub_id={HUB_ID_1}/latest.json",
+    )
+    cached = json.loads(obj["Body"].read())
+    assert "events" in cached
+    assert cached["dataset_type"] == "Supply Chain Disruption Risk Assessment"
+
+
+def test_s3_event_ignores_irrelevant_key(setup_analytics_s3):
+    s3 = setup_analytics_s3
+    s3.put_object(
+        Bucket=TEST_BUCKET_NAME,
+        Key="raw/weather/H001/10-03-2026.json",
+        Body=b"{}",
+    )
+
+    event = _make_s3_event(TEST_BUCKET_NAME, "raw/weather/H001/10-03-2026.json")
+    result = lambda_handler(event, None)
+
+    assert result["status"] == "ignored"
+
+
+def test_api_returns_cached_result(setup_analytics_s3):
+    s3 = setup_analytics_s3
+    cached_body = {"events": [], "cached": True}
+    s3.put_object(
+        Bucket=TEST_BUCKET_NAME,
+        Key=f"risk/hub_id={HUB_ID_1}/latest.json",
+        Body=json.dumps(cached_body),
+        ContentType="application/json",
+    )
+
+    event = {
+        "pathParameters": {"hub_id": HUB_ID_1},
+        "queryStringParameters": {"date": "10-03-2026"},
+    }
+
+    result = lambda_handler(event, None)
+    assert result["statusCode"] == STATUS_OK
+    body = json.loads(result["body"])
+    assert body["cached"] is True
+
+
+@patch("lambdas.analytics.handler.requests.get")
+def test_api_falls_back_to_compute(mock_get, setup_analytics_s3):
+    mock_get.return_value = _mock_retrieval_response()
+
+    event = {
+        "pathParameters": {"hub_id": HUB_ID_1},
+        "queryStringParameters": {"date": "10-03-2026"},
+    }
+
+    result = lambda_handler(event, None)
+    assert result["statusCode"] == STATUS_OK
+
+    body = json.loads(result["body"])
+    assert "events" in body
+    assert body["dataset_type"] == "Supply Chain Disruption Risk Assessment"
+
+
+def test_s3_event_ignores_invalid_hub(setup_analytics_s3):
+    s3 = setup_analytics_s3
+    s3_key = "processed/weather/FAKE_HUB/10-03-2026.json"
+    s3.put_object(
+        Bucket=TEST_BUCKET_NAME, Key=s3_key,
+        Body=b"{}",
+    )
+
+    event = _make_s3_event(TEST_BUCKET_NAME, s3_key)
+    result = lambda_handler(event, None)
+
+    assert result["status"] == "ignored"
+    assert result["reason"] == "invalid hub_id"
+
+
+def test_api_invalid_date_format(setup_analytics_s3):
+    event = {
+        "pathParameters": {"hub_id": HUB_ID_1},
+        "queryStringParameters": {"date": "2026-03-10"},
+    }
+
+    result = lambda_handler(event, None)
+    assert result["statusCode"] == STATUS_BAD_REQUEST
+    assert "date format" in json.loads(result["body"])["error"].lower()
