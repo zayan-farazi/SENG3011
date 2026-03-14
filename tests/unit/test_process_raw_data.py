@@ -1,7 +1,7 @@
 import json
 from lambdas.processing.handler import lambda_handler
 from test_constants import TEST_BUCKET_NAME, HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
-from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, RETRIEVE_RAW_WEATHER_PATH
+from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND
 
 def test_post_process_valid(setup_s3):
     s3 = setup_s3

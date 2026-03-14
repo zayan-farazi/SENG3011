@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timezone
-import urllib.request, urllib.parse
+import urllib.request
+import urllib.parse
 import boto3
 import botocore
 import os
@@ -26,7 +27,7 @@ def get_hub_info_from_pos(lat, lon):
             if (str(hub_info["lon"])) == str(lon) and str((hub_info["lat"])) == str(lat):
                 return {"hub_id": hub, "hub_name": hub_info["name"]}
         raise ValueError(f"No hub found for lat={lat}, lon={lon}")
-    except botocore.exceptions.ClientError as e:
+    except botocore.exceptions.ClientError:
         raise RuntimeError(f"Hubs file not found in bucket {bucket_name}")
     except Exception as e:
         raise RuntimeError(f"Error reading hubs file from {bucket_name}: {e}")
@@ -41,9 +42,6 @@ def unix_to_date(timestamp):
 
 
 def check_six_hour_point(timestamp):
-    print(timestamp)
-    print(datetime.fromtimestamp(timestamp, tz=timezone.utc))
-    print(datetime.fromtimestamp(timestamp, tz=timezone.utc).hour )
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).hour % 6 == 0
 
 
@@ -66,7 +64,6 @@ def processing_data(body):
     bucket_name = os.environ.get("DATA_BUCKET", "seng-3011-bkt-zayan-dev")
     s3_client = boto3.client("s3")
     curr_unix_time = body["currently"]["time"]
-    print(curr_unix_time)
     lat, lon = body["latitude"], body["longitude"]
     hourly_data = body["hourly"]["data"]
     hub_info = get_hub_info_from_pos(lat, lon)
@@ -79,14 +76,11 @@ def processing_data(body):
     day_counter = 0
     
     for obj in hourly_data:
-        print(obj)
         if not check_six_hour_point(obj["time"]):
             continue
         
-        print("hi")
         curr_date = unix_to_date(obj["time"])
-        if not date is curr_date:
-            print("hi")
+        if date is not curr_date:
             date = curr_date
             day_counter += 1
             days.append({"date": date, "day": day_counter, "snapshots": []})
@@ -104,7 +98,6 @@ def processing_data(body):
             }
         }
         days[-1]["snapshots"].append(snapshot)
-    print(days)
     res_data = {
         "schema_version": schema_version,
         "hub_id": hub_id,
@@ -114,12 +107,7 @@ def processing_data(body):
         "forecast_origin": forecast_origin,
         "days": days
     }
-
-    print (hub_id)
-    print(curr_unix_time)
     date = datetime.fromtimestamp(curr_unix_time, tz=timezone.utc).strftime(constants.DATE_FORMAT)
-    print(date)
-    print(forecast_origin)
 
     obj_key = f"{processed_key}/{hub_id}/{date}.json"
     s3_client.put_object(Bucket=bucket_name, Key=obj_key, Body=json.dumps(res_data),
@@ -138,7 +126,6 @@ def lambda_handler(event, context):
                             {"error": "Missing 'body' or 'Records' in event"})
     except Exception as e:
         msg = str(e)
-        print(msg)
         if "No hub found" in msg:
             status = constants.STATUS_BAD_REQUEST
         elif "Hubs file not found" in msg:
