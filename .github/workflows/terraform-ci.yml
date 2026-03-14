@@ -104,6 +104,10 @@ jobs:
       - name: Terraform validate
         run: terraform -chdir=terraform validate
 
+      - name: Parse OpenAPI YAML
+        run: |
+          ruby -e 'require "yaml"; data = YAML.load_file("docs/openapi.yaml"); abort("missing openapi key") unless data["openapi"]'
+
   python-quality:
     name: Python lint, types, tests, and coverage
     runs-on: ubuntu-latest
