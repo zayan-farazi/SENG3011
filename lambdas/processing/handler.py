@@ -46,24 +46,30 @@ def check_six_hour_point(timestamp):
 
 
 def handle_s3_event(event):
+    s3_client = boto3.client("s3")
+    bucket_name = os.environ.get("DATA_BUCKET")
     base_url = os.environ["API_BASE_URL"]
     url = f"{base_url}{constants.RETRIEVE_RAW_WEATHER_PATH}"
     res = []
+    
     for record in event["Records"]:
-        path = record["s3"]["object"]["key"]
-        _, _, _, hub_id, date = path.split("/")
-        query_params_input = {"date": date}
         try:
+            path = record["s3"]["object"]["key"]
+            _, _, hub_id, date = path.split("/")
+            query_params_input = {"date": date}
             resp = requests.get(f"{url}/{hub_id}", query_params = query_params_input)
 
-            if resp.statusCode == constants.STATUS_NOT_FOUND:
+            if resp.status_code == constants.STATUS_NOT_FOUND:
                 raise LookupError(f"Processed data not found for hub {hub_id} on {date}")
             if resp.status_code != constants.STATUS_OK:
                 raise RuntimeError(f"Retrieval service returned {resp.status_code}: {resp.text}")
             
             data = resp.json() 
             res_data = processing_data(data)
-            res.append({"status": "processed", "processed_data": json.dumps(res_data)})
+            obj_key = f"{processed_key}/{hub_id}/{date}.json"
+            s3_client.put_object(Bucket=bucket_name, Key=obj_key, Body=json.dumps(res_data),
+                                ContentType="application/json")
+            res.append({"status": "processed", "processed_data": (res_data)})
 
         except Exception as e:
             log.exception(f"Error processing record for {record.get('s3', {}).get('object', {}).get('key', 'unknown')}: {e}")
@@ -99,7 +105,7 @@ def processing_data(body):
 
         snapshot = {
             "forecast_timestamp": convert_unix_to_utc(obj["time"]),
-            "forecast_lead_hours": (obj["time"] - curr_unix_time) / 3600,
+            "forecast_lead_hours": int((obj["time"] - curr_unix_time) / 3600),
             "features": {
                 "temperature": obj["temperature"],
                 "wind_speed": obj["windSpeed"],
@@ -129,6 +135,14 @@ def processing_data(body):
 
 def lambda_handler(event, context):
     try:
+        # Check for bucket name existence
+        bucket_name = os.environ.get("DATA_BUCKET")
+        if not bucket_name:
+            return response(
+                constants.STATUS_INTERNAL_SERVER_ERROR,
+                {"error": "Missing DATA_BUCKET configuration"}
+            )
+        
         if "Records" in event and event["Records"][0].get("eventSource") == "aws:s3":
             return handle_s3_event(event)
         elif "body" in event:
