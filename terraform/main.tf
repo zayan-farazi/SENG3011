@@ -29,6 +29,7 @@ variable "data_bucket_name" {
 
 locals {
   retrieval_lambda_name = "weather-retrieval-handler"
+  // ingenstion_lambda_name = "weather-ingestion-handler"
   seeded_hub_id         = "H001"
   seeded_date           = "10-03-2026"
 
@@ -43,6 +44,15 @@ locals {
       path_pattern = "GET/ese/v1/retrieve/processed/weather/*"
     }
   }
+
+  /*
+  ingestion_routes = {
+    ingest_weather = {
+      route_key    = "POST /ese/v1/ingest/weather/{hub_id}
+      path_pattern = "POST/ese/v1/ingest/weather/*"
+    }
+  }
+  */
 }
 
 ############################
@@ -73,6 +83,33 @@ data "archive_file" "retrieval_lambda" {
     filename = "lambdas/retrieval/handler.py"
   }
 }
+
+/*
+data "archive_file" "ingestion_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/.terraform/ingestion_lambda.zip"
+
+  source {
+    content  = file("${path.module}/../constants.py")
+    filename = "constants.py"
+  }
+
+  source {
+    content  = file("${path.module}/../lambdas/__init__.py")
+    filename = "lambdas/__init__.py"
+  }
+
+  source {
+    content  = file("${path.module}/../lambdas/ingestion/__init__.py")
+    filename = "lambdas/ingestion/__init__.py"
+  }
+
+  source {
+    content  = file("${path.module}/../lambdas/ingestion/handler.py")
+    filename = "lambdas/ingestion/handler.py"
+  }
+}
+*/
 
 ############################
 # Existing IAM role
@@ -140,6 +177,30 @@ resource "aws_lambda_function" "retrieval" {
     Project     = "seng3011"
   }
 }
+
+/*
+resource "aws_lambda_function" "ingestion" {
+  function_name = local.ingestion_lambda_name
+  role             = data.aws_iam_role.lab_role.arn
+  runtime          = "python3.12"
+  handler          = "lambdas.ingestion.handler.lambda_handler"
+  filename         = data.archive_file.retrieval_lambda.output_path
+  source_code_hash = data.archive_file.retrieval_lambda.output_base64sha256
+  timeout          = 10
+
+  environment {
+    variables = {
+      DATA_BUCKET = aws_s3_bucket.seng_3011_bkt.bucket
+      API_KEY = "HAecTLgoxnUWhxNVyXizgrEsDqc9MdrV"
+    }
+  }
+
+  tags = {
+    Environment = "dev"
+    Project     = "seng3011"
+  }
+}
+*/
 
 ############################
 # API Gateway HTTP API
