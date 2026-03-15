@@ -6,13 +6,16 @@ import constants
 
 def lambda_handler(event, context):
     s3 = boto3.client("s3")
-    bucket_name = os.environ.get("DATA_BUCKET", "seng-3011-bkt-zayan-dev")
+    bucket_name = os.environ.get("DATA_BUCKET")
 
     path = event.get("rawPath", "")
     path_params = event.get("pathParameters") or {}
     query_params = event.get("queryStringParameters") or {}
     hub_id = path_params.get("hub_id")
     date = query_params.get("date")
+
+    if not bucket_name:
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing DATA_BUCKET configuration"})
 
     if not hub_id:
         return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id"})

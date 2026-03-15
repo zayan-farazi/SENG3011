@@ -5,6 +5,9 @@ on:
     paths:
       - "terraform/**"
       - ".github/workflows/**"
+      - "hubs.json"
+      - "lambdas/**"
+      - "tests/data/**"
       - "**/*.py"
       - "**/pyproject.toml"
       - "**/requirements*.txt"
@@ -18,6 +21,9 @@ on:
     paths:
       - "terraform/**"
       - ".github/workflows/**"
+      - "hubs.json"
+      - "lambdas/**"
+      - "tests/data/**"
       - "**/*.py"
       - "**/pyproject.toml"
       - "**/requirements*.txt"
@@ -100,7 +106,7 @@ jobs:
 
       - name: Parse OpenAPI YAML
         run: |
-          ruby -e 'require "yaml"; data = YAML.load_file("terraform/weather-api.openapi.yaml"); abort("missing openapi key") unless data["openapi"]'
+          ruby -e 'require "yaml"; data = YAML.load_file("docs/openapi.yaml"); abort("missing openapi key") unless data["openapi"]'
 
   python-quality:
     name: Python lint, types, tests, and coverage
@@ -162,8 +168,7 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       TF_STATE_KEY: ${{ vars.TF_STATE_KEY != '' && vars.TF_STATE_KEY || 'dev/terraform.tfstate' }}
-      ENABLE_LAMBDA_INTEGRATIONS: ${{ vars.ENABLE_LAMBDA_INTEGRATIONS }}
-      LAMBDA_BINDINGS_JSON: ${{ vars.TF_VAR_lambda_bindings }}
+      DATA_BUCKET_NAME: ${{ vars.TF_VAR_data_bucket_name != '' && vars.TF_VAR_data_bucket_name || 'seng3011-app-zayan-360990919154-dev' }}
 
     defaults:
       run:
@@ -193,10 +198,6 @@ jobs:
       - name: Terraform plan
         run: |
           export TF_VAR_aws_region="${AWS_REGION}"
-          export TF_VAR_enable_lambda_integrations="${ENABLE_LAMBDA_INTEGRATIONS:-false}"
-
-          if [ -n "${LAMBDA_BINDINGS_JSON}" ]; then
-            export TF_VAR_lambda_bindings="${LAMBDA_BINDINGS_JSON}"
-          fi
+          export TF_VAR_data_bucket_name="${DATA_BUCKET_NAME}"
 
           terraform -chdir=terraform plan -refresh=false -input=false -no-color
