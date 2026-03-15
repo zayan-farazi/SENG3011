@@ -1,0 +1,28 @@
+{
+    "schema_version": "1.0",
+    "hub_id": "H001",
+    "hub_name": "Port of Singapore",
+    "lat": 1.264,
+    "lon": 103.820,
+    "forecast_origin": "2025-11-09T01:00:00Z",
+    "days": [
+      {
+        "date": "2025-11-09",
+        "day": 1,
+        "snapshots": [
+          {
+            "forecast_timestamp": "2025-11-09T06:00:00Z",
+            "forecast_lead_hours": 5,
+            "features": {
+              "temperature": 42.22,
+              "wind_speed": 16.98,
+              "wind_gust": 27.48,
+              "precip_intensity": 0,
+              "pressure": 1024.02,
+              "humidity": 0.47
+            }
+          }
+        ]
+      }
+    ]
+  }

@@ -1,0 +1,291 @@
+{
+  "latitude": 1.264,
+  "longitude": 103.820,
+  "timezone": "America/Chicago",
+  "offset": -6,
+  "elevation": 105,
+  "currently": {
+    "time": 1762650000,
+    "summary": "Breezy and Mostly Clear",
+    "icon": "wind",
+    "nearestStormDistance": 194.97,
+    "nearestStormBearing": 131,
+    "precipIntensity": 0,
+    "precipProbability": 0,
+    "precipIntensityError": 0,
+    "precipType": "none",
+    "rainIntensity": 0,
+    "snowIntensity": 0,
+    "iceIntensity": 0,
+    "temperature": 42.15,
+    "apparentTemperature": 29.95,
+    "dewPoint": 24.21,
+    "humidity": 0.49,
+    "pressure": 1024.45,
+    "windSpeed": 17.25,
+    "windGust": 24.93,
+    "windBearing": 333,
+    "cloudCover": 0.14,
+    "uvIndex": 2.19,
+    "visibility": 10,
+    "ozone": 321.45,
+    "smoke": 0.34,
+    "fireIndex": 27.58,
+    "feelsLike": 33.75,
+    "currentDayIce": 0,
+    "currentDayLiquid": 0,
+    "currentDaySnow": 0,
+    "stationPressure": 0,
+    "solar": 319.73,
+    "cape": 3
+  },
+  "minutely": {
+    "summary": "Breezy and mostly clear for the hour.",
+    "icon": "wind",
+    "data": [
+      {
+        "time": 1762721160,
+        "precipIntensity": 0,
+        "precipProbability": 0.38,
+        "precipIntensityError": 0,
+        "precipType": "none",
+        "rainIntensity": 0,
+        "snowIntensity": 0,
+        "iceIntensity": 0
+      }
+    ]
+  },
+  "hourly": {
+    "summary": "Breezy until this evening, starting again tomorrow morning.",
+    "icon": "wind",
+    "data": [
+      {
+        "time": 1762668000,
+        "summary": "Breezy and Mostly Clear",
+        "icon": "wind",
+        "precipIntensity": 0,
+        "precipProbability": 0,
+        "precipIntensityError": 0,
+        "precipAccumulation": 0,
+        "precipType": "none",
+        "rainIntensity": 0,
+        "snowIntensity": 0,
+        "iceIntensity": 0,
+        "temperature": 42.22,
+        "apparentTemperature": 31.26,
+        "dewPoint": 23.85,
+        "humidity": 0.47,
+        "pressure": 1024.02,
+        "stationPressure": 1009.92,
+        "windSpeed": 16.98,
+        "windGust": 27.48,
+        "windBearing": 330,
+        "cloudCover": 0.35,
+        "uvIndex": 2.93,
+        "visibility": 10,
+        "ozone": 319.3,
+        "smoke": 0.4,
+        "liquidAccumulation": 0,
+        "snowAccumulation": 0,
+        "iceAccumulation": 0,
+        "nearestStormDistance": 172.16,
+        "nearestStormBearing": 127,
+        "fireIndex": 27.2,
+        "feelsLike": 34.38,
+        "solar": 498.64,
+        "cape": 0
+      }
+    ]
+  },
+  "day_night": {
+    "data": [
+      {
+        "time": 1762682400,
+        "summary": "Breezy throughout the day.",
+        "icon": "wind",
+        "precipIntensity": 0,
+        "precipIntensityMax": 0,
+        "rainIntensity": 0,
+        "rainIntensityMax": 0,
+        "snowIntensity": 0,
+        "snowIntensityMax": 0,
+        "iceIntensity": 0,
+        "iceIntensityMax": 0,
+        "precipProbability": 0,
+        "precipIntensityError": 0,
+        "precipAccumulation": 0,
+        "precipType": "none",
+        "temperature": 42.82,
+        "apparentTemperature": 32.32,
+        "dewPoint": 29.17,
+        "humidity": 0.62,
+        "pressure": 1021.06,
+        "stationPressure": 1009.92,
+        "windSpeed": 16.15,
+        "windGust": 26.4,
+        "windBearing": 328,
+        "cloudCover": 0.58,
+        "uvIndex": 1.15,
+        "visibility": 10,
+        "ozone": 317.12,
+        "smoke": 0.12,
+        "liquidAccumulation": 0,
+        "snowAccumulation": 0,
+        "iceAccumulation": 0,
+        "fireIndex": 22.08,
+        "solar": 178.72,
+        "cape": 4
+      }
+    ]
+  },
+  "daily": {
+    "summary": "Drizzle next Sunday, with high temperatures peaking at 71°F on Friday.",
+    "icon": "rain",
+    "data": [
+      {
+        "time": 1762668000,
+        "summary": "Breezy until evening.",
+        "icon": "wind",
+        "dawnTime": 1762689813,
+        "sunriseTime": 1762691493,
+        "sunsetTime": 1762728710,
+        "duskTime": 1762730390,
+        "moonPhase": 0.65,
+        "precipIntensity": 0,
+        "precipIntensityMax": 0,
+        "precipIntensityMaxTime": 1762668000,
+        "precipProbability": 0,
+        "precipAccumulation": 0,
+        "precipType": "none",
+        "rainIntensity": 0,
+        "rainIntensityMax": 0,
+        "snowIntensity": 0,
+        "snowIntensityMax": 0,
+        "iceIntensity": 0,
+        "iceIntensityMax": 0,
+        "temperatureHigh": 42.82,
+        "temperatureHighTime": 1762707600,
+        "temperatureLow": 26.6,
+        "temperatureLowTime": 1762776000,
+        "apparentTemperatureHigh": 32.32,
+        "apparentTemperatureHighTime": 1762714800,
+        "apparentTemperatureLow": 15.43,
+        "apparentTemperatureLowTime": 1762776000,
+        "dewPoint": 27.67,
+        "humidity": 0.61,
+        "pressure": 1021.84,
+        "windSpeed": 14.07,
+        "windGust": 23.52,
+        "windGustTime": 1762714800,
+        "windBearing": 327,
+        "cloudCover": 0.43,
+        "uvIndex": 3.52,
+        "uvIndexTime": 1762714800,
+        "visibility": 9.68,
+        "temperatureMin": 29.77,
+        "temperatureMinTime": 1762750800,
+        "temperatureMax": 51.69,
+        "temperatureMaxTime": 1762668000,
+        "apparentTemperatureMin": 19.21,
+        "apparentTemperatureMinTime": 1762747200,
+        "apparentTemperatureMax": 43.62,
+        "apparentTemperatureMaxTime": 1762668000,
+        "smokeMax": 0.66,
+        "smokeMaxTime": 1762714800,
+        "liquidAccumulation": 0,
+        "snowAccumulation": 0,
+        "iceAccumulation": 0,
+        "fireIndexMax": 29.2,
+        "fireIndexMaxTime": 1762732800,
+        "solar": 558.76,
+        "solarMax": 1762714800,
+        "cape": 19,
+        "capeMax": 1762707600
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "title": "Flood Warning",
+      "regions": [
+        "Alexander, IL"
+      ],
+      "severity": "Severe",
+      "time": 1715357220,
+      "expires": 1715451300,
+      "description": "...The Flood Warning is extended for the following river in Illinois...Missouri...Kentucky...  Mississippi River at Cape Girardeau, Thebes, and Hickman.  .With recent heavy rainfall, waters are rising on the Mississippi River with crests in minor flood at Cape Girardeau, Thebes, and Hickman early next week.  For the Mississippi River...including Cape Girardeau, Thebes, Hickman...Minor flooding is forecast.  * WHAT...Minor flooding is occurring and minor flooding is forecast.  * WHERE...Mississippi River at Cape Girardeau.  * WHEN...Until Friday, May 17.  * IMPACTS...At 36.0 feet, The flood gate on Themis Street closes.  * ADDITIONAL DETAILS... - At 11:00 AM CDT Friday the stage was 34.4 feet. - Forecast...The river is expected to rise to a crest of 36.0 feet Monday morning. It will then fall below flood stage late Thursday evening. - Flood stage is 32.0 feet.",
+      "uri": "https://alerts.weather.gov/search?id=urn:oid:2.49.0.1.840.0.f24c2a5f205f53c0f443861ac62244cc6aecfc9c.002.1"
+    }
+  ],
+  "flags": {
+    "sources": [
+      "ETOPO1"
+    ],
+    "sourceTimes": {
+      "hrrr_subh": "2025-11-09 18Z",
+      "rtma_ru": "2025-11-09 20:15Z",
+      "hrrr_0-18": "2025-11-09 18Z",
+      "nbm": "2025-11-09 17Z",
+      "nbm_fire": "2025-11-09 12Z",
+      "dwd_mosmix": "2025-11-09 13Z",
+      "ecmwf_ifs": "2025-11-09 00Z",
+      "hrrr_18-48": "2025-11-09 18Z",
+      "gfs": "2025-11-09 12Z",
+      "gefs": "2025-11-09 12Z"
+    },
+    "nearest-station": 15.68,
+    "units": "us",
+    "version": "V2.9.2",
+    "sourceIDX": {
+      "hrrr": {
+        "x": 1134,
+        "y": 495,
+        "lat": 37.31,
+        "long": -89.53
+      },
+      "nbm": {
+        "x": 1483,
+        "y": 651,
+        "lat": 37.31,
+        "long": -89.53
+      },
+      "ecmwf_ifs": {
+        "x": 362,
+        "y": 211,
+        "lat": 37.25,
+        "long": -89.5
+      },
+      "dwd_mosmix": {
+        "stations": {
+          "id": "72530",
+          "name": "CHICAGO",
+          "lat": 41.98,
+          "long": -87.9
+        }
+      },
+      "rtma_ru": {
+        "x": 1483,
+        "y": 651,
+        "lat": 37.31,
+        "long": -89.53
+      },
+      "gfs": {
+        "x": 1082,
+        "y": 509,
+        "lat": 37.25,
+        "long": -89.5
+      },
+      "etopo": {
+        "x": 5429,
+        "y": 7638,
+        "lat": 37.3,
+        "long": -89.5166
+      }
+    },
+    "processTime": 12026,
+    "ingestVersion": "v29",
+    "nearestCity": "Cape Girardeau",
+    "nearestCountry": "United States",
+    "nearestSubNational": "Missouri"
+  }
+}
