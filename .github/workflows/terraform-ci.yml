@@ -98,11 +98,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform fmt
         run: terraform -chdir=terraform fmt -check
+
+      - name: Build Lambda artifacts
+        run: bash ./scripts/build_lambda_artifacts.sh
 
       - name: Terraform init
         run: terraform -chdir=terraform init -backend=false -input=false
