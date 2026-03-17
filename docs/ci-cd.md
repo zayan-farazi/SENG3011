@@ -2,7 +2,7 @@
 
 This repository uses two GitHub Actions workflows:
 
-- `terraform-ci.yml`: runs on pull requests and non-`main` pushes for Terraform formatting, backend-free validation, OpenAPI YAML parsing, and Python quality checks; it also runs a dev-backed Terraform plan only when the `dev` environment is configured
+- `terraform-ci.yml`: runs on pull requests and non-`main` pushes for Terraform formatting, backend-free validation, OpenAPI YAML parsing, and Python quality checks
 - `terraform-deploy-dev.yml`: runs on pushes to `main` and applies Terraform to the `dev` environment
 
 ## GitHub setup
@@ -62,7 +62,6 @@ Example trust policy:
 - Pull request or branch push touching `terraform/**`, `docs/openapi.yaml`, `scripts/**`, `models/**`, or `.github/workflows/**` runs static CI checks without requiring AWS credentials or remote backend access
 - If Python project files are present, the CI workflow also runs Python linting, type checking, tests, and coverage
 - CI also builds Linux Lambda zip artifacts to validate the deploy packaging path
-- If `AWS_ROLE_ARN` and `TF_STATE_BUCKET` are configured in the GitHub `dev` environment, the CI workflow also runs a Terraform plan against the dev backend
 - Merge to `main` touching those paths runs the dev deploy workflow
 - Deploy builds Linux Lambda artifacts, uploads the risk model to S3, and wires the retrieval, ingestion, processing, and `risk/location` routes to API Gateway
 - Terraform also creates a daily EventBridge rule at `02:00 UTC` that invokes the ingestion Lambda with an empty payload so it ingests all hubs automatically
