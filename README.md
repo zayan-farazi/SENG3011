@@ -1,7 +1,7 @@
 # SENG3011
 seng3011
 
-[![API Docs](https://img.shields.io/badge/API-Docs-green)](https://zayan-farazi.github.io/SENG3011/)
+[![API Docs](https://img.shields.io/badge/API-Docs-green)](https://ayrasaqib.github.io/supply-chain-risk-api-docs/)
 
 ## CI/CD
 
