@@ -49,7 +49,7 @@ def handle_s3_event(event):
     s3_client = boto3.client("s3")
     bucket_name = os.environ.get("DATA_BUCKET")
     base_url = os.environ["API_BASE_URL"]
-    url = f"{base_url}{constants.RETRIEVE_RAW_WEATHER_PATH}"
+    url = f"{base_url}/{constants.RETRIEVE_RAW_WEATHER_PATH}"
     res = []
     
     for record in event["Records"]:

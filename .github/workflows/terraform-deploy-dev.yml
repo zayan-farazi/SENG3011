@@ -1,20 +1,20 @@
 name: Terraform Deploy Dev
-
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - "terraform/**"
-      - ".github/workflows/**"
-      - "docs/openapi.yaml"
-      - "hubs.json"
-      - "lambdas/**"
-      - "models/**"
-      - "scripts/**"
-      - "tests/data/**"
-      - "**/*.py"
-      - "**/requirements*.txt"
+# commented out because successful deployment requires aws lab to be stated
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - "terraform/**"
+#       - ".github/workflows/**"
+#       - "docs/openapi.yaml"
+#       - "hubs.json"
+#       - "lambdas/**"
+#       - "models/**"
+#       - "scripts/**"
+#       - "tests/data/**"
+#       - "**/*.py"
+#       - "**/requirements*.txt"
 
 permissions:
   contents: read
