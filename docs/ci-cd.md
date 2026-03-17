@@ -2,7 +2,7 @@
 
 This repository uses two GitHub Actions workflows:
 
-- `terraform-ci.yml`: runs on pull requests and non-`main` pushes for Terraform formatting, backend-free validation, OpenAPI YAML parsing, and Python quality checks; it also runs a dev-backed Terraform plan only when the `dev` environment is configured
+- `terraform-ci.yml`: runs on pull requests and non-`main` pushes for Terraform formatting, backend-free validation, OpenAPI YAML parsing, and Python quality checks
 - `terraform-deploy-dev.yml`: runs on pushes to `main` and applies Terraform to the `dev` environment
 
 ## GitHub setup
@@ -14,6 +14,10 @@ Create a GitHub environment named `dev` and add these variables:
 - `TF_STATE_BUCKET`: S3 bucket name used for remote Terraform state
 - `TF_STATE_KEY`: state object path, for example `dev/terraform.tfstate`
 - `TF_VAR_data_bucket_name`: app bucket name for retrieval data, for example `seng3011-app-zayan-360990919154-dev`
+
+Add this GitHub `dev` environment secret:
+
+- `PIRATE_WEATHER_API_KEY`: Pirate Weather API key used by the ingestion Lambda
 
 AWS IAM setup details and example policies are in [docs/aws/README.md](/Users/zayanfarazi/Developer/uni/seng3011/docs/aws/README.md).
 
@@ -55,11 +59,13 @@ Example trust policy:
 
 ## Deployment flow
 
-- Pull request or branch push touching `terraform/**` or `.github/workflows/**` runs static CI checks without requiring AWS credentials or remote backend access
+- Pull request or branch push touching `terraform/**`, `docs/openapi.yaml`, `scripts/**`, `models/**`, or `.github/workflows/**` runs static CI checks without requiring AWS credentials or remote backend access
 - If Python project files are present, the CI workflow also runs Python linting, type checking, tests, and coverage
-- If `AWS_ROLE_ARN` and `TF_STATE_BUCKET` are configured in the GitHub `dev` environment, the CI workflow also runs a Terraform plan against the dev backend
+- CI also builds Linux Lambda zip artifacts to validate the deploy packaging path
 - Merge to `main` touching those paths runs the dev deploy workflow
-- Terraform now packages and deploys the retrieval Lambda directly, seeds the development S3 data, and wires the two retrieval routes to API Gateway
+- Deploy builds Linux Lambda artifacts, uploads the risk model to S3, and wires the retrieval, ingestion, processing, and `risk/location` routes to API Gateway
+- Terraform also creates a daily EventBridge rule at `02:00 UTC` that invokes the ingestion Lambda with an empty payload so it ingests all hubs automatically
+- `risk/region` stays documented only until a handler is implemented
 - The Terraform state bucket stays `seng3011-tf-state-zayan-360990919154`; the application data bucket should be passed separately as `TF_VAR_data_bucket_name`
 
 ## Python quality checks

@@ -115,6 +115,10 @@ def test_event_process_valid(mock_get, setup_s3):
 
     response = lambda_handler(event, None)
     assert response == [{"status": "processed","processed_data": expected }]
+    mock_get.assert_called_once_with(
+        "http://test-api/ese/v1/retrieve/raw/weather/H001",
+        params={"date": DATE_H1},
+    )
 
     processed_obj = s3.get_object(Bucket=TEST_BUCKET_NAME, Key= f"processed/weather/{HUB_ID_1}/{DATE_H1}.json")
     processed_data = json.loads(processed_obj['Body'].read().decode('utf-8'))

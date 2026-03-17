@@ -36,12 +36,16 @@ def _load_model():
         return _MODEL
     s3 = boto3.client("s3")
     tmp = os.path.join(tempfile.gettempdir(), "risk_model.joblib")
+    bucket = os.environ["DATA_BUCKET"]
+    key = os.environ.get("RISK_MODEL_KEY") or os.environ.get("MODEL_KEY", constants.MODEL_S3_KEY)
     if not os.path.exists(tmp):
-        bucket = os.environ["DATA_BUCKET"]
-        key = os.environ.get("MODEL_KEY", constants.MODEL_S3_KEY)
         log.info(f"Downloading model from s3://{bucket}/{key}")
         s3.download_file(bucket, key, tmp)
-    _MODEL = joblib.load(tmp)
+    try:
+        _MODEL = joblib.load(tmp)
+    except Exception as exc:
+        log.exception(f"Failed to load model from s3://{bucket}/{key}: {exc}")
+        raise
     return _MODEL
 
 
@@ -318,6 +322,10 @@ def _handle_api_event(event):
 
 def lambda_handler(event, context):
     try:
+        if not os.environ.get("DATA_BUCKET"):
+            return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing DATA_BUCKET configuration"})
+        if not os.environ.get("API_BASE_URL"):
+            return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing API_BASE_URL configuration"})
         if _is_s3_event(event):
             return _handle_s3_event(event)
         return _handle_api_event(event)

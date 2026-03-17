@@ -1,5 +1,5 @@
 boto3
 numpy
-scikit-learn
 joblib
 requests
+xgboost

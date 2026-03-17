@@ -2,9 +2,11 @@
 
 This repo currently deploys:
 
-- one Lambda: `weather-retrieval-handler`
-- one HTTP API with two live routes
+- four Lambdas: retrieval, ingestion, processing, and analytics
+- one HTTP API with five live routes
+- one daily EventBridge rule at `02:00 UTC` that invokes ingestion for all hubs
 - one application data bucket: `seng3011-app-zayan-360990919154-dev`
+- one ML model artifact at `models/risk_model.joblib`
 - the Lambda uses the existing IAM execution role `LabRole`
 
 ## 1. Fix local AWS credentials or use GitHub OIDC
@@ -104,9 +106,19 @@ Add these variables in GitHub:
 - `TF_STATE_KEY=dev/terraform.tfstate`
 - `TF_VAR_data_bucket_name=seng3011-app-zayan-360990919154-dev`
 
+Add this GitHub `dev` environment secret:
+
+- `PIRATE_WEATHER_API_KEY=<your-pirate-weather-key>`
+
 ## 5. Initialize and apply Terraform locally
 
 From [terraform](/Users/zayanfarazi/Developer/uni/seng3011/terraform):
+
+Build the Lambda zip artifacts first:
+
+```bash
+bash ../scripts/build_lambda_artifacts.sh
+```
 
 ```bash
 terraform init \
@@ -117,12 +129,14 @@ terraform init \
 ```
 
 ```bash
-terraform apply -var='data_bucket_name=seng3011-app-zayan-360990919154-dev'
+terraform apply \
+  -var='data_bucket_name=seng3011-app-zayan-360990919154-dev' \
+  -var='pirate_weather_api_key=<your-pirate-weather-key>'
 ```
 
-## 6. Test the live retrieval endpoints
+## 6. Test the live endpoints
 
-After apply, use the Terraform outputs or call the expected URLs directly:
+After apply, use the Terraform outputs or call the expected URLs directly.
 
 ```bash
 curl "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/retrieve/raw/weather/H001?date=10-03-2026"
@@ -130,4 +144,12 @@ curl "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/retrieve/r
 
 ```bash
 curl "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/retrieve/processed/weather/H001?date=10-03-2026"
+```
+
+```bash
+curl -X POST "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/ingest/weather/H001"
+```
+
+```bash
+curl -X GET "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/risk/location/H001?date=10-03-2026"
 ```
