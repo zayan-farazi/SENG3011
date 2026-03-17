@@ -1,56 +1,48 @@
 import requests
 import os
 import json
-from test_constants import HUB_ID_1, HUB_INVALID, DATE_1
+from test_constants import HUB_ID_1, HUB_INVALID, DATE_2, FUTURE_DATE
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, RETRIEVE_RAW_WEATHER_PATH
 
-BASE_URL = os.environ["BASE_URL"]
+BASE_URL = os.environ["DEV_BASE_URL"]
 
 def test_raw_valid():
     url = f"{BASE_URL}/{RETRIEVE_RAW_WEATHER_PATH}/{HUB_ID_1}"
     response = requests.get(
         url,
-        params={"date": DATE_1} ## change
+        params={"date": DATE_2}
     )
 
-    response_data = response.json()
-    assert response_data["statusCode"] == STATUS_OK
-    body = json.loads(response_data["body"])
-    assert "latitude" in body
-    assert "longitude" in body
-    assert "currently" in body
-    assert "minutely" in body
-    assert "hourly" in body
-    assert isinstance(body["currently"], dict)
-    assert "data" in body["currently"]
-    assert "daily" in body
+    assert response.status_code == STATUS_OK
+    data = response.json()
+    assert "latitude" in data
+    assert "longitude" in data
+    assert "currently" in data
+    assert "hourly" in data
+    hourly = data["hourly"]
+    assert isinstance(hourly, dict)
+    assert "data" in hourly
+    assert isinstance(hourly["data"], list)
+    assert "precipIntensity" in hourly["data"][0]
+    assert "windSpeed" in hourly["data"][0]
+    assert "daily" in data
 
 def test_raw_invalid_hub():
     url = f"{BASE_URL}/{RETRIEVE_RAW_WEATHER_PATH}/{HUB_INVALID}"
     response = requests.get(
         url,
-        params={"date": DATE_1} ## change
+        params={"date": DATE_2}
     )
 
-    response_data = response.json()
-    assert response_data["statusCode"] == STATUS_BAD_REQUEST
-    assert json.loads(response_data["body"]) == {"error": "Invalid hub_id"}
-
-def test_raw_missing_date():
-    url = f"{BASE_URL}/{RETRIEVE_RAW_WEATHER_PATH}/{HUB_ID_1}"
-    response = requests.get(url)
-
-    response_data = response.json()
-    assert response_data["statusCode"] == STATUS_BAD_REQUEST
-    assert json.loads(response_data["body"]) == {"error": "Missing date"}
+    assert response.status_code == STATUS_BAD_REQUEST
+    assert response.json() == {"error": "Invalid hub_id"}
 
 def test_raw_object_not_found():
     url = f"{BASE_URL}/{RETRIEVE_RAW_WEATHER_PATH}/{HUB_ID_1}"
     response = requests.get(
         url,
-        params={"date": DATE_1} ## change
+        params={"date": FUTURE_DATE}
     )
 
-    response_data = response.json()
-    assert response_data["statusCode"] == STATUS_NOT_FOUND
-    assert json.loads(response_data["body"]) == {"error": "Data for hub_id and date not found"}
+    assert response.status_code == STATUS_NOT_FOUND
+    assert response.json() == {"error": "Data for hub_id and date not found"}

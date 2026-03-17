@@ -208,7 +208,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      BASE_URL: ${{ vars.BASE_URL }}
+      DEV_BASE_URL: ${{ vars.DEV_BASE_URL }}
 
     steps:
       - name: Checkout
