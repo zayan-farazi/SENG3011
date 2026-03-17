@@ -1,6 +1,5 @@
 import requests
 import os
-import json
 from test_constants import HUB_ID_1, DATE_2, DATE_INVALID
 from constants import STATUS_OK, STATUS_BAD_REQUEST, RETRIEVE_PROCESSED_WEATHER_PATH
 
@@ -45,6 +44,5 @@ def test_processed_missing_date():
     url = f"{BASE_URL}/{RETRIEVE_PROCESSED_WEATHER_PATH}/{HUB_ID_1}"
     response = requests.get(url)
 
-    response_data = response.json()
     assert response.status_code ==STATUS_BAD_REQUEST
     assert response.json() == {"error": "Missing date"}
