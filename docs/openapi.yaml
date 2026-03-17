@@ -6,8 +6,9 @@ info:
     OpenAPI contract for the weather ingestion, retrieval, processing, and risk
     analytics endpoints exposed through API Gateway HTTP API and backed by AWS
     Lambda. Parameter presence and format validation are enforced by the backend
-    service rather than API Gateway. In sprint 1, only the two retrieval
-    endpoints are deployed live.
+    service rather than API Gateway. The live deployment currently includes the
+    retrieval, ingestion, processing, and risk-by-location endpoints. The
+    region-risk endpoint remains pending implementation.
 servers:
   - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
     description: AWS API Gateway deployment
@@ -47,11 +48,7 @@ paths:
               examples:
                 success:
                   value:
-                    hub_id: HUB123
-                    status: stored
-                    dates_written:
-                      - 08-03-2026
-                      - 09-03-2026
+                    message: Success
         '400':
           description: Invalid hub ID.
           content:
@@ -141,9 +138,36 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProcessedWeatherResponse'
+                type: object
+                additionalProperties: true
+              examples:
+                success:
+                  value:
+                    message: Data processed successfully for H001
+                    processed_data: '{"hub_id":"H001"}'
         '400':
           description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/risk/region:
+    get:
+      tags:
+        - Analytics microservice
+      summary: Pending region risk endpoint
+      description: >
+        This route is part of the intended public API contract, but it is not
+        implemented or deployed live yet.
+      parameters:
+        - name: region
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '501':
+          description: Route not implemented yet.
           content:
             application/json:
               schema:
@@ -154,13 +178,16 @@ paths:
         - Analytics microservice
       summary: Retrieve the latest risk score for a hub
       description: >
-        Returns the most recent risk score for the specified hub. The backend
-        validates `hub_id`.
+        Returns the cached latest risk payload for the specified hub when
+        available, otherwise computes it from processed weather data. The
+        backend validates `hub_id`, and `date` is optional for on-demand
+        computation.
       parameters:
         - $ref: '#/components/parameters/HubIdPath'
+        - $ref: '#/components/parameters/OptionalDateQuery'
       responses:
         '200':
-          description: Latest risk score for the hub.
+          description: Latest risk assessment payload for the hub.
           content:
             application/json:
               schema:
@@ -190,20 +217,23 @@ components:
         type: string
         pattern: '^\d{2}-\d{2}-\d{4}$'
       example: 08-03-2026
+    OptionalDateQuery:
+      name: date
+      in: query
+      required: false
+      description: Optional target date in `DD-MM-YYYY` format.
+      schema:
+        type: string
+        pattern: '^\d{2}-\d{2}-\d{4}$'
+      example: 08-03-2026
 
   schemas:
     ErrorResponse:
       type: object
-      required:
-        - code
-        - message
       properties:
-        code:
+        error:
           type: string
-          example: INVALID_DATE
-        message:
-          type: string
-          example: date must be in DD-MM-YYYY format
+          example: Invalid date format. Use DD-MM-YYYY
     RawWeatherResponse:
       type: object
       description: Placeholder schema for the raw Pirate Weather API payload.
@@ -231,17 +261,12 @@ components:
 
     RiskLocationResponse:
       type: object
-      required:
-        - hub_name
-        - risk_score
-        - risk_level
-      properties:
-        hub_name:
-          type: string
-          example: Sydney Hub
-        risk_score:
-          type: integer
-          example: 72
-        risk_level:
-          type: string
-          example: HIGH
+      additionalProperties: true
+      example:
+        dataset_type: Supply Chain Disruption Risk Assessment
+        events:
+          - event_type: daily_risk_assessment
+            attribute:
+              hub_id: H001
+              peak_risk_score: 0.42
+              risk_level: High

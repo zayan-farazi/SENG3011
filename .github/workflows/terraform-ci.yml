@@ -5,8 +5,11 @@ on:
     paths:
       - "terraform/**"
       - ".github/workflows/**"
+      - "docs/openapi.yaml"
       - "hubs.json"
       - "lambdas/**"
+      - "models/**"
+      - "scripts/**"
       - "tests/data/**"
       - "**/*.py"
       - "**/pyproject.toml"
@@ -21,8 +24,11 @@ on:
     paths:
       - "terraform/**"
       - ".github/workflows/**"
+      - "docs/openapi.yaml"
       - "hubs.json"
       - "lambdas/**"
+      - "models/**"
+      - "scripts/**"
       - "tests/data/**"
       - "**/*.py"
       - "**/pyproject.toml"
@@ -158,6 +164,9 @@ jobs:
           PYTHONPATH: ${{ needs.detect-python.outputs.project_dir }}
         run: python -m pytest tests/unit --cov=lambdas --cov-report=term-missing --cov-report=xml --cov-fail-under=85
 
+      - name: Build Lambda artifacts
+        run: bash ./scripts/build_lambda_artifacts.sh
+
   plan-dev:
     name: Terraform plan against dev
     runs-on: ubuntu-latest
@@ -169,6 +178,7 @@ jobs:
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       TF_STATE_KEY: ${{ vars.TF_STATE_KEY != '' && vars.TF_STATE_KEY || 'dev/terraform.tfstate' }}
       DATA_BUCKET_NAME: ${{ vars.TF_VAR_data_bucket_name != '' && vars.TF_VAR_data_bucket_name || 'seng3011-app-zayan-360990919154-dev' }}
+      PIRATE_WEATHER_API_KEY: ${{ secrets.PIRATE_WEATHER_API_KEY }}
 
     defaults:
       run:
@@ -180,6 +190,14 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build Lambda artifacts
+        run: bash ./scripts/build_lambda_artifacts.sh
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -199,5 +217,6 @@ jobs:
         run: |
           export TF_VAR_aws_region="${AWS_REGION}"
           export TF_VAR_data_bucket_name="${DATA_BUCKET_NAME}"
+          export TF_VAR_pirate_weather_api_key="${PIRATE_WEATHER_API_KEY}"
 
           terraform -chdir=terraform plan -refresh=false -input=false -no-color

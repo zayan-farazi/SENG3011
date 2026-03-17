@@ -14,7 +14,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "ManageRetrievalLambda",
+      "Sid": "ManageProjectLambdas",
       "Effect": "Allow",
       "Action": [
         "lambda:CreateFunction",
@@ -32,7 +32,13 @@
       ],
       "Resource": [
         "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-retrieval-handler",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-retrieval-handler:*"
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-retrieval-handler:*",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-ingestion-handler",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-ingestion-handler:*",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-processing-handler",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-processing-handler:*",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-analytics-handler",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-analytics-handler:*"
       ]
     },
     {
@@ -96,7 +102,13 @@
       ],
       "Resource": [
         "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-retrieval-handler",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-retrieval-handler:*"
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-retrieval-handler:*",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-ingestion-handler",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-ingestion-handler:*",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-processing-handler",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-processing-handler:*",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler:*"
       ]
     }
   ]

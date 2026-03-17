@@ -7,8 +7,11 @@ on:
     paths:
       - "terraform/**"
       - ".github/workflows/**"
+      - "docs/openapi.yaml"
       - "hubs.json"
       - "lambdas/**"
+      - "models/**"
+      - "scripts/**"
       - "tests/data/**"
       - "**/*.py"
       - "**/requirements*.txt"
@@ -31,6 +34,7 @@ jobs:
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       TF_STATE_KEY: ${{ vars.TF_STATE_KEY != '' && vars.TF_STATE_KEY || 'dev/terraform.tfstate' }}
       DATA_BUCKET_NAME: ${{ vars.TF_VAR_data_bucket_name != '' && vars.TF_VAR_data_bucket_name || 'seng3011-app-zayan-360990919154-dev' }}
+      PIRATE_WEATHER_API_KEY: ${{ secrets.PIRATE_WEATHER_API_KEY }}
 
     defaults:
       run:
@@ -47,12 +51,21 @@ jobs:
         run: |
           test -n "${{ vars.AWS_ROLE_ARN }}"
           test -n "$TF_STATE_BUCKET"
+          test -n "$PIRATE_WEATHER_API_KEY"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+
+      - name: Build Lambda artifacts
+        run: bash ./scripts/build_lambda_artifacts.sh
 
       - name: Terraform init
         run: |
@@ -66,5 +79,6 @@ jobs:
         run: |
           export TF_VAR_aws_region="${AWS_REGION}"
           export TF_VAR_data_bucket_name="${DATA_BUCKET_NAME}"
+          export TF_VAR_pirate_weather_api_key="${PIRATE_WEATHER_API_KEY}"
 
           terraform -chdir=terraform apply -auto-approve -input=false -no-color
