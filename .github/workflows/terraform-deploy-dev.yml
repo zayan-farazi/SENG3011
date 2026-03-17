@@ -1,6 +1,5 @@
+name: Terraform Deploy Dev
 # commented out because successful deployment requires aws lab to be stated
-# name: Terraform Deploy Dev
-
 # on:
 #   push:
 #     branches:
@@ -17,69 +16,69 @@
 #       - "**/*.py"
 #       - "**/requirements*.txt"
 
-# permissions:
-#   contents: read
-#   id-token: write
+permissions:
+  contents: read
+  id-token: write
 
-# concurrency:
-#   group: terraform-dev-deploy
-#   cancel-in-progress: false
+concurrency:
+  group: terraform-dev-deploy
+  cancel-in-progress: false
 
-# jobs:
-#   deploy:
-#     name: Apply Terraform to dev
-#     runs-on: ubuntu-latest
-#     environment: dev
-#     env:
-#       AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
-#       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
-#       TF_STATE_KEY: ${{ vars.TF_STATE_KEY != '' && vars.TF_STATE_KEY || 'dev/terraform.tfstate' }}
-#       DATA_BUCKET_NAME: ${{ vars.TF_VAR_data_bucket_name != '' && vars.TF_VAR_data_bucket_name || 'seng3011-app-zayan-360990919154-dev' }}
-#       PIRATE_WEATHER_API_KEY: ${{ secrets.PIRATE_WEATHER_API_KEY }}
+jobs:
+  deploy:
+    name: Apply Terraform to dev
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_STATE_KEY: ${{ vars.TF_STATE_KEY != '' && vars.TF_STATE_KEY || 'dev/terraform.tfstate' }}
+      DATA_BUCKET_NAME: ${{ vars.TF_VAR_data_bucket_name != '' && vars.TF_VAR_data_bucket_name || 'seng3011-app-zayan-360990919154-dev' }}
+      PIRATE_WEATHER_API_KEY: ${{ secrets.PIRATE_WEATHER_API_KEY }}
 
-#     defaults:
-#       run:
-#         shell: bash
+    defaults:
+      run:
+        shell: bash
 
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-#       - name: Setup Terraform
-#         uses: hashicorp/setup-terraform@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-#       - name: Check required GitHub environment variables
-#         run: |
-#           test -n "${{ vars.AWS_ROLE_ARN }}"
-#           test -n "$TF_STATE_BUCKET"
-#           test -n "$PIRATE_WEATHER_API_KEY"
+      - name: Check required GitHub environment variables
+        run: |
+          test -n "${{ vars.AWS_ROLE_ARN }}"
+          test -n "$TF_STATE_BUCKET"
+          test -n "$PIRATE_WEATHER_API_KEY"
 
-#       - name: Setup Python
-#         uses: actions/setup-python@v5
-#         with:
-#           python-version: "3.12"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-#       - name: Configure AWS credentials
-#         uses: aws-actions/configure-aws-credentials@v4
-#         with:
-#           aws-region: ${{ env.AWS_REGION }}
-#           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
 
-#       - name: Build Lambda artifacts
-#         run: bash ./scripts/build_lambda_artifacts.sh
+      - name: Build Lambda artifacts
+        run: bash ./scripts/build_lambda_artifacts.sh
 
-#       - name: Terraform init
-#         run: |
-#           terraform -chdir=terraform init -input=false \
-#             -backend-config="bucket=${TF_STATE_BUCKET}" \
-#             -backend-config="key=${TF_STATE_KEY}" \
-#             -backend-config="region=${AWS_REGION}" \
-#             -backend-config="use_lockfile=true"
+      - name: Terraform init
+        run: |
+          terraform -chdir=terraform init -input=false \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=${TF_STATE_KEY}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
 
-#       - name: Terraform apply
-#         run: |
-#           export TF_VAR_aws_region="${AWS_REGION}"
-#           export TF_VAR_data_bucket_name="${DATA_BUCKET_NAME}"
-#           export TF_VAR_pirate_weather_api_key="${PIRATE_WEATHER_API_KEY}"
+      - name: Terraform apply
+        run: |
+          export TF_VAR_aws_region="${AWS_REGION}"
+          export TF_VAR_data_bucket_name="${DATA_BUCKET_NAME}"
+          export TF_VAR_pirate_weather_api_key="${PIRATE_WEATHER_API_KEY}"
 
-#           terraform -chdir=terraform apply -auto-approve -input=false -no-color
+          terraform -chdir=terraform apply -auto-approve -input=false -no-color
