@@ -56,8 +56,9 @@ def handle_s3_event(event):
         try:
             path = record["s3"]["object"]["key"]
             _, _, hub_id, date = path.split("/")
+            date = date.removesuffix(".json")
             query_params_input = {"date": date}
-            resp = requests.get(f"{url}/{hub_id}", query_params = query_params_input)
+            resp = requests.get(f"{url}/{hub_id}", params=query_params_input)
 
             if resp.status_code == constants.STATUS_NOT_FOUND:
                 raise LookupError(f"Processed data not found for hub {hub_id} on {date}")
@@ -98,7 +99,7 @@ def processing_data(body):
             continue
         
         curr_date = unix_to_date(obj["time"])
-        if date is not curr_date:
+        if date != curr_date:
             date = curr_date
             day_counter += 1
             days.append({"date": date, "day": day_counter, "snapshots": []})
@@ -147,7 +148,7 @@ def lambda_handler(event, context):
             return handle_s3_event(event)
         elif "body" in event:
             res = processing_data(json.loads(event["body"]))
-            return response(constants.STATUS_OK, {"message": f"Data processed successfully for {res["hub_id"]}", "processed_data": json.dumps(res)})
+            return response(constants.STATUS_OK, {"message": f"Data processed successfully for {res['hub_id']}", "processed_data": json.dumps(res)})
         else:
             return response(constants.STATUS_BAD_REQUEST,
                             {"error": "Raw data not provided"}) 

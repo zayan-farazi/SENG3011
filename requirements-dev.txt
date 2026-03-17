@@ -1,6 +1,9 @@
 pytest
 moto
 requests
+numpy
+joblib
+scikit-learn
 ruff
 mypy
 pytest-cov
