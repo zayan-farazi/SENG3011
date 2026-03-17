@@ -22,11 +22,13 @@ AWSCLIV2.pkg
 .coverage
 coverage.xml
 __pycache__/
+build/
 
 # ML model binaries 
 *.joblib
 *.pkl
 *.pickle
+!models/risk_model.joblib
 
 # Virtual environment
 .venv/
