@@ -19,8 +19,6 @@ on:
       - "**/mypy.ini"
       - "**/.flake8"
   push:
-    branches-ignore:
-      - main
     paths:
       - "terraform/**"
       - ".github/workflows/**"
