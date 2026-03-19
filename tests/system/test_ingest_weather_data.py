@@ -40,7 +40,7 @@ def valid_ingestion():
 
 
 def invalid_hub():
-    url = f"{BASE_URL}/{INGEST_WEATHER_PATH}/{HUB_ID_1}"
+    url = f"{BASE_URL}/{INGEST_WEATHER_PATH}/{HUB_INVALID}"
     response = requests.get(url)
 
     assert response.status_code == STATUS_BAD_REQUEST
