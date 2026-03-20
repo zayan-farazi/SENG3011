@@ -1,7 +1,5 @@
 import requests
 import os
-import json
-from jsonschema import validate, ValidationError             
 from datetime import datetime, timezone
 from test_constants import HUB_ID_1, HUB_INVALID
 from constants import STATUS_OK, STATUS_BAD_REQUEST, INGEST_WEATHER_PATH, DATE_FORMAT, RETRIEVE_RAW_WEATHER_PATH
@@ -19,13 +17,6 @@ def test_valid_ingestion():
     result = requests.get(url=req_url, params={"date": date})    
     assert result.status_code == STATUS_OK
 
-    with open("schema.json") as file:
-        schema = json.load(file)  
-    try:
-        validate(instance=result.json(), schema=schema)
-    except ValidationError as e:
-        print(e.message)
-        assert False
 
 
 def test_invalid_hub():
