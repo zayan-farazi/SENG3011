@@ -1,6 +1,6 @@
 import requests
 import os
-from test_constants import HUB_ID_1, HUB_INVALID, DATE_2, DATE_INVALID
+from test_constants import HUB_ID_1, HUB_INVALID, DATE_2
 from constants import STATUS_OK, STATUS_BAD_REQUEST, RISK_LOCATION_PATH
 
 BASE_URL = os.environ["DEV_BASE_URL"]
