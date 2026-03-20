@@ -1,50 +1,39 @@
 import requests
 import os
-import boto3
 import json
 from jsonschema import validate, ValidationError             
-from datetime import datetime
+from datetime import datetime, timezone
 from test_constants import HUB_ID_1, HUB_INVALID
-from constants import STATUS_OK, STATUS_BAD_REQUEST, INGEST_WEATHER_PATH, DATE_FORMAT
+from constants import STATUS_OK, STATUS_BAD_REQUEST, INGEST_WEATHER_PATH, DATE_FORMAT, RETRIEVE_RAW_WEATHER_PATH
 
 BASE_URL = os.environ["DEV_BASE_URL"]
 
 
-def valid_ingestion():
-    s3 = boto3.client("s3")
+def test_valid_ingestion():
     url = f"{BASE_URL}/{INGEST_WEATHER_PATH}/{HUB_ID_1}"
-    response = requests.get(url)
+    response = requests.post(url)
     assert response.status_code == STATUS_OK
     
-    date = datetime.now().strftime(DATE_FORMAT)
-    expected_key = f"raw/weather/{HUB_ID_1}/{date}.json"
-
-    result = s3.get_object(
-        Bucket=os.environ["DATA_BUCKET"],
-        Key=expected_key
-    )
-
-    body = result["Body"].read().decode()
-    data = json.loads(body)
-
-    assert result is not None
+    date = datetime.now(timezone.utc).strftime(DATE_FORMAT)
+    req_url = f"{BASE_URL}/{RETRIEVE_RAW_WEATHER_PATH}/{HUB_ID_1}"
+    result = requests.get(url=req_url, params={"date": date})    
+    assert result.status_code == STATUS_OK
 
     with open("schema.json") as file:
         schema = json.load(file)  
-    
     try:
-        validate(instance=data, schema=schema)
+        validate(instance=result.json(), schema=schema)
     except ValidationError as e:
         print(e.message)
         assert False
 
 
-def invalid_hub():
+def test_invalid_hub():
     url = f"{BASE_URL}/{INGEST_WEATHER_PATH}/{HUB_INVALID}"
-    response = requests.get(url)
+    response = requests.post(url)
 
     assert response.status_code == STATUS_BAD_REQUEST
-    assert response.json == {"error": "Invalid hub_id"}
+    assert response.json() == {"error": "Invalid hub_id"}
 
 
 
