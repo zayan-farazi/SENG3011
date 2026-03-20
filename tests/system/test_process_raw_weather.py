@@ -1,9 +1,9 @@
 import requests
 import json
 import os
-from test_constants import HUB_ID_1, DATE_2
+from test_constants import HUB_ID_1, DATE_3, RAW_WEATHER_DATA_H1
 from datetime import datetime
-from constants import STATUS_OK, STATUS_BAD_REQUEST, RETRIEVE_RAW_WEATHER_PATH, RETRIEVE_PROCESSED_WEATHER_PATH, PROCESS_WEATHER_PATH
+from constants import STATUS_OK, STATUS_BAD_REQUEST, RETRIEVE_PROCESSED_WEATHER_PATH, PROCESS_WEATHER_PATH
 
 BASE_URL = os.environ["DEV_BASE_URL"]
 
@@ -94,16 +94,10 @@ def validate_processed_format(data):
 
 
 def test_process_raw_valid():
-    # Get raw data via retrieval endpoint
-    url_retrieaval = f"{BASE_URL}/{RETRIEVE_RAW_WEATHER_PATH}/{HUB_ID_1}"
     url_process = f"{BASE_URL}/{PROCESS_WEATHER_PATH}"
-    response_retrieval = requests.get(
-        url_retrieaval,
-        params={"date": DATE_2}
-    )
 
-    assert response_retrieval.status_code == STATUS_OK
-    data = response_retrieval.json()
+    with open(RAW_WEATHER_DATA_H1, "r") as f:
+        data = json.load(f)
 
     # Process the raw data obtained
     response_process = requests.post(url_process, json=data) 
@@ -117,27 +111,11 @@ def test_process_raw_valid():
     url_retrieaval = f"{BASE_URL}/{RETRIEVE_PROCESSED_WEATHER_PATH}/{HUB_ID_1}"
     response_retrieval = requests.get(
         url_retrieaval,
-        params={"date": DATE_2}
+        params={"date": DATE_3}
     )
     stored = response_retrieval.json()
     assert validate_processed_format(stored) is True
     assert stored == processed
-'''
-def test_process_raw_invalid_type():
-    url_process = f"{BASE_URL}/{PROCESS_WEATHER_PATH}"
-    invalid_payload = {
-        "currently": {"time": "string"}, 
-        "latitude": 1.0,
-        "longitude": 2.0,
-        "hourly": {"data": []}
-    }
-
-    response = requests.post(url_process, json=invalid_payload)
-
-
-    assert "must be a number" in response.json()["error"]
-    assert response.status_code == STATUS_BAD_REQUEST
-'''
 
 def test_process_raw_invalid_hub():
     url_process = f"{BASE_URL}/{PROCESS_WEATHER_PATH}"
