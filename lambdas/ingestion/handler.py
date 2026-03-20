@@ -2,7 +2,7 @@ import json
 import boto3
 import requests
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import constants
 
 
@@ -49,7 +49,7 @@ def lambda_handler(event, context):
             return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
         hubs = {hub_id: hubs[hub_id]}
 
-    date = datetime.now().strftime(constants.DATE_FORMAT)
+    date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
 
     for hub_id, hub_data in hubs.items():
         
