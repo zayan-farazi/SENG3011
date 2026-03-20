@@ -5,6 +5,7 @@ HUB_INVALID = "invalid_hub"
 
 DATE_1 = "10-03-2026"
 DATE_2 = "17-03-2026"
+DATE_3 = "09-11-2025"
 FUTURE_DATE = "19-12-2030"
 DATE_INVALID = "invalid-date"
 DATE_H1 = "09-11-2025"

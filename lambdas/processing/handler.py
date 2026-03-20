@@ -16,6 +16,46 @@ log.setLevel(logging.INFO)
 def response(status, body):
     return {"statusCode": status, "body": json.dumps(body)}
 
+def check_raw_format(body): 
+    required_top_keys = ["currently", "latitude", "longitude", "hourly"]
+    
+    for key in required_top_keys:
+        if key not in body:
+            raise ValueError(f"Missing key: {key}")
+
+    if "time" not in body["currently"]:
+        raise ValueError("Missing key: currently.time")
+    
+    if not isinstance(body["currently"]["time"], (int, float)):
+        raise TypeError("currently.time must be a number")
+
+    if not isinstance(body["latitude"], (int, float)):
+        raise TypeError("latitude must be a number")
+
+    if not isinstance(body["longitude"], (int, float)):
+        raise TypeError("longitude must be a number")
+
+    if "data" not in body["hourly"]:
+        raise ValueError("Missing key: hourly.data")
+
+    if not isinstance(body["hourly"]["data"], list):
+        raise TypeError("hourly.data must be a list")
+
+    required_hourly_keys = [
+        "time", "temperature", "windSpeed",
+        "windGust", "precipIntensity",
+        "pressure", "humidity"
+    ]
+    for i, entry in enumerate(body["hourly"]["data"]):
+        if not isinstance(entry, dict):
+            raise TypeError(f"hourly.data[{i}] must be an object")
+
+        for key in required_hourly_keys:
+            if key not in entry:
+                raise ValueError(f"Missing key in hourly.data[{i}]: {key}")
+        if not isinstance(entry["time"], (int, float)):
+            raise TypeError(f"hourly.data[{i}].time must be a number")
+
 
 def get_hub_info_from_pos(lat, lon):
     s3_client = boto3.client("s3")
@@ -80,6 +120,7 @@ def handle_s3_event(event):
 
 
 def processing_data(body):
+    check_raw_format(body)
     s3_client = boto3.client("s3")
     bucket_name = os.environ.get("DATA_BUCKET")
     curr_unix_time = body["currently"]["time"]
@@ -158,6 +199,8 @@ def lambda_handler(event, context):
             status = constants.STATUS_BAD_REQUEST
         elif "Hubs file not found" in msg:
             status = constants.STATUS_NOT_FOUND
+        elif isinstance(e, ValueError) or isinstance(e, TypeError):
+            status = constants.STATUS_BAD_REQUEST
         else:
             status = constants.STATUS_INTERNAL_SERVER_ERROR
 
