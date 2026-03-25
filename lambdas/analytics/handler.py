@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 import tempfile
 import constants
 
-log = logging.getLogger()
-log.setLevel(logging.INFO)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 _MODEL = None
 
@@ -39,12 +39,12 @@ def _load_model():
     bucket = os.environ["DATA_BUCKET"]
     key = os.environ.get("RISK_MODEL_KEY") or os.environ.get("MODEL_KEY", constants.MODEL_S3_KEY)
     if not os.path.exists(tmp):
-        log.info(f"Downloading model from s3://{bucket}/{key}")
+        logger.info(f"Downloading model from s3://{bucket}/{key}")
         s3.download_file(bucket, key, tmp)
     try:
         _MODEL = joblib.load(tmp)
-    except Exception as exc:
-        log.exception(f"Failed to load model from s3://{bucket}/{key}: {exc}")
+    except Exception as e:
+        logger.exception(f"Failed to load model from s3://{bucket}/{key}")
         raise
     return _MODEL
 
@@ -73,7 +73,6 @@ def _risk_level(score):
         return "High"
     return "Critical"
 
-
 def _primary_driver(features):
     weights = {
         "wind_gust": 0.40, "precip_intensity": 0.30,
@@ -90,7 +89,6 @@ def _primary_driver(features):
     }
     scores = {f: weights[f] * norm[f](float(features.get(f, 0))) for f in weights}
     return max(scores, key=scores.get).replace("_", " ").title()
-
 
 def _score_day(model, day_obj):
     snapshots = day_obj.get("snapshots", [])
@@ -198,11 +196,13 @@ def _build_adage_response(body, scored_days):
 def _fetch_processed_data(hub_id, date):
     base_url = os.environ["API_BASE_URL"]
     url = f"{base_url}{constants.RETRIEVE_PROCESSED_WEATHER_PATH}/{hub_id}"
+    logger.info(f"Calling retrieval API for processed data for hub_id={hub_id}, date={date}")
     resp = requests.get(url, params={"date": date}, timeout=10)
     if resp.status_code == constants.STATUS_NOT_FOUND:
         raise LookupError(f"Processed data not found for hub {hub_id} on {date}")
     if resp.status_code != constants.STATUS_OK:
         raise RuntimeError(f"Retrieval service returned {resp.status_code}: {resp.text}")
+    logger.info(f"Successfully fetched processed data for hub_id={hub_id}, date={date}")
     return resp.json()
 
 
@@ -220,7 +220,7 @@ def _compute_and_store_risk(s3, bucket, hub_id, processed):
     if not days:
         raise ValueError(f"No forecast days available for hub {hub_id}")
     if len(days) != 7:
-        log.warning(f"Expected 7 day objects, received {len(days)}")
+        logger.error(f"Expected 7 day objects, received {len(days)}")
 
     model = _load_model()
     scored_days = [_score_day(model, d) for d in days]
@@ -232,7 +232,7 @@ def _compute_and_store_risk(s3, bucket, hub_id, processed):
         Body=json.dumps(adage_response),
         ContentType="application/json",
     )
-    log.info(f"Stored risk scores to risk/weather/{hub_id}/latest.json")
+    logger.info(f"Stored risk scores to risk/weather/{hub_id}/latest.json")
     return adage_response
 
 
@@ -245,22 +245,23 @@ def _handle_s3_event(event):
         try:
             bucket = record["s3"]["bucket"]["name"]
             key = record["s3"]["object"]["key"]
-            log.info(f"S3 event received for s3://{bucket}/{key}")
+            logger.info(f"Analytics on S3 record for key={key}")
 
             # Extract hub_id from key pattern, processed/weather/{hub_id}/{date}.json
             parts = key.split("/")
             if len(parts) < 4 or parts[0] != "processed" or parts[1] != "weather":
-                log.info(f"Ignoring S3 key outside processed/weather prefix: {key}")
+                logger.info(f"Ignoring S3 key outside processed/weather prefix: {key}")
                 results.append({"status": "ignored", "key": key})
                 continue
 
             hub_id = parts[2]
 
             # Validate hub_id against hubs.json
+            logger.info(f"Looking up {constants.HUBS_FILE_KEY} in bucket={bucket}")
             hubs_obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
             hubs = json.loads(hubs_obj["Body"].read())
             if hub_id not in hubs:
-                log.warning(f"S3 event for invalid hub_id: {hub_id}")
+                logger.error(f"S3 event for invalid hub_id: {hub_id}")
                 results.append({"status": "ignored", "reason": "invalid hub_id", "key": key})
                 continue
 
@@ -271,7 +272,7 @@ def _handle_s3_event(event):
             results.append({"status": "scored", "hub_id": hub_id, "key": key})
 
         except Exception as e:
-            log.exception(f"Error processing record for {record.get('s3', {}).get('object', {}).get('key', 'unknown')}: {e}")
+            logger.exception(f"Error processing record for {record.get('s3', {}).get('object', {}).get('key', 'unknown')}: {e}")
             results.append({"status": "error", "error": str(e), "key": record.get("s3", {}).get("object", {}).get("key", "unknown")})
 
     return results
@@ -280,17 +281,20 @@ def _handle_s3_event(event):
 def _handle_api_event(event):
     """Handle an API Gateway request, return cached risk or compute on demand."""
     s3 = boto3.client("s3")
+    bucket = os.environ["DATA_BUCKET"]
     path_params = event.get("pathParameters") or {}
     query_params = event.get("queryStringParameters") or {}
     hub_id = path_params.get("hub_id")
 
     if not hub_id:
+        logger.error("Missing hub_id in analytics request")
         return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id"})
 
-    bucket = os.environ["DATA_BUCKET"]
+    logger.info(f"Looking up {constants.HUBS_FILE_KEY} in bucket={bucket}")
     obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
     hubs = json.loads(obj["Body"].read())
     if hub_id not in hubs:
+        logger.error("Invalid hub_id in analytics request")
         return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
 
     # Try to return the precomputed cached result
@@ -299,10 +303,10 @@ def _handle_api_event(event):
             Bucket=bucket, Key=f"risk/weather/{hub_id}/latest.json"
         )
         adage_response = json.loads(cached["Body"].read())
-        log.info(f"Returning cached risk scores for hub {hub_id}")
+        logger.info(f"Returning cached risk scores for hub {hub_id}")
         return response(constants.STATUS_OK, adage_response)
     except s3.exceptions.NoSuchKey:
-        log.info(f"No cached risk for hub {hub_id}, computing on demand")
+        logger.info(f"No cached risk for hub {hub_id}, computing on demand")
 
     # Fallback ie compute on demand
     date = query_params.get("date")
@@ -312,10 +316,10 @@ def _handle_api_event(event):
         except ValueError:
             return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid date format. Use DD-MM-YYYY"})
     else:
+        logger.info(f"No date in analytics request, returning risk analytics for current date")
         date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
 
     processed = _fetch_processed_data(hub_id, date)
-
     adage_response = _compute_and_store_risk(s3, bucket, hub_id, processed)
     return response(constants.STATUS_OK, adage_response)
 
@@ -323,22 +327,29 @@ def _handle_api_event(event):
 def lambda_handler(event, context):
     try:
         if not os.environ.get("DATA_BUCKET"):
+            logger.error("Missing DATA_BUCKET configuration")
             return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing DATA_BUCKET configuration"})
         if not os.environ.get("API_BASE_URL"):
+            logger.error("Missing API_BASE_URL configuration")
             return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing API_BASE_URL configuration"})
         if _is_s3_event(event):
+            logger.info(f"Analytics triggered by S3 event: {event}")
             return _handle_s3_event(event)
+        logger.info(f"Analytics triggered by API request: {event}")
         return _handle_api_event(event)
 
     except ValueError as e:
+        logger.exception(str(e))
         return response(constants.STATUS_BAD_REQUEST, {"error": str(e)})
     except LookupError as e:
+        logger.exception(str(e))
         return response(constants.STATUS_NOT_FOUND, {"error": str(e)})
     except RuntimeError as e:
-        return response(502, {"error": str(e)})
-    except Exception:
-        log.exception("Unhandled error")
-        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Internal server error"})
+        logger.exception(str(e))
+        return response(constants.STATUS_BAD_GATEWAY, {"error": str(e)})
+    except Exception as e:
+        logger.exception(f"Unhandled error: {str(e)}")
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": str(e)})
 
 
 def response(status, body):

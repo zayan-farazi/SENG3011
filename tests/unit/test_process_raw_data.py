@@ -1,7 +1,7 @@
 import json
 from lambdas.processing.handler import lambda_handler
 from test_constants import TEST_BUCKET_NAME, HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
-from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND
+from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, STATUS_INTERNAL_SERVER_ERROR, HUBS_FILE_KEY
 from unittest.mock import patch, Mock
 
 
@@ -72,8 +72,8 @@ def test_hubs_file_missing(setup_s3):
 
     body = json.loads(response["body"])
 
-    assert response["statusCode"] == STATUS_NOT_FOUND
-    assert "Hubs file not found" in body["error"]
+    assert response["statusCode"] == STATUS_INTERNAL_SERVER_ERROR
+    assert f"Error reading {HUBS_FILE_KEY}" in body["error"]
 
 def test_invalid_json_body():
     event = {
@@ -82,7 +82,7 @@ def test_invalid_json_body():
 
     response = lambda_handler(event, None)
     body = json.loads(response["body"])
-    assert response["statusCode"] == 500
+    assert response["statusCode"] == STATUS_BAD_REQUEST
     assert "Expecting value" in body["error"]
 
 @patch("lambdas.processing.handler.requests.get")
@@ -118,6 +118,7 @@ def test_event_process_valid(mock_get, setup_s3):
     mock_get.assert_called_once_with(
         "http://test-api/ese/v1/retrieve/raw/weather/H001",
         params={"date": DATE_H1},
+        timeout=10,
     )
 
     processed_obj = s3.get_object(Bucket=TEST_BUCKET_NAME, Key= f"processed/weather/{HUB_ID_1}/{DATE_H1}.json")
@@ -149,7 +150,7 @@ def test_event_retrieval_404(mock_get, setup_s3):
     response = lambda_handler(event, None)
 
     assert response[0]["status"] == "error"
-    assert "Processed data not found" in response[0]["error"]
+    assert "Raw data not found" in response[0]["error"]
 
 
 @patch("lambdas.processing.handler.requests.get")
