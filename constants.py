@@ -16,3 +16,16 @@ INGEST_WEATHER_PATH = "/ese/v1/ingest/weather"
 PROCESS_WEATHER_PATH = "/ese/v1/process/weather"
 RISK_LOCATION_PATH = "/ese/v1/risk/location"
 MODEL_S3_KEY = "models/risk_model.joblib"
+
+## custom metrics constants
+API_SERVICE = "ApiService"
+WEATHER_SERVICE = "WeatherService"
+RISK_SERVICE = "RiskService"
+
+INGESTION_REQUESTS = "IngestionRequests"
+WEATHER_API_ERRORS = "WeatherAPIErrors"
+WEATHER_RECORDS_INGESTED = "WeatherRecordsIngested"
+RISK_CALCULATIONS = "RiskCalculations"
+WEATHER_RECORDS_PROCESSED = "WeatherRecordsProcessed"
+RETRIEVAL_ERRORS = "RetrievalErrors"
+DATA_REQUESTS = "DataRequests"

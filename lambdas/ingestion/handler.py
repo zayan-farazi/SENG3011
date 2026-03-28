@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 import constants
 import logging
+from metrics import log_metric
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -26,6 +27,7 @@ def fetch_weather(lat, lon, api_key):
         return weather_data.text
     except Exception as e:
         logger.exception(f"PirateWeather API error fetching weather for lat={lat}, lon={lon}")
+        log_metric(constants.WEATHER_API_ERRORS, 1, constants.WEATHER_SERVICE)
         raise RuntimeError(f"Failed to fetch weather data from PirateWeather for hub at lat={lat}, lon={lon}") from e
 
 
@@ -37,9 +39,11 @@ def store_weather(s3, bucket_name, hub_id, date, weather_data):
         ContentType="application/json"
     )
     logger.info(f"Stored weather data for hub={hub_id}, date={date}")
+    log_metric(constants.WEATHER_RECORDS_INGESTED, 1, constants.WEATHER_SERVICE)
 
 def lambda_handler(event, context):
     logger.info(f"Incoming ingestion request: event={json.dumps(event)}")
+    log_metric(constants.INGESTION_REQUESTS, 1, constants.WEATHER_SERVICE)
     s3 = boto3.client("s3")
     bucket_name = os.environ.get("DATA_BUCKET")
     api_key = os.environ.get("API_KEY")

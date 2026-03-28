@@ -6,6 +6,7 @@ import botocore
 import requests
 import os
 import constants
+from metrics import log_metric
 
 PROCESSED_KEY = "processed/weather"
 logger = logging.getLogger()
@@ -42,7 +43,7 @@ def check_six_hour_point(timestamp):
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).hour % 6 == 0
 
 def process_data(body):
-    logger.info(f"Processing raw data for lat={body.get('latitude')}, lon={body.get('longitude')}")
+    logger.info(f"Processing raw weather data for lat={body.get('latitude')}, lon={body.get('longitude')}")
     s3_client = boto3.client("s3")
     bucket_name = os.environ.get("DATA_BUCKET")
     curr_unix_time = body["currently"]["time"]
@@ -94,7 +95,8 @@ def process_data(body):
     obj_key = f"{PROCESSED_KEY}/{hub_id}/{date}.json"
     s3_client.put_object(Bucket=bucket_name, Key=obj_key, Body=json.dumps(processed_data),
                          ContentType="application/json")
-    logger.info(f"Raw data for hub_id={hub_id}, date={date} processed successfully and stored")
+    logger.info(f"Raw weather data for hub_id={hub_id}, date={date} processed successfully and stored")
+    log_metric(constants.WEATHER_RECORDS_PROCESSED, 1, constants.WEATHER_SERVICE)
     return processed_data
 
 def handle_s3_event(event):
@@ -109,11 +111,11 @@ def handle_s3_event(event):
             _, _, hub_id, date = path.split("/")
             date = date.removesuffix(".json")
             query_params_input = {"date": date}
-            logger.info(f"Calling retrieval API for raw data for hub_id={hub_id}, date={date}")
+            logger.info(f"Calling retrieval API for raw weather data for hub_id={hub_id}, date={date}")
             resp = requests.get(f"{url}/{hub_id}", params=query_params_input, timeout=10)
 
             if resp.status_code == constants.STATUS_NOT_FOUND:
-                raise LookupError(f"Raw data not found for hub {hub_id} on {date}")
+                raise LookupError(f"Raw weather data not found for hub {hub_id} on {date}")
             if resp.status_code != constants.STATUS_OK:
                 raise RuntimeError(f"Retrieval service returned {resp.status_code}: {resp.text}")
             

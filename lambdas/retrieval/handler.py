@@ -4,12 +4,14 @@ import os
 import logging
 from datetime import datetime
 import constants
+from metrics import log_metric
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     logger.info(f"Incoming retrieval request: event={event}")
+    log_metric(constants.DATA_REQUESTS, 1, constants.WEATHER_SERVICE)
     s3 = boto3.client("s3")
     bucket_name = os.environ.get("DATA_BUCKET")
 
@@ -64,6 +66,13 @@ def lambda_handler(event, context):
         return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": str(e)})
 
 def response(status, body):
+    if status in (
+        constants.STATUS_INTERNAL_SERVER_ERROR,
+        constants.STATUS_NOT_FOUND,
+        constants.STATUS_BAD_REQUEST,
+    ):
+        log_metric(constants.RETRIEVAL_ERRORS, 1, constants.WEATHER_SERVICE)
+
     return {
         "statusCode": status,
         "body": json.dumps(body)

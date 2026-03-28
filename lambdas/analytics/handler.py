@@ -8,6 +8,7 @@ import requests
 from datetime import datetime, timezone
 import tempfile
 import constants
+from metrics import log_metric
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -196,13 +197,13 @@ def _build_adage_response(body, scored_days):
 def _fetch_processed_data(hub_id, date):
     base_url = os.environ["API_BASE_URL"]
     url = f"{base_url}{constants.RETRIEVE_PROCESSED_WEATHER_PATH}/{hub_id}"
-    logger.info(f"Calling retrieval API for processed data for hub_id={hub_id}, date={date}")
+    logger.info(f"Calling retrieval API for processed weather data for hub_id={hub_id}, date={date}")
     resp = requests.get(url, params={"date": date}, timeout=10)
     if resp.status_code == constants.STATUS_NOT_FOUND:
-        raise LookupError(f"Processed data not found for hub {hub_id} on {date}")
+        raise LookupError(f"Processed weather data not found for hub {hub_id} on {date}")
     if resp.status_code != constants.STATUS_OK:
         raise RuntimeError(f"Retrieval service returned {resp.status_code}: {resp.text}")
-    logger.info(f"Successfully fetched processed data for hub_id={hub_id}, date={date}")
+    logger.info(f"Successfully fetched processed weather data for hub_id={hub_id}, date={date}")
     return resp.json()
 
 
@@ -224,6 +225,7 @@ def _compute_and_store_risk(s3, bucket, hub_id, processed):
 
     model = _load_model()
     scored_days = [_score_day(model, d) for d in days]
+    log_metric(constants.RISK_CALCULATIONS, 1, constants.RISK_SERVICE)
     adage_response = _build_adage_response(processed, scored_days)
 
     s3.put_object(
@@ -336,6 +338,7 @@ def lambda_handler(event, context):
             logger.info(f"Analytics triggered by S3 event: {event}")
             return _handle_s3_event(event)
         logger.info(f"Analytics triggered by API request: {event}")
+        log_metric(constants.DATA_REQUESTS, 1, constants.RISK_SERVICE)
         return _handle_api_event(event)
 
     except ValueError as e:
