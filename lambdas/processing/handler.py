@@ -2,11 +2,10 @@ import json
 from datetime import datetime, timezone
 import boto3
 import logging
-import botocore
 import requests
 import os
 import constants
-from metrics import log_metric
+from lambdas.metrics import log_metric
 
 PROCESSED_KEY = "processed/weather"
 logger = logging.getLogger()
@@ -70,7 +69,7 @@ def get_hub_info_from_pos(lat, lon):
         raise ValueError(f"No hub found for lat={lat}, lon={lon}")
     except ValueError:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error reading {constants.HUBS_FILE_KEY} from {bucket_name}")
         raise RuntimeError(f"Error reading {constants.HUBS_FILE_KEY} from {bucket_name}")
 

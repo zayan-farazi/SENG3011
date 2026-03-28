@@ -2,10 +2,10 @@ import json
 import boto3
 import requests
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 import constants
 import logging
-from metrics import log_metric
+from lambdas.metrics import log_metric
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

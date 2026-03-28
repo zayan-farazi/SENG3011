@@ -4,7 +4,7 @@ import os
 import logging
 from datetime import datetime
 import constants
-from metrics import log_metric
+from lambdas.metrics import log_metric
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

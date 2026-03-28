@@ -223,7 +223,7 @@ def test_event_retrieval_404(mock_get, setup_s3):
     response = lambda_handler(event, None)
 
     assert response[0]["status"] == "error"
-    assert "Raw data not found" in response[0]["error"]
+    assert "Raw weather data not found" in response[0]["error"]
 
 
 @patch("lambdas.processing.handler.requests.get")

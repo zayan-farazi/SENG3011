@@ -8,7 +8,7 @@ import requests
 from datetime import datetime, timezone
 import tempfile
 import constants
-from metrics import log_metric
+from lambdas.metrics import log_metric
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -44,7 +44,7 @@ def _load_model():
         s3.download_file(bucket, key, tmp)
     try:
         _MODEL = joblib.load(tmp)
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to load model from s3://{bucket}/{key}")
         raise
     return _MODEL
@@ -306,7 +306,7 @@ def _handle_api_event(event):
         except ValueError:
             return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid date format. Use DD-MM-YYYY"})
     else:
-        logger.info(f"No date in analytics request, returning risk analytics for current date")
+        logger.info("No date in analytics request, returning risk analytics for current date")
         date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
 
     # Try to return the precomputed cached result
