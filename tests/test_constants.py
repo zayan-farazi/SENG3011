@@ -1,6 +1,6 @@
 TEST_BUCKET_NAME = "test-bucket"
 TEST_API_KEY = "test"
-TEST_BASE_URL = "http://test-api"
+TEST_BASE_URL = "http://test-api/"
 
 HUB_ID_1 = "H001"
 HUB_INVALID = "invalid_hub"
