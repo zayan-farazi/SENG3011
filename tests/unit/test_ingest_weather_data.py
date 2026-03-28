@@ -1,7 +1,7 @@
 import os
 import json
 from unittest.mock import patch
-from datetime import datetime
+from datetime import datetime, timezone
 from test_constants import TEST_BUCKET_NAME, HUB_ID_1
 from constants import DATE_FORMAT
 
@@ -21,7 +21,7 @@ def test_lambda_handler_success_single_hub(mock_fetch, setup_s3):
 
     assert result["statusCode"] == 200
 
-    today = datetime.now().strftime(DATE_FORMAT)
+    today = datetime.now(timezone.utc).strftime(DATE_FORMAT)
  
     obj = setup_s3.get_object(
         Bucket=TEST_BUCKET_NAME,

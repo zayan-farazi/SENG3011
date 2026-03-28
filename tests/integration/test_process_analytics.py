@@ -1,0 +1,71 @@
+import json
+from datetime import datetime
+from unittest.mock import patch, Mock
+from lambdas.ingestion.handler import lambda_handler as ingestion_handler
+from lambdas.processing.handler import lambda_handler as processing_handler
+from lambdas.analytics.handler import lambda_handler as analytics_handler
+from test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_FILE, DATE_1
+from constants import DATE_FORMAT
+import boto3
+from datetime import datetime, timezone
+
+@patch("lambdas.ingestion.handler.fetch_weather")
+@patch("lambdas.analytics.handler.requests.get")
+def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,setup_s3):
+    s3 = setup_s3["s3"]
+    bucket = setup_s3["bucket"]
+
+    with open(RAW_WEATHER_DATA_H1, "r") as f:
+        weather_data = json.load(f)
+    now_ts = int(datetime.now(tz=timezone.utc).timestamp())
+    weather_data["currently"]["time"] = now_ts
+
+    mock_fetch_weather.return_value = json.dumps(weather_data)
+
+    ingestion_event = {"pathParameters": {"hub_id": HUB_ID_1}}
+    ingestion_resp = ingestion_handler(ingestion_event, None)
+    ingestion_body = json.loads(ingestion_resp["body"])
+    assert ingestion_resp["statusCode"] == 200
+    assert ingestion_body["message"] == "Success"
+
+
+    date_str = datetime.fromtimestamp(now_ts, tz=timezone.utc).strftime(DATE_FORMAT)
+
+    print(datetime.now(timezone.utc).strftime(DATE_FORMAT))
+
+    raw_key = f"raw/weather/{HUB_ID_1}/{date_str}.json"
+    obj = s3.get_object(Bucket=bucket, Key=raw_key)
+    raw_data = json.loads(obj["Body"].read())
+    assert raw_data["currently"]["time"] == now_ts
+
+    processing_event = {"body": json.dumps(raw_data)}
+    processing_resp = processing_handler(processing_event, None)
+    assert processing_resp["statusCode"] == 200
+    print(date_str)
+
+    processed_key = f"processed/weather/{HUB_ID_1}/{date_str}.json"
+    obj = s3.get_object(Bucket=bucket, Key=processed_key)
+    processed_data = json.loads(obj["Body"].read())
+
+    mock_resp = Mock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = processed_data
+    mock_resp.text = json.dumps(processed_data)
+    mock_get_requests.return_value = mock_resp
+
+    # Analytics handler should be able to interact with the processed path of date_str in mock s3
+    analytics_event = {
+        "pathParameters": {"hub_id": HUB_ID_1},
+        "queryStringParameters": {"date": date_str},
+    }
+    analytics_resp = analytics_handler(analytics_event, None)
+    print(analytics_resp)
+    assert analytics_resp["statusCode"] == 200
+
+    body = json.loads(analytics_resp["body"])
+    assert "events" in body
+    assert "data_source" in body
+    assert "time_object" in body
+    # basic check for risk assessment output
+    daily_events = [e for e in body["events"] if e["event_type"] == "daily_risk_assessment"]
+    assert len(daily_events) >= 1
