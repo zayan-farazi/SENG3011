@@ -9,7 +9,7 @@ def _mock_retrieval_response():
     with open(RAW_WEATHER_DATA_H1, "r") as f:
         data = json.load(f)
     mock_resp = Mock()
-    mock_resp.status_code = 200
+    mock_resp.status_code = STATUS_OK
     mock_resp.json.return_value = data
     mock_resp.text = json.dumps(data)
     return mock_resp
@@ -84,6 +84,79 @@ def test_invalid_json_body():
     body = json.loads(response["body"])
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert "Expecting value" in body["error"]
+
+
+def test_post_invalid_missing_top_key():
+    # No "currently"
+    event_body = {
+        "latitude": 1.0,
+        "longitude": 2.0,
+        "hourly": {"data": []}
+    }
+
+    event = {"body": json.dumps(event_body)}
+
+    response = lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == STATUS_BAD_REQUEST
+    assert "Missing key:" in body["error"]
+
+def test_post_invalid_hourly_data_type():
+    event_body = {
+        "currently": {"time": 123456},
+        "latitude": 1.0,
+        "longitude": 2.0,
+        "hourly": {"data": "not-a-list"}
+    }
+
+    event = {"body": json.dumps(event_body)}
+
+    response = lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == STATUS_BAD_REQUEST
+    assert "must be a list" in body["error"]
+
+def test_post_invalid_hourly_entry_missing_key():
+    event_body = {
+        "currently": {"time": 123456},
+        "latitude": 1.0,
+        "longitude": 2.0,
+        "hourly": {
+            "data": [
+                {"time": 123456, "temperature": 25}  # missing windSpeed, windGust, etc.
+            ]
+        }
+    }
+
+    event = {"body": json.dumps(event_body)}
+
+    response = lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == STATUS_BAD_REQUEST
+    assert "Missing key in hourly" in body["error"]
+
+def test_post_invalid_hourly_time_type():
+    event_body = {
+        "currently": {"time": 123456},
+        "latitude": 1.0,
+        "longitude": 2.0,
+        "hourly": {
+            "data": [
+                {"time": "not-a-number", "temperature": 25, "windSpeed": 5, "windGust": 7, "precipIntensity": 0, "pressure": 1010, "humidity": 0.5}
+            ]
+        }
+    }
+
+    event = {"body": json.dumps(event_body)}
+
+    response = lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == STATUS_BAD_REQUEST
+    assert "must be a number" in body["error"]
 
 @patch("lambdas.processing.handler.requests.get")
 def test_event_process_valid(mock_get, setup_s3):

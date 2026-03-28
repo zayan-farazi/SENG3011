@@ -299,6 +299,16 @@ def _handle_api_event(event):
         logger.error("Invalid hub_id in analytics request")
         return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
 
+    date = query_params.get("date")
+    if date:
+        try:
+            datetime.strptime(date, constants.DATE_FORMAT)
+        except ValueError:
+            return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid date format. Use DD-MM-YYYY"})
+    else:
+        logger.info(f"No date in analytics request, returning risk analytics for current date")
+        date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
+
     # Try to return the precomputed cached result
     try:
         cached = s3.get_object(
@@ -311,16 +321,6 @@ def _handle_api_event(event):
         logger.info(f"No cached risk for hub {hub_id}, computing on demand")
 
     # Fallback ie compute on demand
-    date = query_params.get("date")
-    if date:
-        try:
-            datetime.strptime(date, constants.DATE_FORMAT)
-        except ValueError:
-            return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid date format. Use DD-MM-YYYY"})
-    else:
-        logger.info(f"No date in analytics request, returning risk analytics for current date")
-        date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
-
     processed = _fetch_processed_data(hub_id, date)
     adage_response = _compute_and_store_risk(s3, bucket, hub_id, processed)
     return response(constants.STATUS_OK, adage_response)

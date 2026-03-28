@@ -15,6 +15,47 @@ logger.setLevel(logging.INFO)
 def response(status, body):
     return {"statusCode": status, "body": json.dumps(body)}
 
+def check_raw_format(body): 
+    required_top_keys = ["currently", "latitude", "longitude", "hourly"]
+    
+    for key in required_top_keys:
+        if key not in body:
+            raise ValueError(f"Missing key: {key}")
+
+    if "time" not in body["currently"]:
+        raise ValueError("Missing key: currently.time")
+    
+    if not isinstance(body["currently"]["time"], (int, float)):
+        raise TypeError("currently.time must be a number")
+
+    if not isinstance(body["latitude"], (int, float)):
+        raise TypeError("latitude must be a number")
+
+    if not isinstance(body["longitude"], (int, float)):
+        raise TypeError("longitude must be a number")
+
+    if "data" not in body["hourly"]:
+        raise ValueError("Missing key: hourly.data")
+
+    if not isinstance(body["hourly"]["data"], list):
+        raise TypeError("hourly.data must be a list")
+
+    required_hourly_keys = [
+        "time", "temperature", "windSpeed",
+        "windGust", "precipIntensity",
+        "pressure", "humidity"
+    ]
+    for i, entry in enumerate(body["hourly"]["data"]):
+        if not isinstance(entry, dict):
+            raise TypeError(f"hourly.data[{i}] must be an object")
+
+        for key in required_hourly_keys:
+            if key not in entry:
+                raise ValueError(f"Missing key in hourly.data[{i}]: {key}")
+        if not isinstance(entry["time"], (int, float)):
+            raise TypeError(f"hourly.data[{i}].time must be a number")
+
+
 def get_hub_info_from_pos(lat, lon):
     logger.info(f"Lookup hub by coordinates lat={lat}, lon={lon}")
     s3_client = boto3.client("s3")
@@ -43,7 +84,7 @@ def check_six_hour_point(timestamp):
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).hour % 6 == 0
 
 def process_data(body):
-    logger.info(f"Processing raw weather data for lat={body.get('latitude')}, lon={body.get('longitude')}")
+    check_raw_format(body)
     s3_client = boto3.client("s3")
     bucket_name = os.environ.get("DATA_BUCKET")
     curr_unix_time = body["currently"]["time"]
@@ -57,7 +98,7 @@ def process_data(body):
     days = []
     date = None
     day_counter = 0
-    
+    logger.info(f"Processing raw weather data for hub={hub_id}")
     for obj in hourly_data:
         if not check_six_hour_point(obj["time"]):
             continue
@@ -150,7 +191,7 @@ def lambda_handler(event, context):
         else:
             logger.error("Request missing raw data payload")
             return response(constants.STATUS_BAD_REQUEST, {"error": "Raw data not provided"}) 
-    except ValueError as e:
+    except (TypeError, ValueError) as e:
         logger.exception(str(e))
         return response(constants.STATUS_BAD_REQUEST, {"error": str(e)})
     except RuntimeError as e:

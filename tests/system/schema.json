@@ -1,0 +1,198 @@
+{
+  "latitude": "number",
+  "longitude": "number",
+  "timezone": "string",
+  "offset": "number",
+  "elevation": "number",
+  "currently": {
+    "time": "integer",
+    "summary": "string",
+    "icon": "string",
+    "nearestStormDistance": "number",
+    "nearestStormBearing": "integer",
+    "precipIntensity": "number",
+    "precipProbability": "number",
+    "precipIntensityError": "number",
+    "precipType": "string",
+    "temperature": "number",
+    "apparentTemperature": "number",
+    "dewPoint": "number",
+    "humidity": "number",
+    "pressure": "number",
+    "windSpeed": "number",
+    "windGust": "number",
+    "windBearing": "integer",
+    "cloudCover": "number",
+    "uvIndex": "number",
+    "visibility": "number",
+    "ozone": "number",
+    "smoke": "number",
+    "fireIndex": "number",
+    "feelsLike": "number",
+    "currentDayIce": "number",
+    "currentDayLiquid": "number",
+    "currentDaySnow": "number"
+  },
+  "minutely": {
+    "summary": "string",
+    "icon": "string",
+    "data": [
+      {
+        "time": "integer",
+        "precipIntensity": "number",
+        "precipProbability": "number",
+        "precipIntensityError": "number",
+        "precipType": "string"
+      }
+    ]
+  },
+  "hourly": {
+    "summary": "string",
+    "icon": "string",
+    "data": [
+      {
+        "time": "integer",
+        "summary": "string",
+        "icon": "string",
+        "precipIntensity": "number",
+        "precipProbability": "number",
+        "precipIntensityError": "number",
+        "precipAccumulation": "number",
+        "precipType": "string",
+        "temperature": "number",
+        "apparentTemperature": "number",
+        "dewPoint": "number",
+        "humidity": "number",
+        "pressure": "number",
+        "windSpeed": "number",
+        "windGust": "number",
+        "windBearing": "integer",
+        "cloudCover": "number",
+        "uvIndex": "number",
+        "visibility": "number",
+        "ozone": "number",
+        "smoke": "number",
+        "liquidAccumulation": "number",
+        "snowAccumulation": "number",
+        "iceAccumulation": "number",
+        "nearestStormDistance": "number",
+        "nearestStormBearing": "integer",
+        "fireIndex": "number",
+        "feelsLike": "number"
+      }
+    ]
+  },
+  "daily": {
+    "summary": "string",
+    "icon": "string",
+    "data": [
+      {
+        "time": "integer",
+        "summary": "string",
+        "icon": "string",
+        "dawnTime": "integer",
+        "sunriseTime": "integer",
+        "sunsetTime": "integer",
+        "duskTime": "integer",
+        "moonPhase": "number",
+        "precipIntensity": "number",
+        "precipIntensityMax": "number",
+        "precipIntensityMaxTime": "integer",
+        "precipProbability": "number",
+        "precipAccumulation": "number",
+        "precipType": "string",
+        "temperatureHigh": "number",
+        "temperatureHighTime": "integer",
+        "temperatureLow": "number",
+        "temperatureLowTime": "integer",
+        "apparentTemperatureHigh": "number",
+        "apparentTemperatureHighTime": "integer",
+        "apparentTemperatureLow": "number",
+        "apparentTemperatureLowTime": "integer",
+        "dewPoint": "number",
+        "humidity": "number",
+        "pressure": "number",
+        "windSpeed": "number",
+        "windGust": "number",
+        "windGustTime": "integer",
+        "windBearing": "integer",
+        "cloudCover": "number",
+        "uvIndex": "number",
+        "uvIndexTime": "integer",
+        "visibility": "number",
+        "temperatureMin": "number",
+        "temperatureMinTime": "integer",
+        "temperatureMax": "number",
+        "temperatureMaxTime": "integer",
+        "apparentTemperatureMin": "number",
+        "apparentTemperatureMinTime": "integer",
+        "apparentTemperatureMax": "number",
+        "apparentTemperatureMaxTime": "integer",
+        "smokeMax": "number",
+        "smokeMaxTime": "integer",
+        "liquidAccumulation": "number",
+        "snowAccumulation": "number",
+        "iceAccumulation": "number",
+        "fireIndexMax": "number",
+        "fireIndexMaxTime": "integer"
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "title": "string",
+      "regions": [
+        "string"
+      ],
+      "severity": "string",
+      "time": "integer",
+      "expires": "integer",
+      "description": "string",
+      "uri": "string"
+    }
+  ],
+  "flags": {
+    "sources": [
+      "string"
+    ],
+    "sourceTimes": {
+      "hrrr_0-18": "string",
+      "hrrr_subh": "string",
+      "nbm": "string",
+      "nbm_fire": "string",
+      "hrrr_18-48": "string",
+      "gfs": "string",
+      "gefs": "string"
+    },
+    "nearest-station": "integer",
+    "units": "string",
+    "version": "string",
+    "sourceIDX": {
+      "hrrr": {
+        "x": "integer",
+        "y": "integer",
+        "lat": "number",
+        "long": "number"
+      },
+      "nbm": {
+        "x": "integer",
+        "y": "integer",
+        "lat": "number",
+        "long": "number"
+      },
+      "gfs": {
+        "x": "integer",
+        "y": "integer",
+        "lat": "number",
+        "long": "number"
+      },
+      "etopo": {
+        "x": "integer",
+        "y": "integer",
+        "lat": "number",
+        "long": "number"
+      }
+    },
+    "processTime": "integer"
+  }
+}

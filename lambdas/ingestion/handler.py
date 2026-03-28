@@ -2,7 +2,7 @@ import json
 import boto3
 import requests
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import constants
 import logging
 from metrics import log_metric
