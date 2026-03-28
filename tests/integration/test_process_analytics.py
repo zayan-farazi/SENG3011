@@ -4,8 +4,9 @@ from unittest.mock import patch, Mock
 from lambdas.ingestion.handler import lambda_handler as ingestion_handler
 from lambdas.processing.handler import lambda_handler as processing_handler
 from lambdas.analytics.handler import lambda_handler as analytics_handler
-from test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_FILE, DATE_1
-from constants import DATE_FORMAT
+from lambdas.retrieval.handler import lambda_handler as retrieval_handler
+from test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
+from constants import DATE_FORMAT, STATUS_OK
 import boto3
 from datetime import datetime, timezone
 
@@ -69,3 +70,54 @@ def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,s
     # basic check for risk assessment output
     daily_events = [e for e in body["events"] if e["event_type"] == "daily_risk_assessment"]
     assert len(daily_events) >= 1
+
+
+
+@patch("lambdas.ingestion.handler.fetch_weather")
+@patch("lambdas.analytics.handler.requests.get")
+def test_processing_to_analytics_schema_break(mock_get, mock_fetch_weather, setup_s3):
+    s3 = setup_s3["s3"]
+    bucket = setup_s3["bucket"]
+
+    # ingestion normal
+    with open(RAW_WEATHER_DATA_H1) as f:
+        data = json.load(f)
+
+    data["currently"]["time"] = int(datetime.now(timezone.utc).timestamp())
+    mock_fetch_weather.return_value = json.dumps(data)
+
+    ingestion_handler({"pathParameters": {"hub_id": HUB_ID_1}}, None)
+
+    # processing runs
+    date_str = datetime.now(timezone.utc).strftime(DATE_FORMAT)
+    raw_key = f"raw/weather/{HUB_ID_1}/{date_str}.json"
+    raw = json.loads(s3.get_object(Bucket=bucket, Key=raw_key)["Body"].read())
+
+    processing_handler({"body": json.dumps(raw)}, None)
+
+    # break processed data after processing (simulate corruption)
+    processed_key = f"processed/weather/{HUB_ID_1}/{date_str}.json"
+    s3.put_object(
+        Bucket=bucket,
+        Key=processed_key,
+        Body=json.dumps({"invalid": "schema"}) 
+    )
+
+
+    retrieval_event = {
+        "rawPath": f"/raw/{HUB_ID_1}",
+        "pathParameters": {"hub_id": HUB_ID_1},
+        "queryStringParameters": {"date": date_str}
+    }
+    ret_resp = retrieval_handler(retrieval_event, None)
+    mock_resp = Mock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value =json.loads(ret_resp["body"])
+    mock_resp.text = json.dumps(json.loads(ret_resp["body"]))
+    mock_get.return_value = mock_resp
+
+    resp = analytics_handler({
+        "pathParameters": {"hub_id": HUB_ID_1},
+        "queryStringParameters": {"date": date_str}
+    }, None)
+    assert resp["statusCode"] != STATUS_OK
