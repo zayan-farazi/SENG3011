@@ -1,9 +1,9 @@
 import json
+import boto3
 from lambdas.processing.handler import lambda_handler
 from test_constants import TEST_BUCKET_NAME, HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, STATUS_INTERNAL_SERVER_ERROR, HUBS_FILE_KEY
 from unittest.mock import patch, Mock
-
 
 def _mock_retrieval_response():
     with open(RAW_WEATHER_DATA_H1, "r") as f:
@@ -14,11 +14,20 @@ def _mock_retrieval_response():
     mock_resp.text = json.dumps(data)
     return mock_resp
 
+def _create_location_item(lat, lon):
+    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    table = dynamodb.Table("locations")
+    table.put_item(Item={
+        "hub_id": HUB_ID_1,
+        "name": "Port of Singapore",
+        "lat_lon": f"{lat}:{lon}"
+    })
 
-def test_post_process_valid(setup_s3):
-    s3 = setup_s3
+def test_post_process_valid(setup_s3_dynamodb):
+    s3 = setup_s3_dynamodb
     with open(RAW_WEATHER_DATA_H1, "r") as f:
         pirate_raw = json.load(f)
+    _create_location_item(pirate_raw["latitude"], pirate_raw["longitude"])
     
     with open(PROCESSED_WEATHER_DATA_H1, "r") as f:
         expected = json.load(f)
@@ -30,20 +39,18 @@ def test_post_process_valid(setup_s3):
     processed_obj = s3.get_object(Bucket=TEST_BUCKET_NAME, Key= f"processed/weather/{HUB_ID_1}/{DATE_H1}.json")
     processed_data = json.loads(processed_obj['Body'].read().decode('utf-8'))
 
-    assert processed_data== expected
-    assert json.loads(json.loads(response["body"])["processed_data"])== expected
+    assert processed_data == expected
+    assert json.loads(json.loads(response["body"])["processed_data"]) == expected
 
 def test_missing_body_and_records():
     event = {}
     response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_BAD_REQUEST
 
-def test_hub_not_found(setup_s3):
+def test_hub_not_found(setup_s3_dynamodb):
     with open(RAW_WEATHER_DATA_H1, "r") as f:
         pirate_raw = json.load(f)
 
-    pirate_raw["latitude"] = 999
-    pirate_raw["longitude"] = 999
     event = {
         "body": json.dumps(pirate_raw)
     }
@@ -52,28 +59,6 @@ def test_hub_not_found(setup_s3):
 
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert "No hub found" in body["error"]
-
-
-def test_hubs_file_missing(setup_s3):
-    s3 = setup_s3
-    s3.delete_object(
-        Bucket=TEST_BUCKET_NAME,
-        Key="hubs.json"
-    )
-
-    with open(RAW_WEATHER_DATA_H1) as f:
-        pirate_raw = json.load(f)
-
-    event = {
-        "body": json.dumps(pirate_raw)
-    }
-
-    response = lambda_handler(event, None)
-
-    body = json.loads(response["body"])
-
-    assert response["statusCode"] == STATUS_INTERNAL_SERVER_ERROR
-    assert f"Error reading {HUBS_FILE_KEY}" in body["error"]
 
 def test_invalid_json_body():
     event = {
@@ -84,7 +69,6 @@ def test_invalid_json_body():
     body = json.loads(response["body"])
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert "Expecting value" in body["error"]
-
 
 def test_post_invalid_missing_top_key():
     # No "currently"
@@ -159,11 +143,12 @@ def test_post_invalid_hourly_time_type():
     assert "must be a number" in body["error"]
 
 @patch("lambdas.processing.handler.requests.get")
-def test_event_process_valid(mock_get, setup_s3):
-    s3 = setup_s3
+def test_event_process_valid(mock_get, setup_s3_dynamodb):
+    s3 = setup_s3_dynamodb
     mock_get.return_value = _mock_retrieval_response()
     with open(RAW_WEATHER_DATA_H1, "r") as f:
         pirate_raw = json.load(f)
+    _create_location_item(pirate_raw["latitude"], pirate_raw["longitude"])
     
     with open(PROCESSED_WEATHER_DATA_H1, "r") as f:
         expected = json.load(f)
@@ -198,10 +183,9 @@ def test_event_process_valid(mock_get, setup_s3):
     processed_data = json.loads(processed_obj['Body'].read().decode('utf-8'))
 
     assert expected == processed_data
-    
 
 @patch("lambdas.processing.handler.requests.get")
-def test_event_retrieval_404(mock_get, setup_s3):
+def test_event_retrieval_404(mock_get):
     mock_resp = Mock()
     mock_resp.status_code = STATUS_NOT_FOUND
     mock_resp.text = "not found"
@@ -225,9 +209,8 @@ def test_event_retrieval_404(mock_get, setup_s3):
     assert response[0]["status"] == "error"
     assert "Raw weather data not found" in response[0]["error"]
 
-
 @patch("lambdas.processing.handler.requests.get")
-def test_event_retrieval_service_error(mock_get, setup_s3):
+def test_event_retrieval_service_error(mock_get):
     mock_resp = Mock()
     mock_resp.status_code = 500
     mock_resp.text = "server error"
@@ -250,7 +233,6 @@ def test_event_retrieval_service_error(mock_get, setup_s3):
 
     assert response[0]["status"] == "error"
     assert "Retrieval service returned 500" in response[0]["error"]
-
 
 @patch("lambdas.processing.handler.requests.get")
 def test_invalid_s3_key(mock_get):
