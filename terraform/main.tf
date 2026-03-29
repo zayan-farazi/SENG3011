@@ -150,12 +150,12 @@ resource "aws_dynamodb_table_item" "hub_seed" {
   hash_key   = "hub_id"
 
   item = jsonencode({
-    hub_id  = each.key
-    lat_lon = "${each.value.lat}:${each.value.lon}"
-    name    = each.value.name
-    lat     = each.value.lat
-    lon     = each.value.lon
-    type    = "scheduled"
+    hub_id     = each.key
+    lat_lon    = "${each.value.lat}:${each.value.lon}"
+    name       = each.value.name
+    lat        = each.value.lat
+    lon        = each.value.lon
+    type       = "scheduled"
     created_at = timestamp()
   })
 
@@ -215,7 +215,7 @@ resource "aws_lambda_function" "retrieval" {
 
   environment {
     variables = {
-      DATA_BUCKET = aws_s3_bucket.seng_3011_bkt.bucket
+      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
       API_BASE_URL = local.api_base_url
     }
   }
@@ -241,8 +241,8 @@ resource "aws_lambda_function" "ingestion" {
 
   environment {
     variables = {
-      DATA_BUCKET = aws_s3_bucket.seng_3011_bkt.bucket
-      API_KEY     = var.pirate_weather_api_key
+      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
+      API_KEY      = var.pirate_weather_api_key
       API_BASE_URL = local.api_base_url
     }
   }
