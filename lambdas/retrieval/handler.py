@@ -2,12 +2,18 @@ import json
 import boto3
 import os
 import logging
+import requests
 from datetime import datetime
 import constants
 from lambdas.metrics import log_metric
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+def validate_hub_id(base_url, hub_id):
+    url = f"{base_url}/{constants.LOCATION_PATH}/{hub_id}"
+    response = requests.get(url, timeout=10)
+    return response.status_code == constants.STATUS_OK
 
 def lambda_handler(event, context):
     logger.info(f"Incoming retrieval request: event={event}")
@@ -36,13 +42,15 @@ def lambda_handler(event, context):
     try:
         datetime.strptime(date, constants.DATE_FORMAT)
 
-        logger.info(f"Looking up {constants.HUBS_FILE_KEY} in bucket={bucket_name}")
-        obj = s3.get_object(Bucket=bucket_name, Key=constants.HUBS_FILE_KEY)
-        hubs = json.loads(obj["Body"].read())
-        if hub_id not in hubs:
+        base_url = os.environ.get("API_BASE_URL")
+        if not base_url:
+            logger.error("Missing API_BASE_URL configuration")
+            return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing API_BASE_URL configuration"})
+
+        if not validate_hub_id(base_url, hub_id):
             logger.error(f"Invalid hub_id requested: {hub_id}")
             return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
-    
+
         if "raw" in path:
             key = f"raw/weather/{hub_id}/{date}.json"
         elif "processed" in path:

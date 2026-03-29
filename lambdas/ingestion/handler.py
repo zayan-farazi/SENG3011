@@ -14,6 +14,12 @@ def load_hubs(s3, bucket_name):
     s3_response = s3.get_object(Bucket=bucket_name, Key=constants.HUBS_FILE_KEY)
     return json.loads(s3_response["Body"].read().decode("utf-8"))
 
+def fetch_hub_info(base_url, hub_id):
+    url = f"{base_url}/{constants.LOCATION_PATH}/{hub_id}"
+    response = requests.get(url, timeout=10)
+    if response.status_code == constants.STATUS_OK:
+        return response.json()
+    return None
 
 def fetch_weather(lat, lon, api_key):
     url = f"https://api.pirateweather.net/forecast/{api_key}/{lat},{lon}"
@@ -42,7 +48,6 @@ def store_weather(s3, bucket_name, hub_id, date, weather_data):
     log_metric(constants.WEATHER_RECORDS_INGESTED, 1, constants.WEATHER_SERVICE)
 
 def lambda_handler(event, context):
-    logger.info(f"Incoming ingestion request: event={json.dumps(event)}")
     log_metric(constants.INGESTION_REQUESTS, 1, constants.WEATHER_SERVICE)
     s3 = boto3.client("s3")
     bucket_name = os.environ.get("DATA_BUCKET")
@@ -58,19 +63,27 @@ def lambda_handler(event, context):
 
     hub_id = event.get("pathParameters") or {}
     hub_id = hub_id.get("hub_id")
-    hubs = load_hubs(s3, bucket_name)
-    logger.info(f"Loaded {len(hubs)} hubs from {constants.HUBS_FILE_KEY} in DATA_BUCKET={bucket_name}")
 
     if hub_id:
-        if hub_id not in hubs:
+        logger.info(f"Ingestion for hub {hub_id} requested")
+        base_url = os.environ.get("API_BASE_URL")
+        if not base_url:
+            logger.error("Missing API_BASE_URL configuration")
+            return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing API_BASE_URL configuration"})
+
+        hub_info = fetch_hub_info(base_url, hub_id)
+        if not hub_info:
             logger.error(f"Invalid hub_id requested: {hub_id}")
             return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
-        hubs = {hub_id: hubs[hub_id]}
+        hubs = {hub_id: hub_info}
+    else:
+        hubs = load_hubs(s3, bucket_name)
+        logger.info(f"Automated ingestion triggered, loaded {len(hubs)} hubs from {constants.HUBS_FILE_KEY}")
 
     try:
         date = datetime.now().strftime(constants.DATE_FORMAT)
-        for hub_id, hub_data in hubs.items():
-            weather_data = fetch_weather(hub_data["lat"], hub_data["lon"], api_key)
+        for hub_id, hub_info in hubs.items():
+            weather_data = fetch_weather(hub_info["lat"], hub_info["lon"], api_key)
             store_weather(s3, bucket_name, hub_id, date, weather_data)
 
         return response(constants.STATUS_OK, {"message": "Success"})
