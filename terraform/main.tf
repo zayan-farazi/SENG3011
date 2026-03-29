@@ -133,9 +133,9 @@ resource "aws_dynamodb_table" "locations" {
 
   # GSI for lat/lon uniqueness
   global_secondary_index {
-    name               = "lat-lon-index"
-    hash_key           = "lat_lon"
-    projection_type    = "ALL"
+    name            = "lat-lon-index"
+    hash_key        = "lat_lon"
+    projection_type = "ALL"
   }
 
   tags = {
