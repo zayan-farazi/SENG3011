@@ -1,18 +1,16 @@
 import json
 import boto3
-import importlib
 from boto3.dynamodb.conditions import Key
 from constants import STATUS_OK, STATUS_BAD_REQUEST
-import lambdas.location.handler as handler
+from lambdas.location.handler import lambda_handler
 
 def test_location_create_success(setup_dynamodb):
-    importlib.reload(handler)
     event = {
         "httpMethod": "POST",
         "body": json.dumps({"lat": 1.234, "lon": 5.678, "name": "Port 1"}),
     }
 
-    response = handler.lambda_handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_OK
 
     body = json.loads(response["body"])
@@ -27,13 +25,12 @@ def test_location_create_success(setup_dynamodb):
     assert float(item["lon"]) == 5.678
 
 def test_existing_lat_lon_returns_same_hub(setup_dynamodb):
-    importlib.reload(handler)
     first_event = {
         "httpMethod": "POST",
         "body": json.dumps({"lat": 1.234, "lon": 5.678, "name": "Port 1"}),
     }
 
-    first_response = handler.lambda_handler(first_event, None)
+    first_response = lambda_handler(first_event, None)
     assert first_response["statusCode"] == STATUS_OK
     first_body = json.loads(first_response["body"])
 
@@ -42,7 +39,7 @@ def test_existing_lat_lon_returns_same_hub(setup_dynamodb):
         "body": json.dumps({"lat": 1.234, "lon": 5.678, "name": "Port 2"}),
     }
 
-    second_response = handler.lambda_handler(second_event, None)
+    second_response = lambda_handler(second_event, None)
     assert second_response["statusCode"] == STATUS_OK
     second_body = json.loads(second_response["body"])
     assert second_body["hub_id"] == first_body["hub_id"]
@@ -58,32 +55,29 @@ def test_existing_lat_lon_returns_same_hub(setup_dynamodb):
 
 
 def test_missing_name(setup_dynamodb):
-    importlib.reload(handler)
     event = {
         "httpMethod": "POST",
         "body": json.dumps({"lat": 1.234, "lon": 5.678}),
     }
 
-    response = handler.lambda_handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Missing required field name"}
 
 def test_missing_body(setup_dynamodb):
-    importlib.reload(handler)
     event = {"httpMethod": "POST"}
 
-    response = handler.lambda_handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Request body is required"}
 
 def test_invalid_name(setup_dynamodb):
-    importlib.reload(handler)
     event = {
         "httpMethod": "POST",
         "body": json.dumps({"lat": 1.234, "lon": 5.678, "name": "Bad!Name"}),
     }
 
-    response = handler.lambda_handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"])["error"] == (
         "Name can contain only letters, numbers, apostrophe, comma, dash, and spaces."

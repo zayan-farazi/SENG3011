@@ -1,9 +1,8 @@
 import json
 import boto3
-import importlib
 from decimal import Decimal
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND
-import lambdas.location.handler as handler
+from lambdas.location.handler import lambda_handler
 
 def test_location_get_success(setup_dynamodb):
     table = boto3.resource("dynamodb", region_name="us-east-1").Table("locations")
@@ -24,7 +23,7 @@ def test_location_get_success(setup_dynamodb):
         "pathParameters": {"hub_id": "LOC_123"},
     }
 
-    response = handler.lambda_handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_OK
     assert json.loads(response["body"]) == {
         "hub_id": "LOC_123",
@@ -43,7 +42,7 @@ def test_missing_hub_id(setup_dynamodb):
         "pathParameters": {},
     }
 
-    response = handler.lambda_handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {"error": "Missing hub_id"}
 
@@ -54,6 +53,6 @@ def test_invalid_hub_id(setup_dynamodb):
         "pathParameters": {"hub_id": "LOC_UNKNOWN"},
     }
 
-    response = handler.lambda_handler(event, None)
+    response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_NOT_FOUND
     assert json.loads(response["body"]) == {"error": "Invalid hub_id"}

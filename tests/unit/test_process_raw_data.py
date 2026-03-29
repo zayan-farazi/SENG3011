@@ -2,7 +2,7 @@ import json
 import boto3
 from lambdas.processing.handler import lambda_handler
 from test_constants import TEST_BUCKET_NAME, HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
-from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, STATUS_INTERNAL_SERVER_ERROR, HUBS_FILE_KEY
+from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND
 from unittest.mock import patch, Mock
 
 def _mock_retrieval_response():
