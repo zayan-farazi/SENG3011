@@ -7,11 +7,11 @@ from constants import HUBS_FILE_KEY, MODEL_S3_KEY
 from moto import mock_aws
 
 import io
-import joblib
+import joblib  # type: ignore[import-untyped]
 from sklearn.ensemble import RandomForestRegressor
 import numpy as np
 import tempfile
-import lambdas.analytics.handler as handler
+import lambdas.analytics.handler as handler  # type: ignore[import-untyped]
 
 def _create_dummy_model():
     np.random.seed(42)
