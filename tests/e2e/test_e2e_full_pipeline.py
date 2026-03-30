@@ -1,9 +1,9 @@
 import requests
 import os
 import json
-from test_constants import HUB_ID_1, HUB_INVALID, DATE_2
+from test_constants import HUB_ID_1
 from datetime import datetime, timezone, timedelta
-from constants import STATUS_OK, DATE_FORMAT, STATUS_BAD_REQUEST, RISK_LOCATION_PATH, INGEST_WEATHER_PATH, RETRIEVE_PROCESSED_WEATHER_PATH, RETRIEVE_RAW_WEATHER_PATH, PROCESS_WEATHER_PATH
+from constants import STATUS_OK, DATE_FORMAT, RISK_LOCATION_PATH, INGEST_WEATHER_PATH, RETRIEVE_PROCESSED_WEATHER_PATH, RETRIEVE_RAW_WEATHER_PATH, PROCESS_WEATHER_PATH
 BASE_URL = os.environ["DEV_BASE_URL"]
 
 def test_e2e_full_pipeline():

@@ -4,7 +4,7 @@ import os
 import requests
 from test_constants import HUB_ID_1, DATE_3, RAW_WEATHER_DATA_H1
 from datetime import datetime, timezone
-from constants import STATUS_OK, STATUS_BAD_REQUEST, RETRIEVE_PROCESSED_WEATHER_PATH, PROCESS_WEATHER_PATH, INGEST_WEATHER_PATH, RETRIEVE_RAW_WEATHER_PATH
+from constants import STATUS_OK, RETRIEVE_PROCESSED_WEATHER_PATH, PROCESS_WEATHER_PATH, INGEST_WEATHER_PATH, RETRIEVE_RAW_WEATHER_PATH
 from .schemas.processed_data_schema import PROCESSED_DATA_SCHEMA, PROCESSING_API_SCHEMA
 from .schemas.raw_weather_schema import RAW_WEATHER_SCHEMA
 

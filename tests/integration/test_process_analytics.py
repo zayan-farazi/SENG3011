@@ -7,8 +7,7 @@ from lambdas.analytics.handler import lambda_handler as analytics_handler
 from lambdas.retrieval.handler import lambda_handler as retrieval_handler
 from test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
 from constants import DATE_FORMAT, STATUS_OK, RETRIEVE_PROCESSED_WEATHER_PATH
-import boto3
-from datetime import datetime, timezone
+from datetime import timezone
 
 def _mock_requests(mock_get, payload, status=200):
     mock_resp = Mock()

@@ -8,8 +8,7 @@ from lambdas.retrieval.handler import lambda_handler as retrieval_handler
 
 from test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
 from constants import DATE_FORMAT, RETRIEVE_PROCESSED_WEATHER_PATH, STATUS_OK, STATUS_BAD_REQUEST, STATUS_INTERNAL_SERVER_ERROR
-import boto3
-from datetime import datetime, timezone
+from datetime import timezone
 
 @patch("lambdas.ingestion.handler.fetch_weather")
 def test_ingestion_to_processing_success(mock_fetch_weather, setup_s3):
@@ -128,8 +127,6 @@ def test_process_bad_data_ingested(mock_fetch_weather, setup_s3):
 
 @patch("lambdas.ingestion.handler.fetch_weather")
 def test_processing_missing_env_config(mock_fetch_weather, setup_s3):
-    s3 = setup_s3["s3"]
-    bucket = setup_s3["bucket"]
 
     with open(RAW_WEATHER_DATA_H1) as f:
         data = json.load(f)
