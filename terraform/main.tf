@@ -168,6 +168,10 @@ resource "aws_lambda_function" "retrieval" {
     }
   }
 
+  tracing_config {
+    mode = "Active"
+  }
+
   tags = {
     Environment = "dev"
     Project     = "seng3011"
@@ -188,6 +192,10 @@ resource "aws_lambda_function" "ingestion" {
       DATA_BUCKET = aws_s3_bucket.seng_3011_bkt.bucket
       API_KEY     = var.pirate_weather_api_key
     }
+  }
+
+  tracing_config {
+    mode = "Active"
   }
 
   tags = {
@@ -212,6 +220,10 @@ resource "aws_lambda_function" "processing" {
     }
   }
 
+  tracing_config {
+    mode = "Active"
+  }
+
   tags = {
     Environment = "dev"
     Project     = "seng3011"
@@ -234,6 +246,10 @@ resource "aws_lambda_function" "analytics" {
       API_BASE_URL   = local.api_base_url
       RISK_MODEL_KEY = local.model_s3_key
     }
+  }
+
+  tracing_config {
+    mode = "Active"
   }
 
   tags = {

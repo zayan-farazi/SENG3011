@@ -70,7 +70,7 @@ def test_lambda_handler_missing_api_key():
     result = lambda_handler({}, None)
 
     assert result["statusCode"] == STATUS_INTERNAL_SERVER_ERROR
-    assert json.loads(result["body"])["error"] == "Missing API key"
+    assert json.loads(result["body"])["error"] == "Missing PirateWeather API key"
 
 @patch.dict(os.environ, {"DATA_BUCKET": "", "API_KEY": "test"})
 def test_lambda_handler_missing_bucket():
