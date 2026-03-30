@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 from lambdas.ingestion.handler import lambda_handler as ingestion_handler
 from lambdas.retrieval.handler import lambda_handler as retrieval_handler
-from constants import DATE_FORMAT, STATUS_OK, STATUS_INTERNAL_SERVER_ERROR, STATUS_NOT_FOUND
+from constants import DATE_FORMAT, STATUS_OK, STATUS_NOT_FOUND
 from test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
 
 @patch("lambdas.ingestion.handler.fetch_weather")
@@ -94,4 +94,4 @@ def test_ingestion_then_retrieval_not_found(mock_fetch_weather, setup_s3):
     }
 
     resp = retrieval_handler(retrieval_event, None)
-    assert resp["statusCode"] in (STATUS_INTERNAL_SERVER_ERROR, STATUS_NOT_FOUND)
+    assert resp["statusCode"] == STATUS_NOT_FOUND

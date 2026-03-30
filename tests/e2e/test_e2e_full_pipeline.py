@@ -1,7 +1,7 @@
 import requests
 import os
 import json
-from test_constants import HUB_ID_1
+from tests.test_constants import HUB_ID_1
 from datetime import datetime, timezone, timedelta
 from constants import STATUS_OK, DATE_FORMAT, RISK_LOCATION_PATH, INGEST_WEATHER_PATH, RETRIEVE_PROCESSED_WEATHER_PATH, RETRIEVE_RAW_WEATHER_PATH, PROCESS_WEATHER_PATH
 BASE_URL = os.environ["DEV_BASE_URL"]
