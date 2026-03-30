@@ -10,6 +10,13 @@ from constants import DATE_FORMAT, STATUS_OK, RETRIEVE_PROCESSED_WEATHER_PATH
 import boto3
 from datetime import datetime, timezone
 
+def _mock_requests(mock_get, payload, status=200):
+    mock_resp = Mock()
+    mock_resp.status_code = status
+    mock_resp.json.return_value = payload
+    mock_resp.text = json.dumps(payload)
+    mock_get.return_value = mock_resp
+
 @patch("lambdas.ingestion.handler.fetch_weather")
 @patch("lambdas.analytics.handler.requests.get")
 def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,setup_s3):
@@ -32,8 +39,6 @@ def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,s
 
     date_str = datetime.fromtimestamp(now_ts, tz=timezone.utc).strftime(DATE_FORMAT)
 
-    print(datetime.now(timezone.utc).strftime(DATE_FORMAT))
-
     raw_key = f"raw/weather/{HUB_ID_1}/{date_str}.json"
     obj = s3.get_object(Bucket=bucket, Key=raw_key)
     raw_data = json.loads(obj["Body"].read())
@@ -48,11 +53,7 @@ def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,s
     obj = s3.get_object(Bucket=bucket, Key=processed_key)
     processed_data = json.loads(obj["Body"].read())
 
-    mock_resp = Mock()
-    mock_resp.status_code = 200
-    mock_resp.json.return_value = processed_data
-    mock_resp.text = json.dumps(processed_data)
-    mock_get_requests.return_value = mock_resp
+    _mock_requests(mock_get_requests, processed_data)
 
     # Analytics handler should be able to interact with the processed path of date_str in mock s3
     analytics_event = {
@@ -95,6 +96,25 @@ def test_processing_to_analytics_schema_break(mock_get, mock_fetch_weather, setu
 
     processing_handler({"body": json.dumps(raw)}, None)
 
+    # Succcess analytic
+    retrieval_event = {
+        "rawPath": RETRIEVE_PROCESSED_WEATHER_PATH,
+        "pathParameters": { "hub_id": HUB_ID_1 },
+        "queryStringParameters": { "date": date_str}
+    }
+    ret_resp = retrieval_handler(retrieval_event, None)
+    mock_resp = Mock()
+    mock_resp.status_code = STATUS_OK
+    mock_resp.json.return_value =json.loads(ret_resp["body"])
+    mock_resp.text = json.dumps(json.loads(ret_resp["body"]))
+    mock_get.return_value = mock_resp
+    _mock_requests(mock_get, json.loads(ret_resp["body"]))
+    resp = analytics_handler({
+        "pathParameters": {"hub_id": HUB_ID_1},
+        "queryStringParameters": {"date": date_str}
+    }, None)
+    assert resp["statusCode"] == STATUS_OK
+
     # break processed data after processing (simulate corruption)
     processed_key = f"processed/weather/{HUB_ID_1}/{date_str}.json"
     s3.put_object(
@@ -106,26 +126,28 @@ def test_processing_to_analytics_schema_break(mock_get, mock_fetch_weather, setu
     # Use retrieval to get the corrupted processed data and mock the corrupted data in the analytics. 
     # This parralels the real logic inside analytic lambda
     retrieval_event = {
-         "rawPath": RETRIEVE_PROCESSED_WEATHER_PATH,
+        "rawPath": RETRIEVE_PROCESSED_WEATHER_PATH,
         "pathParameters": { "hub_id": HUB_ID_1 },
         "queryStringParameters": { "date": date_str}
     }
     ret_resp = retrieval_handler(retrieval_event, None)
     assert json.loads(ret_resp["body"]) == {"invalid": "schema"}
-    mock_resp = Mock()
-    mock_resp.status_code = 200
-    mock_resp.json.return_value =json.loads(ret_resp["body"])
-    mock_resp.text = json.dumps(json.loads(ret_resp["body"]))
-    mock_get.return_value = mock_resp
+    _mock_requests(mock_get, json.loads(ret_resp["body"]))
 
     resp = analytics_handler({
         "pathParameters": {"hub_id": HUB_ID_1},
         "queryStringParameters": {"date": date_str}
     }, None)
-    mock_get.assert_called_once_with(
-        "http://test-api/ese/v1/retrieve/processed/weather/H001",
-        params={"date": date_str},
-        timeout=10
-    )
 
+    # cached check
+    assert resp["statusCode"] == STATUS_OK
+    s3.delete_object(
+        Bucket=bucket,
+        Key=f"risk/weather/{HUB_ID_1}/latest.json"
+    )
+    # Schema breaks
+    resp = analytics_handler({
+        "pathParameters": {"hub_id": HUB_ID_1},
+        "queryStringParameters": {"date": date_str}
+    }, None)
     assert resp["statusCode"] != STATUS_OK

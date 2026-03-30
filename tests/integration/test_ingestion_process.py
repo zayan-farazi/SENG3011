@@ -7,7 +7,7 @@ from lambdas.processing.handler import lambda_handler as processing_handler
 from lambdas.retrieval.handler import lambda_handler as retrieval_handler
 
 from test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
-from constants import DATE_FORMAT, RETRIEVE_PROCESSED_WEATHER_PATH, STATUS_OK
+from constants import DATE_FORMAT, RETRIEVE_PROCESSED_WEATHER_PATH, STATUS_OK, STATUS_BAD_REQUEST, STATUS_INTERNAL_SERVER_ERROR
 import boto3
 from datetime import datetime, timezone
 
@@ -122,7 +122,7 @@ def test_process_bad_data_ingested(mock_fetch_weather, setup_s3):
     resp = processing_handler({"body": json.dumps(raw_data)}, None)
 
     # Bad data ingested by ingestion can cause error to the processing, if the data is forwarded to the processing lambda.
-    assert resp["statusCode"] == 400
+    assert resp["statusCode"] == STATUS_BAD_REQUEST
 
 
 
@@ -141,4 +141,4 @@ def test_processing_missing_env_config(mock_fetch_weather, setup_s3):
 
     os.environ.pop("DATA_BUCKET", "new")
     resp = processing_handler({"body": json.dumps(data)}, None)
-    assert resp["statusCode"] == 500
+    assert resp["statusCode"] == STATUS_INTERNAL_SERVER_ERROR
