@@ -1,7 +1,7 @@
 import requests
 import os
 from jsonschema import validate
-from test_constants import HUB_ID_1, DATE_2
+from tests.test_constants import HUB_ID_1, DATE_2
 from constants import STATUS_OK, RISK_LOCATION_PATH
 from .schemas.analytic_schema import ANALYTICS_API_SCHEMA
 

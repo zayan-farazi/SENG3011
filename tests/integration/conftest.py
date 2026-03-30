@@ -2,7 +2,7 @@ import pytest
 import boto3
 import json
 import os
-from test_constants import TEST_BUCKET_NAME, TEST_API_KEY, TEST_BASE_URL
+from tests.test_constants import TEST_BUCKET_NAME, TEST_API_KEY, TEST_BASE_URL
 from constants import HUBS_FILE_KEY, MODEL_S3_KEY
 from moto import mock_aws
 

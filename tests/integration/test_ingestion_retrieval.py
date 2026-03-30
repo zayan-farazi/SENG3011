@@ -4,7 +4,7 @@ from unittest.mock import patch
 from lambdas.ingestion.handler import lambda_handler as ingestion_handler
 from lambdas.retrieval.handler import lambda_handler as retrieval_handler
 from constants import DATE_FORMAT, STATUS_OK, STATUS_NOT_FOUND
-from test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
+from tests.test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
 
 @patch("lambdas.ingestion.handler.fetch_weather")
 def test_ingestion_then_retrieval(mock_get, setup_s3):

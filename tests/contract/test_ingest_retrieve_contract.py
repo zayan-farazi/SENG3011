@@ -2,7 +2,7 @@ import requests
 import os
 from jsonschema import validate
 from datetime import datetime, timezone
-from test_constants import HUB_ID_1
+from tests.test_constants import HUB_ID_1
 from constants import STATUS_OK, INGEST_WEATHER_PATH, DATE_FORMAT, RETRIEVE_RAW_WEATHER_PATH
 from .schemas.raw_weather_schema import RAW_WEATHER_SCHEMA, INGESTION_API_SCHEMA
 

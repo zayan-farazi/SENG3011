@@ -1,7 +1,7 @@
 import requests
 import os
 from datetime import datetime, timezone
-from test_constants import HUB_ID_1, HUB_INVALID
+from tests.test_constants import HUB_ID_1, HUB_INVALID
 from constants import STATUS_OK, STATUS_BAD_REQUEST, INGEST_WEATHER_PATH, DATE_FORMAT, RETRIEVE_RAW_WEATHER_PATH
 
 BASE_URL = os.environ["DEV_BASE_URL"]

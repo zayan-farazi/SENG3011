@@ -5,7 +5,7 @@ from lambdas.ingestion.handler import lambda_handler as ingestion_handler
 from lambdas.processing.handler import lambda_handler as processing_handler
 from lambdas.analytics.handler import lambda_handler as analytics_handler
 from lambdas.retrieval.handler import lambda_handler as retrieval_handler
-from test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
+from tests.test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
 from constants import DATE_FORMAT, STATUS_OK, RETRIEVE_PROCESSED_WEATHER_PATH
 from datetime import timezone
 
