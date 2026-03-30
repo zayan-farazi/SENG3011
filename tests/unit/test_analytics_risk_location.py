@@ -67,7 +67,7 @@ def _mock_retrieval_response():
     with open(PROCESSED_WEATHER_DATA_FILE, "r") as f:
         data = json.load(f)
     mock_resp = Mock()
-    mock_resp.status_code = 200
+    mock_resp.status_code = STATUS_OK
     mock_resp.json.return_value = data
     mock_resp.text = json.dumps(data)
     return mock_resp

@@ -9,7 +9,7 @@ from test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
 from constants import DATE_FORMAT, STATUS_OK, RETRIEVE_PROCESSED_WEATHER_PATH
 from datetime import timezone
 
-def _mock_requests(mock_get, payload, status=200):
+def _mock_requests(mock_get, payload, status=STATUS_OK):
     mock_resp = Mock()
     mock_resp.status_code = status
     mock_resp.json.return_value = payload
@@ -32,7 +32,7 @@ def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,s
     ingestion_event = {"pathParameters": {"hub_id": HUB_ID_1}}
     ingestion_resp = ingestion_handler(ingestion_event, None)
     ingestion_body = json.loads(ingestion_resp["body"])
-    assert ingestion_resp["statusCode"] == 200
+    assert ingestion_resp["statusCode"] == STATUS_OK
     assert ingestion_body["message"] == "Success"
 
 
@@ -45,8 +45,7 @@ def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,s
 
     processing_event = {"body": json.dumps(raw_data)}
     processing_resp = processing_handler(processing_event, None)
-    assert processing_resp["statusCode"] == 200
-    print(date_str)
+    assert processing_resp["statusCode"] == STATUS_OK
 
     processed_key = f"processed/weather/{HUB_ID_1}/{date_str}.json"
     obj = s3.get_object(Bucket=bucket, Key=processed_key)
@@ -60,8 +59,7 @@ def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,s
         "queryStringParameters": {"date": date_str},
     }
     analytics_resp = analytics_handler(analytics_event, None)
-    print(analytics_resp)
-    assert analytics_resp["statusCode"] == 200
+    assert analytics_resp["statusCode"] == STATUS_OK
 
     body = json.loads(analytics_resp["body"])
     assert "events" in body

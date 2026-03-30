@@ -10,7 +10,7 @@ from .schemas.raw_weather_schema import RAW_WEATHER_SCHEMA
 
 BASE_URL = os.environ["DEV_BASE_URL"]
 
-def test_process_raw_contract():
+def test_valid_process_retrieval_contract():
     url_process = f"{BASE_URL}/{PROCESS_WEATHER_PATH}"
 
     with open(RAW_WEATHER_DATA_H1, "r") as f:

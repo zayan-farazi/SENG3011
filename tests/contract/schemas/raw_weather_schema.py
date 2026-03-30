@@ -1,3 +1,16 @@
+INGESTION_API_SCHEMA = {
+    "type": "object",
+    "required": ["message"],
+    "properties": {
+        "message": {
+            "type": "string",
+            "enum": ["Success"]   
+        }
+    },
+    "additionalProperties": False
+}
+
+
 RAW_WEATHER_SCHEMA = {
     "type": "object",
     "properties": {

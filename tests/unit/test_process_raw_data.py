@@ -1,7 +1,7 @@
 import json
 from lambdas.processing.handler import lambda_handler
 from test_constants import TEST_BUCKET_NAME, HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
-from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND
+from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, STATUS_INTERNAL_SERVER_ERROR
 from unittest.mock import patch, Mock
 
 
@@ -9,7 +9,7 @@ def _mock_retrieval_response():
     with open(RAW_WEATHER_DATA_H1, "r") as f:
         data = json.load(f)
     mock_resp = Mock()
-    mock_resp.status_code = 200
+    mock_resp.status_code = STATUS_OK
     mock_resp.json.return_value = data
     mock_resp.text = json.dumps(data)
     return mock_resp
@@ -82,7 +82,7 @@ def test_invalid_json_body():
 
     response = lambda_handler(event, None)
     body = json.loads(response["body"])
-    assert response["statusCode"] == 400
+    assert response["statusCode"] == STATUS_BAD_REQUEST
     assert "Expecting value" in body["error"]
 
 
@@ -228,7 +228,7 @@ def test_event_retrieval_404(mock_get, setup_s3):
 @patch("lambdas.processing.handler.requests.get")
 def test_event_retrieval_service_error(mock_get, setup_s3):
     mock_resp = Mock()
-    mock_resp.status_code = 500
+    mock_resp.status_code = STATUS_INTERNAL_SERVER_ERROR
     mock_resp.text = "server error"
     mock_get.return_value = mock_resp
 

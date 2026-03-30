@@ -20,7 +20,8 @@ def test_ingestion_to_processing_success(mock_fetch_weather, setup_s3):
     mock_fetch_weather.return_value = json.dumps(data)
 
     # use ingestion to store data in s3
-    ingestion_handler({"pathParameters": {"hub_id": HUB_ID_1}}, None)
+    resp = ingestion_handler({"pathParameters": {"hub_id": HUB_ID_1}}, None)
+    assert resp["statusCode"] == STATUS_OK
 
     date_str = datetime.now(timezone.utc).strftime(DATE_FORMAT)
     raw_key = f"raw/weather/{HUB_ID_1}/{date_str}.json"
@@ -29,7 +30,7 @@ def test_ingestion_to_processing_success(mock_fetch_weather, setup_s3):
     raw_obj = s3.get_object(Bucket=bucket, Key=raw_key)
     raw_data = json.loads(raw_obj["Body"].read())
     resp = processing_handler({"body": json.dumps(raw_data)}, None)
-    assert resp["statusCode"] == 200
+    assert resp["statusCode"] == STATUS_OK
     processed_key = f"processed/weather/{HUB_ID_1}/{DATE_H1}.json"
     processed_obj = s3.get_object(Bucket=bucket, Key=processed_key)
 
@@ -84,7 +85,8 @@ def test_processing_multiple_overwrite(mock_fetch_weather, setup_s3):
     raw_data["hourly"]["data"][0]["temperature"] += 10
 
     # second processing
-    processing_handler({"body": json.dumps(raw_data)}, None)
+    resp = processing_handler({"body": json.dumps(raw_data)}, None)
+    assert resp["statusCode"] == STATUS_OK
 
     second = json.loads(
         s3.get_object(Bucket=bucket, Key=processed_key)["Body"].read()
