@@ -8,10 +8,10 @@ from moto import mock_aws
 
 import io
 import joblib  # type: ignore[import-untyped]
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor # type: ignore[import-untyped]
 import numpy as np
 import tempfile
-import lambdas.analytics.handler as handler  # type: ignore[import-untyped]
+import lambdas.analytics.handler as handler  
 
 def _create_dummy_model():
     np.random.seed(42)
