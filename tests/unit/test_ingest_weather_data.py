@@ -1,9 +1,9 @@
 import os
 import json
 from unittest.mock import patch, Mock
-from datetime import datetime
-from test_constants import TEST_BUCKET_NAME, HUB_ID_1
-from constants import DATE_FORMAT, STATUS_OK, STATUS_INTERNAL_SERVER_ERROR, STATUS_NOT_FOUND, STATUS_BAD_REQUEST
+from datetime import datetime, timezone
+from tests.test_constants import TEST_BUCKET_NAME, HUB_ID_1
+from constants import DATE_FORMAT, STATUS_OK, STATUS_BAD_REQUEST, STATUS_INTERNAL_SERVER_ERROR, STATUS_NOT_FOUND
 
 os.environ["API_KEY"] = "test"
 from lambdas.ingestion.handler import lambda_handler
@@ -25,7 +25,7 @@ def test_lambda_handler_success_single_hub(mock_fetch, mock_get, setup_s3):
 
     assert result["statusCode"] == STATUS_OK
 
-    today = datetime.now().strftime(DATE_FORMAT)
+    today = datetime.now(timezone.utc).strftime(DATE_FORMAT)
  
     obj = setup_s3.get_object(
         Bucket=TEST_BUCKET_NAME,

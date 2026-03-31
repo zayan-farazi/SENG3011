@@ -1,7 +1,7 @@
 import json
 from unittest.mock import patch, Mock
 from lambdas.retrieval.handler import lambda_handler
-from test_constants import TEST_BUCKET_NAME, HUB_ID_1, HUB_INVALID, DATE_1, DATE_INVALID, PROCESSED_WEATHER_DATA_FILE
+from tests.test_constants import TEST_BUCKET_NAME, HUB_ID_1, HUB_INVALID, DATE_1, DATE_INVALID, PROCESSED_WEATHER_DATA_FILE
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, RETRIEVE_PROCESSED_WEATHER_PATH
 
 @patch("lambdas.retrieval.handler.requests.get")

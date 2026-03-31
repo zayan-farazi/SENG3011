@@ -12,7 +12,7 @@ import boto3
 
 from lambdas.analytics.handler import lambda_handler
 import lambdas.analytics.handler as handler
-from test_constants import (
+from tests.test_constants import (
     TEST_BUCKET_NAME, HUB_ID_1, HUB_INVALID, PROCESSED_WEATHER_DATA_FILE,
 )
 from constants import (

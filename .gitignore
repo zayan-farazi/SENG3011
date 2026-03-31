@@ -19,6 +19,8 @@ terraform.rc
 terraform/AWSCLIV2.pkg
 AWSCLIV2.pkg
 
+htmlcov/
+reports/
 .coverage
 coverage.xml
 __pycache__/
