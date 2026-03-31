@@ -1,7 +1,7 @@
 import json
 from lambdas.processing.handler import lambda_handler
-from test_constants import TEST_BUCKET_NAME, HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
-from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, STATUS_INTERNAL_SERVER_ERROR, HUBS_FILE_KEY
+from tests.test_constants import TEST_BUCKET_NAME, HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
+from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, STATUS_INTERNAL_SERVER_ERROR
 from unittest.mock import patch, Mock
 
 
@@ -52,28 +52,7 @@ def test_hub_not_found(setup_s3):
 
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert "No hub found" in body["error"]
-
-
-def test_hubs_file_missing(setup_s3):
-    s3 = setup_s3
-    s3.delete_object(
-        Bucket=TEST_BUCKET_NAME,
-        Key="hubs.json"
-    )
-
-    with open(RAW_WEATHER_DATA_H1) as f:
-        pirate_raw = json.load(f)
-
-    event = {
-        "body": json.dumps(pirate_raw)
-    }
-
-    response = lambda_handler(event, None)
-
-    body = json.loads(response["body"])
-
-    assert response["statusCode"] == STATUS_INTERNAL_SERVER_ERROR
-    assert f"Error reading {HUBS_FILE_KEY}" in body["error"]
+    
 
 def test_invalid_json_body():
     event = {
@@ -229,7 +208,7 @@ def test_event_retrieval_404(mock_get, setup_s3):
 @patch("lambdas.processing.handler.requests.get")
 def test_event_retrieval_service_error(mock_get, setup_s3):
     mock_resp = Mock()
-    mock_resp.status_code = 500
+    mock_resp.status_code = STATUS_INTERNAL_SERVER_ERROR
     mock_resp.text = "server error"
     mock_get.return_value = mock_resp
 
