@@ -5,6 +5,7 @@ import logging
 import requests
 import os
 import constants
+from boto3.dynamodb.conditions import Key
 from lambdas.metrics import log_metric
 
 PROCESSED_KEY = "processed/weather"
@@ -57,21 +58,22 @@ def check_raw_format(body):
 
 def get_hub_info_from_pos(lat, lon):
     logger.info(f"Lookup hub by coordinates lat={lat}, lon={lon}")
-    s3_client = boto3.client("s3")
-    bucket_name = os.environ.get("DATA_BUCKET")
-    try:
-        response_obj = s3_client.get_object(Bucket=bucket_name, Key=constants.HUBS_FILE_KEY)
-        content = json.loads(response_obj["Body"].read().decode("utf-8"))
-        for hub, hub_info in content.items():
-            if (str(hub_info["lon"])) == str(lon) and str((hub_info["lat"])) == str(lat):
-                logger.info(f"Found hub_id={hub} for lat={lat}, lon={lon}")
-                return {"hub_id": hub, "hub_name": hub_info["name"]}
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    dynamodb = boto3.resource("dynamodb", region_name=region)
+    table = dynamodb.Table("locations")
+
+    query_result = table.query(
+        IndexName="lat-lon-index",
+        KeyConditionExpression=Key("lat_lon").eq(f"{lat}:{lon}")
+    )
+    if not query_result["Items"]:
         raise ValueError(f"No hub found for lat={lat}, lon={lon}")
-    except ValueError:
-        raise
-    except Exception:
-        logger.exception(f"Error reading {constants.HUBS_FILE_KEY} from {bucket_name}")
-        raise RuntimeError(f"Error reading {constants.HUBS_FILE_KEY} from {bucket_name}")
+
+    hub_item = query_result["Items"][0]
+    hub_id = hub_item["hub_id"]
+    hub_name = hub_item.get("name")
+    logger.info(f"Found hub_id={hub_id} for lat={lat}, lon={lon}")
+    return {"hub_id": hub_id, "hub_name": hub_name}
 
 def convert_unix_to_utc(timestamp):
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

@@ -45,6 +45,8 @@ locals {
   seeded_date               = "10-03-2026"
   daily_ingestion_rule_name = "weather-ingestion-daily-all-hubs"
 
+  hub_items = jsondecode(file("${path.module}/../hubs.json"))
+
   retrieval_lambda_name  = "weather-retrieval-handler"
   ingestion_lambda_name  = "weather-ingestion-handler"
   processing_lambda_name = "weather-processing-handler"
@@ -102,7 +104,7 @@ data "aws_iam_role" "lab_role" {
 }
 
 ############################
-# S3 bucket and seed data
+# S3 bucket, DynamoDB table and seed data
 ############################
 
 resource "aws_s3_bucket" "seng_3011_bkt" {
@@ -111,6 +113,55 @@ resource "aws_s3_bucket" "seng_3011_bkt" {
   tags = {
     Name        = var.data_bucket_name
     Environment = "dev"
+  }
+}
+
+resource "aws_dynamodb_table" "locations" {
+  name         = "locations"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "hub_id"
+
+  attribute {
+    name = "hub_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "lat_lon"
+    type = "S"
+  }
+
+  # GSI for lat/lon uniqueness
+  global_secondary_index {
+    name            = "lat-lon-index"
+    hash_key        = "lat_lon"
+    projection_type = "ALL"
+  }
+
+  tags = {
+    Name        = "locations"
+    Environment = "dev"
+  }
+}
+
+resource "aws_dynamodb_table_item" "hub_seed" {
+  for_each   = local.hub_items
+  table_name = aws_dynamodb_table.locations.name
+  hash_key   = "hub_id"
+
+  item = jsonencode({
+    hub_id     = each.key
+    lat_lon    = "${each.value.lat}:${each.value.lon}"
+    name       = each.value.name
+    lat        = each.value.lat
+    lon        = each.value.lon
+    type       = "scheduled"
+    created_at = timestamp()
+  })
+
+  # Ignore changes to avoid errors if the item already exists
+  lifecycle {
+    ignore_changes = [item]
   }
 }
 
@@ -164,7 +215,8 @@ resource "aws_lambda_function" "retrieval" {
 
   environment {
     variables = {
-      DATA_BUCKET = aws_s3_bucket.seng_3011_bkt.bucket
+      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL = local.api_base_url
     }
   }
 
@@ -189,8 +241,9 @@ resource "aws_lambda_function" "ingestion" {
 
   environment {
     variables = {
-      DATA_BUCKET = aws_s3_bucket.seng_3011_bkt.bucket
-      API_KEY     = var.pirate_weather_api_key
+      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
+      API_KEY      = var.pirate_weather_api_key
+      API_BASE_URL = local.api_base_url
     }
   }
 

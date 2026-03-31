@@ -1,16 +1,20 @@
 import os
 import json
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from datetime import datetime, timezone
 from tests.test_constants import TEST_BUCKET_NAME, HUB_ID_1
-from constants import DATE_FORMAT, STATUS_OK, STATUS_BAD_REQUEST, STATUS_INTERNAL_SERVER_ERROR
+from constants import DATE_FORMAT, STATUS_OK, STATUS_BAD_REQUEST, STATUS_INTERNAL_SERVER_ERROR, STATUS_NOT_FOUND
 
 os.environ["API_KEY"] = "test"
 from lambdas.ingestion.handler import lambda_handler
 
+@patch("lambdas.ingestion.handler.requests.get")
 @patch("lambdas.ingestion.handler.fetch_weather")
-def test_lambda_handler_success_single_hub(mock_fetch, setup_s3):
-
+def test_lambda_handler_success_single_hub(mock_fetch, mock_get, setup_s3):
+    mock_hub_resp = Mock()
+    mock_hub_resp.status_code = STATUS_OK
+    mock_hub_resp.json.return_value = {"hub_id": HUB_ID_1, "lat": 1.264, "lon": 103.820}
+    mock_get.return_value = mock_hub_resp
     mock_fetch.return_value = '{"temperature":25}'
 
     event = {
@@ -35,7 +39,6 @@ def test_lambda_handler_success_single_hub(mock_fetch, setup_s3):
 
 @patch("lambdas.ingestion.handler.fetch_weather")
 def test_lambda_handler_all_hubs(mock_fetch, setup_s3):
-
     mock_fetch.return_value = '{"temperature":25}'
 
     event = {}
@@ -53,7 +56,11 @@ def test_lambda_handler_all_hubs(mock_fetch, setup_s3):
     assert len(objects["Contents"]) > 0
 
 
-def test_lambda_handler_invalid_hub(setup_s3):
+@patch("lambdas.ingestion.handler.requests.get")
+def test_lambda_handler_invalid_hub(mock_get, setup_s3):
+    mock_resp = Mock()
+    mock_resp.status_code = STATUS_NOT_FOUND
+    mock_get.return_value = mock_resp
 
     event = {
         "pathParameters": {"hub_id": "invalid_hub"}
