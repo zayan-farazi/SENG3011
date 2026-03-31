@@ -29,7 +29,6 @@ def test_existing_lat_lon_returns_same_hub(setup_dynamodb):
         "httpMethod": "POST",
         "body": json.dumps({"lat": 1.234, "lon": 5.678, "name": "Port 1"}),
     }
-
     first_response = lambda_handler(first_event, None)
     assert first_response["statusCode"] == STATUS_OK
     first_body = json.loads(first_response["body"])
@@ -38,7 +37,6 @@ def test_existing_lat_lon_returns_same_hub(setup_dynamodb):
         "httpMethod": "POST",
         "body": json.dumps({"lat": 1.234, "lon": 5.678, "name": "Port 2"}),
     }
-
     second_response = lambda_handler(second_event, None)
     assert second_response["statusCode"] == STATUS_OK
     second_body = json.loads(second_response["body"])

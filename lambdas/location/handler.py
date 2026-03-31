@@ -24,9 +24,9 @@ def response(status, body):
 
 def create_dynamic_hub(table, lat, lon, name):
     # normalise lat/lon to always be 3dp (to help check uniqueness)
-    lat = round(lat, 3)
-    lon = round(lon, 3)
-    lat_lon = f"{lat}:{lon}"
+    lat = round(float(lat), 3)
+    lon = round(float(lon), 3)
+    lat_lon = f"{lat:.3f}:{lon:.3f}"
 
     # Check if hub exists
     logger.info(f"Checking for existing hub with lat_lon={lat_lon}")

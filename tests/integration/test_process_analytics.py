@@ -9,6 +9,9 @@ from tests.test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
 from constants import DATE_FORMAT, STATUS_OK, RETRIEVE_PROCESSED_WEATHER_PATH
 from datetime import timezone
 
+def _mock_hub_info():
+    return {"hub_id": HUB_ID_1, "name": "Test Hub", "lat": 1.264, "lon": 103.820}
+
 def _mock_requests(mock_get, payload, status=STATUS_OK):
     mock_resp = Mock()
     mock_resp.status_code = status
@@ -16,17 +19,29 @@ def _mock_requests(mock_get, payload, status=STATUS_OK):
     mock_resp.text = json.dumps(payload)
     mock_get.return_value = mock_resp
 
-@patch("lambdas.ingestion.handler.fetch_weather")
 @patch("lambdas.analytics.handler.requests.get")
-def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,setup_s3):
+@patch("lambdas.retrieval.handler.validate_hub_id", return_value=True)
+@patch("lambdas.processing.handler.get_hub_info_from_pos")
+@patch("lambdas.ingestion.handler.fetch_hub_info")
+@patch("lambdas.ingestion.handler.fetch_weather")
+def test_ingestion_processing_analytics(
+    mock_fetch_weather,
+    mock_fetch_hub_info,
+    mock_get_hub_info_from_pos,
+    mock_validate_hub_id,
+    mock_get_requests,
+    setup_s3,
+):
     s3 = setup_s3["s3"]
     bucket = setup_s3["bucket"]
+
+    mock_fetch_hub_info.return_value = _mock_hub_info()
+    mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Test Hub"}
 
     with open(RAW_WEATHER_DATA_H1, "r") as f:
         weather_data = json.load(f)
     now_ts = int(datetime.now(tz=timezone.utc).timestamp())
     weather_data["currently"]["time"] = now_ts
-
     mock_fetch_weather.return_value = json.dumps(weather_data)
 
     ingestion_event = {"pathParameters": {"hub_id": HUB_ID_1}}
@@ -34,7 +49,6 @@ def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,s
     ingestion_body = json.loads(ingestion_resp["body"])
     assert ingestion_resp["statusCode"] == STATUS_OK
     assert ingestion_body["message"] == "Success"
-
 
     date_str = datetime.fromtimestamp(now_ts, tz=timezone.utc).strftime(DATE_FORMAT)
 
@@ -69,13 +83,24 @@ def test_ingestion_processing_analytics( mock_get_requests, mock_fetch_weather,s
     daily_events = [e for e in body["events"] if e["event_type"] == "daily_risk_assessment"]
     assert len(daily_events) >= 1
 
-
-
-@patch("lambdas.ingestion.handler.fetch_weather")
 @patch("lambdas.analytics.handler.requests.get")
-def test_processing_to_analytics_schema_break(mock_get, mock_fetch_weather, setup_s3):
+@patch("lambdas.retrieval.handler.validate_hub_id", return_value=True)
+@patch("lambdas.processing.handler.get_hub_info_from_pos")
+@patch("lambdas.ingestion.handler.fetch_hub_info")
+@patch("lambdas.ingestion.handler.fetch_weather")
+def test_processing_to_analytics_schema_break(
+    mock_fetch_weather,
+    mock_fetch_hub_info,
+    mock_get_hub_info_from_pos,
+    mock_validate_hub_id,
+    mock_get,
+    setup_s3,
+):
     s3 = setup_s3["s3"]
     bucket = setup_s3["bucket"]
+
+    mock_fetch_hub_info.return_value = _mock_hub_info()
+    mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Test Hub"}
 
     # ingestion normal
     with open(RAW_WEATHER_DATA_H1) as f:
@@ -90,7 +115,6 @@ def test_processing_to_analytics_schema_break(mock_get, mock_fetch_weather, setu
     date_str = datetime.now(timezone.utc).strftime(DATE_FORMAT)
     raw_key = f"raw/weather/{HUB_ID_1}/{date_str}.json"
     raw = json.loads(s3.get_object(Bucket=bucket, Key=raw_key)["Body"].read())
-
     processing_handler({"body": json.dumps(raw)}, None)
 
     # Succcess analytic
