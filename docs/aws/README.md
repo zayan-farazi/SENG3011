@@ -2,11 +2,13 @@
 
 This repo currently deploys:
 
-- four Lambdas: retrieval, ingestion, processing, and analytics
+- five Lambdas: retrieval, ingestion, processing, analytics, and PortWatch hub sync
 - one HTTP API with five live routes
+- one daily EventBridge rule at `01:00 UTC` that refreshes the runtime hub catalog from PortWatch
 - one daily EventBridge rule at `02:00 UTC` that invokes ingestion for all hubs
 - one application data bucket: `seng3011-app-zayan-360990919154-dev`
 - one ML model artifact at `models/risk_model.joblib`
+- one runtime hub catalog in S3 at `runtime/hubs.json`, with the checked-in `hubs.json` retained as the seed/fallback file
 - the Lambda uses the existing IAM execution role `LabRole`
 
 ## 1. Fix local AWS credentials or use GitHub OIDC
@@ -105,10 +107,12 @@ Add these variables in GitHub:
 - `TF_STATE_BUCKET=<your-state-bucket-name>`
 - `TF_STATE_KEY=dev/terraform.tfstate`
 - `TF_VAR_data_bucket_name=seng3011-app-zayan-360990919154-dev`
+- `PORTWATCH_HUBS_URL=https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/PortWatch_ports_database/FeatureServer/0/query`
 
 Add this GitHub `dev` environment secret:
 
 - `PIRATE_WEATHER_API_KEY=<your-pirate-weather-key>`
+- `PORTWATCH_API_KEY=<optional-portwatch-api-key>`
 
 ## 5. Initialize and apply Terraform locally
 
@@ -131,7 +135,8 @@ terraform init \
 ```bash
 terraform apply \
   -var='data_bucket_name=seng3011-app-zayan-360990919154-dev' \
-  -var='pirate_weather_api_key=<your-pirate-weather-key>'
+  -var='pirate_weather_api_key=<your-pirate-weather-key>' \
+  -var='portwatch_hubs_url=https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/PortWatch_ports_database/FeatureServer/0/query'
 ```
 
 ## 6. Test the live endpoints

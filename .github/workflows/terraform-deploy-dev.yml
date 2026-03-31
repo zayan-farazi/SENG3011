@@ -34,7 +34,9 @@ jobs:
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       TF_STATE_KEY: ${{ vars.TF_STATE_KEY != '' && vars.TF_STATE_KEY || 'dev/terraform.tfstate' }}
       DATA_BUCKET_NAME: ${{ vars.TF_VAR_data_bucket_name != '' && vars.TF_VAR_data_bucket_name || 'seng3011-app-zayan-360990919154-dev' }}
+      PORTWATCH_HUBS_URL: ${{ vars.PORTWATCH_HUBS_URL }}
       PIRATE_WEATHER_API_KEY: ${{ secrets.PIRATE_WEATHER_API_KEY }}
+      PORTWATCH_API_KEY: ${{ secrets.PORTWATCH_API_KEY }}
 
     defaults:
       run:
@@ -52,6 +54,7 @@ jobs:
           test -n "${{ vars.AWS_ROLE_ARN }}"
           test -n "$TF_STATE_BUCKET"
           test -n "$PIRATE_WEATHER_API_KEY"
+          test -n "$PORTWATCH_HUBS_URL"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -80,5 +83,7 @@ jobs:
           export TF_VAR_aws_region="${AWS_REGION}"
           export TF_VAR_data_bucket_name="${DATA_BUCKET_NAME}"
           export TF_VAR_pirate_weather_api_key="${PIRATE_WEATHER_API_KEY}"
+          export TF_VAR_portwatch_hubs_url="${PORTWATCH_HUBS_URL}"
+          export TF_VAR_portwatch_api_key="${PORTWATCH_API_KEY}"
 
           terraform -chdir=terraform apply -auto-approve -input=false -no-color

@@ -14,10 +14,12 @@ Create a GitHub environment named `dev` and add these variables:
 - `TF_STATE_BUCKET`: S3 bucket name used for remote Terraform state
 - `TF_STATE_KEY`: state object path, for example `dev/terraform.tfstate`
 - `TF_VAR_data_bucket_name`: app bucket name for retrieval data, for example `seng3011-app-zayan-360990919154-dev`
+- `PORTWATCH_HUBS_URL`: PortWatch hubs endpoint used by the daily sync Lambda
 
 Add this GitHub `dev` environment secret:
 
 - `PIRATE_WEATHER_API_KEY`: Pirate Weather API key used by the ingestion Lambda
+- `PORTWATCH_API_KEY`: optional API key for the PortWatch hubs endpoint
 
 AWS IAM setup details and example policies are in [docs/aws/README.md](/Users/zayanfarazi/Developer/uni/seng3011/docs/aws/README.md).
 
@@ -64,6 +66,8 @@ Example trust policy:
 - CI also builds Linux Lambda zip artifacts to validate the deploy packaging path
 - Merge to `main` touching those paths runs the dev deploy workflow
 - Deploy builds Linux Lambda artifacts, uploads the risk model to S3, and wires the retrieval, ingestion, processing, and `risk/location` routes to API Gateway
+- Terraform also creates a daily EventBridge rule at `01:00 UTC` that refreshes the runtime hub catalog from PortWatch into S3
+- The checked-in `hubs.json` stays as a seed/fallback file, while the live runtime catalog is stored separately in S3
 - Terraform also creates a daily EventBridge rule at `02:00 UTC` that invokes the ingestion Lambda with an empty payload so it ingests all hubs automatically
 - `risk/region` stays documented only until a handler is implemented
 - The Terraform state bucket stays `seng3011-tf-state-zayan-360990919154`; the application data bucket should be passed separately as `TF_VAR_data_bucket_name`

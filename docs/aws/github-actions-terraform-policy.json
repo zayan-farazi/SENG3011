@@ -38,7 +38,9 @@
         "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-processing-handler",
         "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-processing-handler:*",
         "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-analytics-handler",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-analytics-handler:*"
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-analytics-handler:*",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-portwatch-hub-sync",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-portwatch-hub-sync:*"
       ]
     },
     {
@@ -67,6 +69,27 @@
       "Resource": [
         "arn:aws:s3:::seng3011-app-zayan-360990919154-dev",
         "arn:aws:s3:::seng3011-app-zayan-360990919154-dev/*"
+      ]
+    },
+    {
+      "Sid": "ManageEventBridgeRules",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutRule",
+        "events:DeleteRule",
+        "events:DescribeRule",
+        "events:EnableRule",
+        "events:DisableRule",
+        "events:PutTargets",
+        "events:RemoveTargets",
+        "events:ListTargetsByRule",
+        "events:TagResource",
+        "events:UntagResource",
+        "events:ListTagsForResource"
+      ],
+      "Resource": [
+        "arn:aws:events:us-east-1:<aws-account-id>:rule/weather-ingestion-daily-all-hubs",
+        "arn:aws:events:us-east-1:<aws-account-id>:rule/weather-portwatch-hub-sync"
       ]
     },
     {
@@ -108,7 +131,9 @@
         "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-processing-handler",
         "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-processing-handler:*",
         "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler:*"
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler:*",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-portwatch-hub-sync",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-portwatch-hub-sync:*"
       ]
     }
   ]

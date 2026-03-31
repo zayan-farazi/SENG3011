@@ -2,13 +2,12 @@ import json
 from datetime import datetime, timezone
 import boto3
 import logging
-import botocore
 import requests
 import os
 import constants
+from hub_catalog import load_hubs
 
 
-hub_key = constants.HUBS_FILE_KEY
 processed_key = "processed/weather"
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -21,13 +20,12 @@ def get_hub_info_from_pos(lat, lon):
     s3_client = boto3.client("s3")
     bucket_name = os.environ.get("DATA_BUCKET")
     try:
-        response_obj = s3_client.get_object(Bucket=bucket_name, Key=hub_key)
-        content = json.loads(response_obj["Body"].read().decode("utf-8"))
+        content = load_hubs(s3_client, bucket_name)
         for hub, hub_info in content.items():
             if (str(hub_info["lon"])) == str(lon) and str((hub_info["lat"])) == str(lat):
                 return {"hub_id": hub, "hub_name": hub_info["name"]}
         raise ValueError(f"No hub found for lat={lat}, lon={lon}")
-    except botocore.exceptions.ClientError:
+    except FileNotFoundError:
         raise RuntimeError(f"Hubs file not found in bucket {bucket_name}")
     except Exception as e:
         raise RuntimeError(f"Error reading hubs file from {bucket_name}: {e}")

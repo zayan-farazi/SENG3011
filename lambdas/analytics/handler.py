@@ -8,6 +8,7 @@ import requests
 from datetime import datetime, timezone
 import tempfile
 import constants
+from hub_catalog import load_hubs
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -257,8 +258,7 @@ def _handle_s3_event(event):
             hub_id = parts[2]
 
             # Validate hub_id against hubs.json
-            hubs_obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
-            hubs = json.loads(hubs_obj["Body"].read())
+            hubs = load_hubs(s3, bucket)
             if hub_id not in hubs:
                 log.warning(f"S3 event for invalid hub_id: {hub_id}")
                 results.append({"status": "ignored", "reason": "invalid hub_id", "key": key})
@@ -288,8 +288,7 @@ def _handle_api_event(event):
         return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id"})
 
     bucket = os.environ["DATA_BUCKET"]
-    obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
-    hubs = json.loads(obj["Body"].read())
+    hubs = load_hubs(s3, bucket)
     if hub_id not in hubs:
         return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
 

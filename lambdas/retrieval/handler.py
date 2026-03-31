@@ -3,6 +3,7 @@ import boto3
 import os
 from datetime import datetime
 import constants
+from hub_catalog import load_hubs
 
 def lambda_handler(event, context):
     s3 = boto3.client("s3")
@@ -26,8 +27,7 @@ def lambda_handler(event, context):
     try:
         datetime.strptime(date, constants.DATE_FORMAT)
 
-        obj = s3.get_object(Bucket=bucket_name, Key=constants.HUBS_FILE_KEY)
-        hubs = json.loads(obj["Body"].read())
+        hubs = load_hubs(s3, bucket_name)
         if hub_id not in hubs:
             return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
     

@@ -4,11 +4,7 @@ import requests
 import os
 from datetime import datetime
 import constants
-
-
-def load_hubs(s3, bucket_name):
-    s3_response = s3.get_object(Bucket=bucket_name, Key=constants.HUBS_FILE_KEY)
-    return json.loads(s3_response["Body"].read().decode("utf-8"))
+from hub_catalog import load_hubs
 
 
 def fetch_weather(lat, lon, api_key):

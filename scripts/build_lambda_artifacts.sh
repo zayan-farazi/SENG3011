@@ -49,6 +49,7 @@ build_lambda() {
   fi
 
   cp "$ROOT_DIR/constants.py" "$stage_dir/constants.py"
+  cp "$ROOT_DIR/hub_catalog.py" "$stage_dir/hub_catalog.py"
   cp "$ROOT_DIR/lambdas/__init__.py" "$stage_dir/lambdas/__init__.py"
   cp -R "$service_dir/." "$stage_dir/lambdas/$service/"
   find "$stage_dir" -name '__pycache__' -type d -prune -exec rm -rf {} +
@@ -63,5 +64,6 @@ build_lambda "retrieval" "retrieval.zip"
 build_lambda "ingestion" "ingestion.zip"
 build_lambda "processing" "processing.zip"
 build_lambda "analytics" "analytics.zip"
+build_lambda "hub_sync" "hub_sync.zip"
 
 rm -rf "$WORK_DIR"

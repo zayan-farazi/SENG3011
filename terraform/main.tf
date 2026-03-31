@@ -36,6 +36,19 @@ variable "risk_model_source_path" {
   default     = "../models/risk_model.joblib"
 }
 
+variable "portwatch_hubs_url" {
+  type        = string
+  description = "PortWatch hubs endpoint queried by the sync Lambda"
+  default     = ""
+}
+
+variable "portwatch_api_key" {
+  type        = string
+  description = "Optional API key for the PortWatch hubs endpoint"
+  default     = ""
+  sensitive   = true
+}
+
 ############################
 # Locals
 ############################
@@ -43,22 +56,28 @@ variable "risk_model_source_path" {
 locals {
   seeded_hub_id             = "H001"
   seeded_date               = "10-03-2026"
+  daily_hub_sync_rule_name  = "weather-portwatch-hub-sync"
   daily_ingestion_rule_name = "weather-ingestion-daily-all-hubs"
 
   retrieval_lambda_name  = "weather-retrieval-handler"
   ingestion_lambda_name  = "weather-ingestion-handler"
   processing_lambda_name = "weather-processing-handler"
   analytics_lambda_name  = "weather-analytics-handler"
+  hub_sync_lambda_name   = "weather-portwatch-hub-sync"
 
   lambda_artifact_dir = "${path.module}/../build/lambdas"
   retrieval_zip_path  = "${local.lambda_artifact_dir}/retrieval.zip"
   ingestion_zip_path  = "${local.lambda_artifact_dir}/ingestion.zip"
   processing_zip_path = "${local.lambda_artifact_dir}/processing.zip"
   analytics_zip_path  = "${local.lambda_artifact_dir}/analytics.zip"
+  hub_sync_zip_path   = "${local.lambda_artifact_dir}/hub_sync.zip"
   analytics_zip_key   = "artifacts/lambdas/analytics.zip"
 
-  model_s3_key = "models/risk_model.joblib"
-  api_base_url = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
+  model_s3_key        = "models/risk_model.joblib"
+  hubs_seed_key       = "hubs.json"
+  hubs_runtime_key    = "runtime/hubs.json"
+  hubs_history_prefix = "history/hubs"
+  api_base_url        = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
 
   retrieval_routes = {
     retrieve_raw = {
@@ -116,7 +135,7 @@ resource "aws_s3_bucket" "seng_3011_bkt" {
 
 resource "aws_s3_object" "hubs_file" {
   bucket = aws_s3_bucket.seng_3011_bkt.id
-  key    = "hubs.json"
+  key    = local.hubs_seed_key
   source = "${path.module}/../hubs.json"
   etag   = filemd5("${path.module}/../hubs.json")
 }
@@ -164,7 +183,9 @@ resource "aws_lambda_function" "retrieval" {
 
   environment {
     variables = {
-      DATA_BUCKET = aws_s3_bucket.seng_3011_bkt.bucket
+      DATA_BUCKET      = aws_s3_bucket.seng_3011_bkt.bucket
+      HUBS_RUNTIME_KEY = local.hubs_runtime_key
+      HUBS_SEED_KEY    = local.hubs_seed_key
     }
   }
 
@@ -185,8 +206,10 @@ resource "aws_lambda_function" "ingestion" {
 
   environment {
     variables = {
-      DATA_BUCKET = aws_s3_bucket.seng_3011_bkt.bucket
-      API_KEY     = var.pirate_weather_api_key
+      DATA_BUCKET      = aws_s3_bucket.seng_3011_bkt.bucket
+      API_KEY          = var.pirate_weather_api_key
+      HUBS_RUNTIME_KEY = local.hubs_runtime_key
+      HUBS_SEED_KEY    = local.hubs_seed_key
     }
   }
 
@@ -207,8 +230,10 @@ resource "aws_lambda_function" "processing" {
 
   environment {
     variables = {
-      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
-      API_BASE_URL = local.api_base_url
+      DATA_BUCKET      = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL     = local.api_base_url
+      HUBS_RUNTIME_KEY = local.hubs_runtime_key
+      HUBS_SEED_KEY    = local.hubs_seed_key
     }
   }
 
@@ -230,9 +255,37 @@ resource "aws_lambda_function" "analytics" {
 
   environment {
     variables = {
-      DATA_BUCKET    = aws_s3_bucket.seng_3011_bkt.bucket
-      API_BASE_URL   = local.api_base_url
-      RISK_MODEL_KEY = local.model_s3_key
+      DATA_BUCKET      = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL     = local.api_base_url
+      RISK_MODEL_KEY   = local.model_s3_key
+      HUBS_RUNTIME_KEY = local.hubs_runtime_key
+      HUBS_SEED_KEY    = local.hubs_seed_key
+    }
+  }
+
+  tags = {
+    Environment = "dev"
+    Project     = "seng3011"
+  }
+}
+
+resource "aws_lambda_function" "hub_sync" {
+  function_name    = local.hub_sync_lambda_name
+  role             = data.aws_iam_role.lab_role.arn
+  runtime          = "python3.12"
+  handler          = "lambdas.hub_sync.handler.lambda_handler"
+  filename         = local.hub_sync_zip_path
+  source_code_hash = filebase64sha256(local.hub_sync_zip_path)
+  timeout          = 120
+
+  environment {
+    variables = {
+      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
+      PORTWATCH_HUBS_URL  = var.portwatch_hubs_url
+      PORTWATCH_API_KEY   = var.portwatch_api_key
+      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
+      HUBS_SEED_KEY       = local.hubs_seed_key
+      HUBS_HISTORY_PREFIX = local.hubs_history_prefix
     }
   }
 
@@ -361,6 +414,32 @@ resource "aws_lambda_permission" "allow_apigw_analytics" {
   source_arn    = "${aws_apigatewayv2_api.weather_api.execution_arn}/*/${each.value.path_pattern}"
 }
 
+resource "aws_cloudwatch_event_rule" "daily_hub_sync" {
+  name                = local.daily_hub_sync_rule_name
+  description         = "Refreshes the runtime hub catalog from PortWatch before daily ingestion"
+  schedule_expression = "cron(0 1 * * ? *)"
+
+  tags = {
+    Environment = "dev"
+    Project     = "seng3011"
+  }
+}
+
+resource "aws_cloudwatch_event_target" "daily_hub_sync" {
+  rule      = aws_cloudwatch_event_rule.daily_hub_sync.name
+  target_id = local.hub_sync_lambda_name
+  arn       = aws_lambda_function.hub_sync.arn
+  input     = jsonencode({})
+}
+
+resource "aws_lambda_permission" "allow_eventbridge_hub_sync" {
+  statement_id  = "AllowEventBridgeInvoke-hub-sync"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.hub_sync.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.daily_hub_sync.arn
+}
+
 resource "aws_cloudwatch_event_rule" "daily_all_hubs_ingestion" {
   name                = local.daily_ingestion_rule_name
   description         = "Invokes the ingestion Lambda daily for all configured hubs"
@@ -459,6 +538,14 @@ output "weather_ingest_url_example" {
 
 output "daily_all_hubs_ingestion_rule_name" {
   value = aws_cloudwatch_event_rule.daily_all_hubs_ingestion.name
+}
+
+output "daily_hub_sync_rule_name" {
+  value = aws_cloudwatch_event_rule.daily_hub_sync.name
+}
+
+output "runtime_hubs_key" {
+  value = local.hubs_runtime_key
 }
 
 output "weather_retrieve_raw_url_example" {
