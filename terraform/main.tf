@@ -356,6 +356,13 @@ resource "aws_lambda_function" "watchlist" {
   source_code_hash = filebase64sha256(local.watchlist_zip_path)
   timeout          = 30
 
+    environment {
+    variables = {
+      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL = local.api_base_url
+    }
+  }
+
   tags = {
     Environment = "dev"
     Project     = "seng3011"
@@ -454,7 +461,7 @@ resource "aws_apigatewayv2_route" "watchlist" {
 
   api_id    = aws_apigatewayv2_api.weather_api.id
   route_key = each.value.route_key
-  target    = "integrations/${aws_apigatewayv2_integration.watchlist.id}
+  target    = "integrations/${aws_apigatewayv2_integration.watchlist.id}"
 }
 
 resource "aws_lambda_permission" "allow_apigw_retrieval" {
