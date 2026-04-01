@@ -98,11 +98,11 @@ locals {
 
   watchlist_routes = {
     add_email = {
-      route_key = "POST /ese/v1/watchlist/{hub_id}/{email}"
+      route_key    = "POST /ese/v1/watchlist/{hub_id}/{email}"
       path_pattern = "POST/ese/v1/watchlist/*"
     }
     remove_email = {
-      route_key = "DELETE /ese/v1/watchlist/{hub_id}/{email}"
+      route_key    = "DELETE /ese/v1/watchlist/{hub_id}/{email}"
       path_pattern = "DELETE/ese/v1/watchlist/*"
     }
   }
@@ -158,17 +158,17 @@ resource "aws_dynamodb_table" "locations" {
 }
 
 resource "aws_dynamodb_table" "watchlist" {
-  name = "watchlist" 
+  name         = "watchlist"
   billing_mode = "PAY_PER_REQUEST"
-  
-  hash_key = "hub_id"
+
+  hash_key  = "hub_id"
   range_key = "email"
-  
+
   attribute {
     name = "hub_id"
     type = "S"
   }
-  
+
   attribute {
     name = "email"
     type = "S"
@@ -356,11 +356,11 @@ resource "aws_lambda_function" "watchlist" {
   source_code_hash = filebase64sha256(local.watchlist_zip_path)
   timeout          = 30
 
-    environment {
-      variables = {
-        DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
-        API_BASE_URL = local.api_base_url
-      }
+  environment {
+    variables = {
+      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL = local.api_base_url
+    }
   }
 
   tags = {
