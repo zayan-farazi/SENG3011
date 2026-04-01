@@ -64,6 +64,7 @@ def _build_vector(features):
     return row
 
 def notify_watchlist(hub_id):
+    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
     ses = boto3.client("ses")
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table("watchlist")
@@ -87,14 +88,16 @@ def notify_watchlist(hub_id):
         )
 
 
-def _risk_level(score, hub_id):
+def _risk_level(score, hub_id=None):
     if score < 0.20:
         return "Low"
     elif score < 0.40:
         return "Elevated"
     elif score < 0.60:
         return "High"
-    notify_watchlist(hub_id)
+    
+    if hub_id is not None:
+        notify_watchlist(hub_id)
     return "Critical"
 
 def _primary_driver(features):
