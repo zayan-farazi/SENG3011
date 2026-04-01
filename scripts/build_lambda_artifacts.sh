@@ -50,6 +50,7 @@ build_lambda() {
 
   cp "$ROOT_DIR/constants.py" "$stage_dir/constants.py"
   cp "$ROOT_DIR/lambdas/__init__.py" "$stage_dir/lambdas/__init__.py"
+  cp "$ROOT_DIR/lambdas/metrics.py" "$stage_dir/lambdas/metrics.py"
   cp -R "$service_dir/." "$stage_dir/lambdas/$service/"
   find "$stage_dir" -name '__pycache__' -type d -prune -exec rm -rf {} +
 
