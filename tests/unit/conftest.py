@@ -43,6 +43,7 @@ def setup_dynamodb():
     with mock_aws():
         dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
         _create_location_table(dynamodb)
+        _create_watchlist_table(dynamodb)
         yield
 
 @pytest.fixture
@@ -75,3 +76,17 @@ def _create_location_table(dynamodb):
         ],
     )
     table.wait_until_exists()
+
+def _create_watchlist_table(dynamodb):
+    dynamodb.create_table(
+        TableName="watchlist",
+        KeySchema=[
+            {"AttributeName": "hub_id", "KeyType": "HASH"},
+            {"AttributeName": "email", "KeyType": "RANGE"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "hub_id", "AttributeType": "S"},
+            {"AttributeName": "email", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+    )
