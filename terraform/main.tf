@@ -357,10 +357,10 @@ resource "aws_lambda_function" "watchlist" {
   timeout          = 30
 
     environment {
-    variables = {
-      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
-      API_BASE_URL = local.api_base_url
-    }
+      variables = {
+        DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
+        API_BASE_URL = local.api_base_url
+      }
   }
 
   tags = {
