@@ -120,7 +120,11 @@ def test_missing_hub_id():
     assert json.loads(result["body"]) == {"error": "Missing hub_id"}
 
 
-def test_invalid_hub_id(setup_analytics_s3):
+@patch("lambdas.analytics.handler.requests.get")
+def test_invalid_hub_id(mock_get, setup_analytics_s3):
+    mock_hub_resp = Mock()
+    mock_hub_resp.status_code = STATUS_NOT_FOUND
+    mock_get.return_value = mock_hub_resp
     event = {
         "pathParameters": {"hub_id": HUB_INVALID},
         "queryStringParameters": {"date": "10-03-2026"},
@@ -133,10 +137,14 @@ def test_invalid_hub_id(setup_analytics_s3):
 
 @patch("lambdas.analytics.handler.requests.get")
 def test_retrieval_fails(mock_get, setup_analytics_s3):
-    mock_resp = Mock()
-    mock_resp.status_code = 500
-    mock_resp.text = "Internal server error"
-    mock_get.return_value = mock_resp
+    valid_hub_resp = Mock()
+    valid_hub_resp.status_code = STATUS_OK
+
+    retrieval_resp = Mock()
+    retrieval_resp.status_code = STATUS_INTERNAL_SERVER_ERROR
+    retrieval_resp.text = "Internal server error"
+
+    mock_get.side_effect = [valid_hub_resp, retrieval_resp]
 
     event = {
         "pathParameters": {"hub_id": HUB_ID_1},
@@ -149,10 +157,14 @@ def test_retrieval_fails(mock_get, setup_analytics_s3):
 
 @patch("lambdas.analytics.handler.requests.get")
 def test_retrieval_not_found(mock_get, setup_analytics_s3):
-    mock_resp = Mock()
-    mock_resp.status_code = STATUS_NOT_FOUND
-    mock_resp.text = "Not found"
-    mock_get.return_value = mock_resp
+    valid_hub_resp = Mock()
+    valid_hub_resp.status_code = STATUS_OK
+
+    retrieval_resp = Mock()
+    retrieval_resp.status_code = STATUS_NOT_FOUND
+    retrieval_resp.text = "Not found"
+
+    mock_get.side_effect = [valid_hub_resp, retrieval_resp]
 
     event = {
         "pathParameters": {"hub_id": HUB_ID_1},
@@ -186,7 +198,7 @@ def test_missing_feature(mock_get, setup_analytics_s3):
     del data["days"][0]["snapshots"][0]["features"]["temperature"]
 
     mock_resp = Mock()
-    mock_resp.status_code = 200
+    mock_resp.status_code = STATUS_OK
     mock_resp.json.return_value = data
     mock_get.return_value = mock_resp
 
@@ -250,7 +262,11 @@ def test_s3_event_ignores_irrelevant_key(setup_analytics_s3):
     assert result[0]["status"] == "ignored"
 
 
-def test_api_returns_cached_result(setup_analytics_s3):
+@patch("lambdas.analytics.handler.requests.get")
+def test_api_returns_cached_result(mock_get, setup_analytics_s3):
+    mock_hub_resp = Mock()
+    mock_hub_resp.status_code = STATUS_OK
+    mock_get.return_value = mock_hub_resp
     s3 = setup_analytics_s3
     cached_body = {"events": [], "cached": True}
     s3.put_object(
@@ -288,7 +304,11 @@ def test_api_falls_back_to_compute(mock_get, setup_analytics_s3):
     assert body["dataset_type"] == "Supply Chain Disruption Risk Assessment"
 
 
-def test_s3_event_ignores_invalid_hub(setup_analytics_s3):
+@patch("lambdas.analytics.handler.requests.get")
+def test_s3_event_ignores_invalid_hub(mock_get, setup_analytics_s3):
+    mock_hub_resp = Mock()
+    mock_hub_resp.status_code = STATUS_NOT_FOUND
+    mock_get.return_value = mock_hub_resp
     s3 = setup_analytics_s3
     s3_key = "processed/weather/FAKE_HUB/10-03-2026.json"
     s3.put_object(
@@ -306,11 +326,18 @@ def test_s3_event_ignores_invalid_hub(setup_analytics_s3):
 @patch("lambdas.analytics.handler.requests.get")
 def test_s3_event_multiple_records(mock_get, setup_analytics_s3):
     """Multiple S3 records in one event including one valid, one irrelevant prefix, one invalid hub."""
-    mock_get.return_value = _mock_retrieval_response()
+    def side_effect(url, *args, **kwargs):
+        if f"/{HUB_INVALID}" in url:
+            resp = Mock()
+            resp.status_code = STATUS_NOT_FOUND
+            return resp
+        return _mock_retrieval_response()
+
+    mock_get.side_effect = side_effect
 
     valid_key = f"processed/weather/{HUB_ID_1}/10-03-2026.json"
     irrelevant_key = "raw/weather/H001/10-03-2026.json"
-    invalid_hub_key = "processed/weather/FAKE_HUB/10-03-2026.json"
+    invalid_hub_key = f"processed/weather/{HUB_INVALID}/10-03-2026.json"
 
     event = {
         "Records": [
@@ -355,7 +382,11 @@ def test_s3_event_multiple_records(mock_get, setup_analytics_s3):
     assert result[2]["reason"] == "invalid hub_id"
 
 
-def test_api_invalid_date_format(setup_analytics_s3):
+@patch("lambdas.analytics.handler.requests.get")
+def test_api_invalid_date_format(mock_get, setup_analytics_s3):
+    mock_resp = Mock()
+    mock_resp.status_code = STATUS_OK
+    mock_get.return_value = mock_resp
     event = {
         "pathParameters": {"hub_id": HUB_ID_1},
         "queryStringParameters": {"date": "2026-03-10"},

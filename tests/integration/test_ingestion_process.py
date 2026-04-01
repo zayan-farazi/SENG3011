@@ -10,10 +10,25 @@ from tests.test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHE
 from constants import DATE_FORMAT, RETRIEVE_PROCESSED_WEATHER_PATH, STATUS_OK, STATUS_BAD_REQUEST, STATUS_INTERNAL_SERVER_ERROR
 from datetime import timezone
 
+def _mock_hub_info():
+    return {"hub_id": HUB_ID_1, "name": "Port of Singapore", "lat": 1.264, "lon": 103.820}
+
+@patch("lambdas.retrieval.handler.validate_hub_id", return_value=True)
+@patch("lambdas.processing.handler.get_hub_info_from_pos")
+@patch("lambdas.ingestion.handler.fetch_hub_info")
 @patch("lambdas.ingestion.handler.fetch_weather")
-def test_ingestion_to_processing_success(mock_fetch_weather, setup_s3):
+def test_ingestion_to_processing_success(
+    mock_fetch_weather,
+    mock_fetch_hub_info,
+    mock_get_hub_info_from_pos,
+    mock_validate_hub_id,
+    setup_s3
+):
     s3 = setup_s3["s3"]
     bucket = setup_s3["bucket"]
+
+    mock_fetch_hub_info.return_value = _mock_hub_info()
+    mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
 
     with open(RAW_WEATHER_DATA_H1) as f:
         data = json.load(f)
@@ -52,10 +67,20 @@ def test_ingestion_to_processing_success(mock_fetch_weather, setup_s3):
     assert processed_data ==  json.loads(processed_obj['Body'].read().decode('utf-8'))
 
 
+@patch("lambdas.processing.handler.get_hub_info_from_pos")
+@patch("lambdas.ingestion.handler.fetch_hub_info")
 @patch("lambdas.ingestion.handler.fetch_weather")
-def test_processing_multiple_overwrite(mock_fetch_weather, setup_s3):
+def test_processing_multiple_overwrite(
+    mock_fetch_weather,
+    mock_fetch_hub_info,
+    mock_get_hub_info_from_pos,
+    setup_s3
+):
     s3 = setup_s3["s3"]
     bucket = setup_s3["bucket"]
+
+    mock_fetch_hub_info.return_value = _mock_hub_info()
+    mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
 
     # ingestion
     with open(RAW_WEATHER_DATA_H1) as f:
@@ -74,7 +99,8 @@ def test_processing_multiple_overwrite(mock_fetch_weather, setup_s3):
     raw_data = json.loads(raw_obj["Body"].read())
 
     # first processing
-    processing_handler({"body": json.dumps(raw_data)}, None)
+    resp = processing_handler({"body": json.dumps(raw_data)}, None)
+    assert resp["statusCode"] == STATUS_OK
 
     processed_key = f"processed/weather/{HUB_ID_1}/{date_str}.json"
     first = json.loads(
@@ -98,10 +124,20 @@ def test_processing_multiple_overwrite(mock_fetch_weather, setup_s3):
         != second["days"][0]["snapshots"][0]["features"]["temperature"]
     )
 
+@patch("lambdas.processing.handler.get_hub_info_from_pos")
+@patch("lambdas.ingestion.handler.fetch_hub_info")
 @patch("lambdas.ingestion.handler.fetch_weather")
-def test_process_bad_data_ingested(mock_fetch_weather, setup_s3):
+def test_process_bad_data_ingested(
+    mock_fetch_weather,
+    mock_fetch_hub_info,
+    mock_get_hub_info_from_pos,
+    setup_s3
+):
     s3 = setup_s3["s3"]
     bucket = setup_s3["bucket"]
+
+    mock_fetch_hub_info.return_value = _mock_hub_info()
+    mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
 
     bad_data = {
         "latitude": 10,
@@ -127,8 +163,17 @@ def test_process_bad_data_ingested(mock_fetch_weather, setup_s3):
 
 
 
+@patch("lambdas.processing.handler.get_hub_info_from_pos")
+@patch("lambdas.ingestion.handler.fetch_hub_info")
 @patch("lambdas.ingestion.handler.fetch_weather")
-def test_processing_missing_env_config(mock_fetch_weather, setup_s3):
+def test_processing_missing_env_config(
+    mock_fetch_weather,
+    mock_fetch_hub_info,
+    mock_get_hub_info_from_pos
+):
+
+    mock_fetch_hub_info.return_value = _mock_hub_info()
+    mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
 
     with open(RAW_WEATHER_DATA_H1) as f:
         data = json.load(f)

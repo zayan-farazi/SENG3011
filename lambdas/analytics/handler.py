@@ -35,7 +35,6 @@ FEATURE_BOUNDS = {
     "humidity": (0.0, 1.0),
 }
 
-
 def _load_model():
     """Downloads and caches the model from S3 on cold start."""
     global _MODEL
@@ -57,7 +56,6 @@ def _load_model():
         raise
     return _MODEL
 
-
 def _build_vector(features):
     row = []
     for col in FEATURE_COLUMNS:
@@ -71,7 +69,6 @@ def _build_vector(features):
             val = min(val, hi)
         row.append(val)
     return row
-
 
 def _risk_level(score):
     if score < 0.20:
@@ -140,7 +137,6 @@ def _score_day(model, day_obj):
         "worst_interval": worst["forecast_timestamp"],
         "snapshots": scored_snapshots,
     }
-
 
 def _build_adage_response(body, scored_days):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -212,6 +208,10 @@ def _build_adage_response(body, scored_days):
         "events": events,
     }
 
+def validate_hub_id(base_url, hub_id):
+    url = f"{base_url}/{constants.LOCATION_PATH}/{hub_id}"
+    response = requests.get(url, timeout=10)
+    return response.status_code == constants.STATUS_OK
 
 def _fetch_processed_data(hub_id, date):
     base_url = os.environ["API_BASE_URL"]
@@ -240,7 +240,6 @@ def _is_s3_event(event):
         return event["Records"][0]["eventSource"] == "aws:s3"
     except (KeyError, IndexError, TypeError):
         return False
-
 
 def _compute_and_store_risk(s3, bucket, hub_id, processed):
     """Run the ML model on processed data and write latest.json to S3."""
@@ -284,12 +283,7 @@ def _handle_s3_event(event):
                 continue
 
             hub_id = parts[2]
-
-            # Validate hub_id against hubs.json
-            logger.info(f"Looking up {constants.HUBS_FILE_KEY} in bucket={bucket}")
-            hubs_obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
-            hubs = json.loads(hubs_obj["Body"].read())
-            if hub_id not in hubs:
+            if not validate_hub_id(os.environ.get("API_BASE_URL"), hub_id):
                 logger.error(f"S3 event for invalid hub_id: {hub_id}")
                 results.append(
                     {"status": "ignored", "reason": "invalid hub_id", "key": key}
@@ -329,10 +323,7 @@ def _handle_api_event(event):
         logger.error("Missing hub_id in analytics request")
         return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id"})
 
-    logger.info(f"Looking up {constants.HUBS_FILE_KEY} in bucket={bucket}")
-    obj = s3.get_object(Bucket=bucket, Key=constants.HUBS_FILE_KEY)
-    hubs = json.loads(obj["Body"].read())
-    if hub_id not in hubs:
+    if not validate_hub_id(os.environ.get("API_BASE_URL"), hub_id):
         logger.error("Invalid hub_id in analytics request")
         return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
 
