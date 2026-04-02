@@ -66,10 +66,6 @@ def lambda_handler(event, context):
     if not valid_email(email):
         logger.error("Invalid email")
         return response(constants.STATUS_BAD_REQUEST, "Invalid email")
-    
-    if not valid_hub(hub_id):
-        logger.error("Invalid hub_id")
-        return response(constants.STATUS_BAD_REQUEST, "Invalid hub")
 
 
     if http_method == "POST":
