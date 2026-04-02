@@ -49,13 +49,19 @@ def valid_hub_id(base_url, hub_id):
     response = requests.get(url, timeout=10)
     return response.status_code == constants.STATUS_OK
 
+
+def get_http_method(event):
+    request_context = event.get("requestContext") or {}
+    http_context = request_context.get("http") or {}
+    return http_context.get("method") or event.get("httpMethod")
+
 def lambda_handler(event, context):
     region = os.environ.get("AWS_REGION", "us-east-1")
     dynamodb = boto3.resource("dynamodb", region_name=region)
     table = dynamodb.Table("watchlist")
     
 
-    http_method = event.get("httpMethod")
+    http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
 
     hub_id = path_params.get("hub_id")

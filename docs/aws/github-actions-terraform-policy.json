@@ -31,6 +31,8 @@
         "lambda:ListTags"
       ],
       "Resource": [
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-location-handler",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-location-handler:*",
         "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-retrieval-handler",
         "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-retrieval-handler:*",
         "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-ingestion-handler",
@@ -38,17 +40,30 @@
         "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-processing-handler",
         "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-processing-handler:*",
         "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-analytics-handler",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-analytics-handler:*"
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-analytics-handler:*",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-watchlist-handler",
+        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-watchlist-handler:*"
       ]
     },
     {
-      "Sid": "PassExistingLabRoleToLambda",
+      "Sid": "ManageLambdaExecutionRole",
       "Effect": "Allow",
       "Action": [
+        "iam:AttachRolePolicy",
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:DetachRolePolicy",
+        "iam:DeleteRolePolicy",
         "iam:GetRole",
-        "iam:PassRole"
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:GetRolePolicy",
+        "iam:PassRole",
+        "iam:PutRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole"
       ],
-      "Resource": "arn:aws:iam::<aws-account-id>:role/LabRole"
+      "Resource": "arn:aws:iam::<aws-account-id>:role/seng3011-weather-lambda-role"
     },
     {
       "Sid": "ManageApplicationBucket",
@@ -57,7 +72,9 @@
         "s3:CreateBucket",
         "s3:DeleteBucket",
         "s3:GetBucketLocation",
+        "s3:GetBucketNotification",
         "s3:ListBucket",
+        "s3:PutBucketNotification",
         "s3:PutBucketTagging",
         "s3:GetBucketTagging",
         "s3:PutObject",
@@ -65,8 +82,42 @@
         "s3:DeleteObject"
       ],
       "Resource": [
-        "arn:aws:s3:::seng3011-app-zayan-360990919154-dev",
-        "arn:aws:s3:::seng3011-app-zayan-360990919154-dev/*"
+        "arn:aws:s3:::<app-bucket-name>",
+        "arn:aws:s3:::<app-bucket-name>/*"
+      ]
+    },
+    {
+      "Sid": "ManageEventBridgeRule",
+      "Effect": "Allow",
+      "Action": [
+        "events:DeleteRule",
+        "events:DescribeRule",
+        "events:DisableRule",
+        "events:EnableRule",
+        "events:ListTargetsByRule",
+        "events:PutRule",
+        "events:PutTargets",
+        "events:RemoveTargets",
+        "events:TagResource",
+        "events:UntagResource"
+      ],
+      "Resource": "arn:aws:events:us-east-1:<aws-account-id>:rule/weather-ingestion-daily-all-hubs"
+    },
+    {
+      "Sid": "ManageProjectDynamoTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DeleteTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:PutItem",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource",
+        "dynamodb:UpdateTable"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:<aws-account-id>:table/locations",
+        "arn:aws:dynamodb:us-east-1:<aws-account-id>:table/watchlist"
       ]
     },
     {
@@ -101,6 +152,8 @@
         "logs:PutLogEvents"
       ],
       "Resource": [
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-location-handler",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-location-handler:*",
         "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-retrieval-handler",
         "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-retrieval-handler:*",
         "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-ingestion-handler",
@@ -108,7 +161,9 @@
         "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-processing-handler",
         "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-processing-handler:*",
         "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler:*"
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler:*",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-watchlist-handler",
+        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-watchlist-handler:*"
       ]
     }
   ]

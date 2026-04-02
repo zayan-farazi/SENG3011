@@ -13,7 +13,7 @@ Create a GitHub environment named `dev` and add these variables:
 - `AWS_REGION`: AWS region for Terraform and the provider, for example `us-east-1`
 - `TF_STATE_BUCKET`: S3 bucket name used for remote Terraform state
 - `TF_STATE_KEY`: state object path, for example `dev/terraform.tfstate`
-- `TF_VAR_data_bucket_name`: app bucket name for retrieval data, for example `seng3011-app-zayan-360990919154-dev`
+- `TF_VAR_data_bucket_name`: app bucket name for application data, for example `<team>-app-<account-id>-dev`
 
 Add this GitHub `dev` environment secret:
 
@@ -63,10 +63,10 @@ Example trust policy:
 - If Python project files are present, the CI workflow also runs Python linting, type checking, tests, and coverage
 - CI also builds Linux Lambda zip artifacts to validate the deploy packaging path
 - Merge to `main` touching those paths runs the dev deploy workflow
-- Deploy builds Linux Lambda artifacts, uploads the risk model to S3, and wires the retrieval, ingestion, processing, and `risk/location` routes to API Gateway
+- Deploy builds Linux Lambda artifacts, uploads the risk model to S3, and wires the location, retrieval, ingestion, processing, `risk/location`, and watchlist routes to API Gateway
 - Terraform also creates a daily EventBridge rule at `02:00 UTC` that invokes the ingestion Lambda with an empty payload so it ingests all hubs automatically
 - `risk/region` stays documented only until a handler is implemented
-- The Terraform state bucket stays `seng3011-tf-state-zayan-360990919154`; the application data bucket should be passed separately as `TF_VAR_data_bucket_name`
+- The Terraform state bucket and application data bucket should both be supplied from the GitHub `dev` environment for the target AWS account
 
 ## Python quality checks
 

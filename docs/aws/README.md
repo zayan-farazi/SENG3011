@@ -2,12 +2,12 @@
 
 This repo currently deploys:
 
-- four Lambdas: retrieval, ingestion, processing, and analytics
-- one HTTP API with five live routes
+- six Lambdas: location, retrieval, ingestion, processing, analytics, and watchlist
+- one HTTP API with location, retrieval, ingestion, processing, risk, and watchlist routes
 - one daily EventBridge rule at `02:00 UTC` that invokes ingestion for all hubs
-- one application data bucket: `seng3011-app-zayan-360990919154-dev`
+- one application data bucket chosen per AWS account
 - one ML model artifact at `models/risk_model.joblib`
-- the Lambda uses the existing IAM execution role `LabRole`
+- one shared Lambda execution role managed by Terraform
 
 ## 1. Fix local AWS credentials or use GitHub OIDC
 
@@ -76,6 +76,7 @@ Replace these placeholders before creating the role:
 
 - `<aws-account-id>`
 - `<tf-state-bucket-name>`
+- `<app-bucket-name>`
 
 Create the role:
 
@@ -94,7 +95,7 @@ aws iam put-role-policy \
   --policy-document file://docs/aws/github-actions-terraform-policy.json
 ```
 
-This branch intentionally does not create a dedicated Lambda execution role because the current lab identity cannot perform `iam:CreateRole`. Terraform references the existing `LabRole` instead.
+Terraform now creates the shared Lambda execution role directly, so the GitHub deploy role must be allowed to create, update, attach policies to, and pass that role.
 
 ## 4. Configure the GitHub `dev` environment
 
@@ -104,7 +105,7 @@ Add these variables in GitHub:
 - `AWS_REGION=us-east-1`
 - `TF_STATE_BUCKET=<your-state-bucket-name>`
 - `TF_STATE_KEY=dev/terraform.tfstate`
-- `TF_VAR_data_bucket_name=seng3011-app-zayan-360990919154-dev`
+- `TF_VAR_data_bucket_name=<your-app-bucket-name>`
 
 Add this GitHub `dev` environment secret:
 
@@ -130,7 +131,7 @@ terraform init \
 
 ```bash
 terraform apply \
-  -var='data_bucket_name=seng3011-app-zayan-360990919154-dev' \
+  -var='data_bucket_name=<your-app-bucket-name>' \
   -var='pirate_weather_api_key=<your-pirate-weather-key>'
 ```
 
