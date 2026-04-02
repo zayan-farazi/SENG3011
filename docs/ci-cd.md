@@ -10,7 +10,7 @@ This repository uses two GitHub Actions workflows:
 Create a GitHub environment named `dev` and add these variables:
 
 - `AWS_ROLE_ARN`: IAM role assumed by GitHub Actions through OIDC
-- `AWS_REGION`: AWS region for Terraform and the provider, for example `us-east-1`
+- `AWS_REGION`: AWS region for Terraform and the provider, for example `ap-southeast-2`
 - `TF_STATE_BUCKET`: S3 bucket name used for remote Terraform state
 - `TF_STATE_KEY`: state object path, for example `dev/terraform.tfstate`
 - `TF_VAR_data_bucket_name`: app bucket name for application data, for example `<team>-app-<account-id>-dev`

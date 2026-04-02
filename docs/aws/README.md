@@ -27,7 +27,7 @@ If you want GitHub Actions to deploy, create an IAM role using the trust and per
 Pick a globally unique bucket name. Example:
 
 ```bash
-export AWS_REGION=us-east-1
+export AWS_REGION=ap-southeast-2
 export TF_STATE_BUCKET=seng3011-tf-state-zayan-001
 ```
 
@@ -102,7 +102,7 @@ Terraform now creates the shared Lambda execution role directly, so the GitHub d
 Add these variables in GitHub:
 
 - `AWS_ROLE_ARN=arn:aws:iam::<aws-account-id>:role/seng3011-github-actions-dev`
-- `AWS_REGION=us-east-1`
+- `AWS_REGION=ap-southeast-2`
 - `TF_STATE_BUCKET=<your-state-bucket-name>`
 - `TF_STATE_KEY=dev/terraform.tfstate`
 - `TF_VAR_data_bucket_name=<your-app-bucket-name>`
@@ -140,17 +140,17 @@ terraform apply \
 After apply, use the Terraform outputs or call the expected URLs directly.
 
 ```bash
-curl "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/retrieve/raw/weather/H001?date=10-03-2026"
+curl "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/retrieve/raw/weather/H001?date=10-03-2026"
 ```
 
 ```bash
-curl "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/retrieve/processed/weather/H001?date=10-03-2026"
+curl "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/retrieve/processed/weather/H001?date=10-03-2026"
 ```
 
 ```bash
-curl -X POST "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/ingest/weather/H001"
+curl -X POST "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/ingest/weather/H001"
 ```
 
 ```bash
-curl -X GET "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/risk/location/H001?date=10-03-2026"
+curl -X GET "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/risk/location/H001?date=10-03-2026"
 ```

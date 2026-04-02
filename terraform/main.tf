@@ -9,7 +9,7 @@ provider "aws" {
 variable "aws_region" {
   type        = string
   description = "AWS region for API Gateway + Lambda"
-  default     = "us-east-1"
+  default     = "ap-southeast-2"
 }
 
 variable "stage_name" {
@@ -293,13 +293,27 @@ resource "aws_dynamodb_table_item" "hub_seed" {
   hash_key   = "hub_id"
 
   item = jsonencode({
-    hub_id     = each.key
-    lat_lon    = "${each.value.lat}:${each.value.lon}"
-    name       = each.value.name
-    lat        = each.value.lat
-    lon        = each.value.lon
-    type       = "scheduled"
-    created_at = timestamp()
+    hub_id = {
+      S = each.key
+    }
+    lat_lon = {
+      S = "${each.value.lat}:${each.value.lon}"
+    }
+    name = {
+      S = each.value.name
+    }
+    lat = {
+      N = tostring(each.value.lat)
+    }
+    lon = {
+      N = tostring(each.value.lon)
+    }
+    type = {
+      S = "scheduled"
+    }
+    created_at = {
+      S = timestamp()
+    }
   })
 
   # Ignore changes to avoid errors if the item already exists
@@ -460,7 +474,6 @@ resource "aws_lambda_function" "analytics" {
       DATA_BUCKET    = aws_s3_bucket.seng_3011_bkt.bucket
       API_BASE_URL   = local.api_base_url
       RISK_MODEL_KEY = local.model_s3_key
-      AWS_REGION     = var.aws_region
     }
   }
 
@@ -487,7 +500,6 @@ resource "aws_lambda_function" "watchlist" {
     variables = {
       DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
       API_BASE_URL = local.api_base_url
-      AWS_REGION   = var.aws_region
     }
   }
 
