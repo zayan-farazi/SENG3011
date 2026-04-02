@@ -1,13 +1,15 @@
-import os
 import json
 import logging
-import numpy as np
+import os
+import tempfile
+from datetime import datetime, timezone
+
 import boto3
 from boto3.dynamodb.conditions import Key
 import joblib  # type: ignore[import-untyped]
+import numpy as np
 import requests
-from datetime import datetime, timezone
-import tempfile
+
 import constants
 from lambdas.metrics import log_metric
 
@@ -17,17 +19,21 @@ logger.setLevel(logging.INFO)
 _MODEL = None
 
 FEATURE_COLUMNS = [
-    "temperature", "wind_speed", "wind_gust",
-    "precip_intensity", "pressure", "humidity",
+    "temperature",
+    "wind_speed",
+    "wind_gust",
+    "precip_intensity",
+    "pressure",
+    "humidity",
 ]
 
 FEATURE_BOUNDS = {
-    "temperature":      (-60.0,   60.0),
-    "wind_speed":       (  0.0,  200.0),
-    "wind_gust":        (  0.0,  250.0),
-    "precip_intensity": (  0.0,   None),
-    "pressure":         (870.0, 1084.0),
-    "humidity":         (  0.0,    1.0),
+    "temperature": (-60.0, 60.0),
+    "wind_speed": (0.0, 200.0),
+    "wind_gust": (0.0, 250.0),
+    "precip_intensity": (0.0, None),
+    "pressure": (870.0, 1084.0),
+    "humidity": (0.0, 1.0),
 }
 
 def _load_model():
@@ -38,7 +44,9 @@ def _load_model():
     s3 = boto3.client("s3")
     tmp = os.path.join(tempfile.gettempdir(), "risk_model.joblib")
     bucket = os.environ["DATA_BUCKET"]
-    key = os.environ.get("RISK_MODEL_KEY") or os.environ.get("MODEL_KEY", constants.MODEL_S3_KEY)
+    key = os.environ.get("RISK_MODEL_KEY") or os.environ.get(
+        "MODEL_KEY", constants.MODEL_S3_KEY
+    )
     if not os.path.exists(tmp):
         logger.info(f"Downloading model from s3://{bucket}/{key}")
         s3.download_file(bucket, key, tmp)
@@ -103,19 +111,23 @@ def _risk_level(score, hub_id=None):
         notify_watchlist(hub_id)
     return "Critical"
 
+
 def _primary_driver(features):
     weights = {
-        "wind_gust": 0.40, "precip_intensity": 0.30,
-        "pressure": 0.13, "wind_speed": 0.08,
-        "temperature": 0.05, "humidity": 0.04,
+        "wind_gust": 0.40,
+        "precip_intensity": 0.30,
+        "pressure": 0.13,
+        "wind_speed": 0.08,
+        "temperature": 0.05,
+        "humidity": 0.04,
     }
     norm = {
-        "wind_gust":        lambda v: min(max(v - 29, 0) / 51, 1.0),
+        "wind_gust": lambda v: min(max(v - 29, 0) / 51, 1.0),
         "precip_intensity": lambda v: min(v / 30, 1.0),
-        "pressure":         lambda v: max(0, (1013 - v) / 63),
-        "wind_speed":       lambda v: min(max(v - 30, 0) / 45, 1.0),
-        "temperature":      lambda v: max(0, abs(v - 21.5) / 28.5),
-        "humidity":         lambda v: max(0, (v - 0.90) / 0.10),
+        "pressure": lambda v: max(0, (1013 - v) / 63),
+        "wind_speed": lambda v: min(max(v - 30, 0) / 45, 1.0),
+        "temperature": lambda v: max(0, abs(v - 21.5) / 28.5),
+        "humidity": lambda v: max(0, (v - 0.90) / 0.10),
     }
     scores = {f: weights[f] * norm[f](float(features.get(f, 0))) for f in weights}
     return max(scores, key=scores.get).replace("_", " ").title()
@@ -163,55 +175,59 @@ def _build_adage_response(body, scored_days):
 
     events = []
     for d in scored_days:
-        events.append({
-            "time_object": {
-                "timestamp": f"{d['date']}T00:00:00",
-                "duration": 1,
-                "duration_unit": "day",
-                "timezone": "UTC",
-            },
-            "event_type": "daily_risk_assessment",
-            "attribute": {
-                "hub_id": hub_id,
-                "hub_name": hub_name,
-                "day": d["day"],
-                "date": d["date"],
-                "peak_risk_score": d["peak_risk_score"],
-                "mean_risk_score": d["mean_risk_score"],
-                "risk_level": d["risk_level"],
-                "primary_driver": d["primary_driver"],
-                "worst_interval": d["worst_interval"],
-                "snapshots": d["snapshots"],
-                "model_version": version,
-            },
-        })
+        events.append(
+            {
+                "time_object": {
+                    "timestamp": f"{d['date']}T00:00:00",
+                    "duration": 1,
+                    "duration_unit": "day",
+                    "timezone": "UTC",
+                },
+                "event_type": "daily_risk_assessment",
+                "attribute": {
+                    "hub_id": hub_id,
+                    "hub_name": hub_name,
+                    "day": d["day"],
+                    "date": d["date"],
+                    "peak_risk_score": d["peak_risk_score"],
+                    "mean_risk_score": d["mean_risk_score"],
+                    "risk_level": d["risk_level"],
+                    "primary_driver": d["primary_driver"],
+                    "worst_interval": d["worst_interval"],
+                    "snapshots": d["snapshots"],
+                    "model_version": version,
+                },
+            }
+        )
 
     peak_day = max(scored_days, key=lambda d: d["peak_risk_score"])
     all_peaks = [d["peak_risk_score"] for d in scored_days]
     outlook = round(max(all_peaks), 4)
 
-    events.append({
-        "time_object": {
-            "timestamp": body.get("forecast_origin", now),
-            "duration": 7,
-            "duration_unit": "day",
-            "timezone": "UTC",
-        },
-        "event_type": "seven_day_outlook",
-        "attribute": {
-            "hub_id": hub_id,
-            "hub_name": hub_name,
-            "lat": body.get("lat"),
-            "lon": body.get("lon"),
-            "outlook_risk_score": outlook,
-            "outlook_risk_level": _risk_level(outlook),
-            "peak_day": peak_day["date"],
-            "peak_day_number": peak_day["day"],
-            "forecast_origin": body.get("forecast_origin"),
-            "days_assessed": len(scored_days),
-            "model_version": version,
-        },
-    })
+    events.append(
+        {
+            "time_object": {
+                "timestamp": body.get("forecast_origin", now),
+                "duration": 7,
+                "duration_unit": "day",
+                "timezone": "UTC",
+            },
+            "event_type": "seven_day_outlook",
+            "attribute": {
+                "hub_id": hub_id,
+                "hub_name": hub_name,
+                "lat": body.get("lat"),
+                "lon": body.get("lon"),
+                "outlook_risk_score": outlook,
+                "outlook_risk_level": _risk_level(outlook),
+                "peak_day": peak_day["date"],
+                "peak_day_number": peak_day["day"],
+                "forecast_origin": body.get("forecast_origin"),
+                "days_assessed": len(scored_days),
+                "model_version": version,
+            },
+        }
+    )
 
     return {
         "data_source": "Pirate Weather API (GFS)",
@@ -228,14 +244,22 @@ def validate_hub_id(base_url, hub_id):
 
 def _fetch_processed_data(hub_id, date):
     base_url = os.environ["API_BASE_URL"]
-    url = f"{base_url}{constants.RETRIEVE_PROCESSED_WEATHER_PATH}/{hub_id}"
-    logger.info(f"Calling retrieval API for processed weather data for hub_id={hub_id}, date={date}")
+    url = f"{base_url}/{constants.RETRIEVE_PROCESSED_WEATHER_PATH}/{hub_id}"
+    logger.info(
+        f"Calling retrieval API for processed weather data for hub_id={hub_id}, date={date}"
+    )
     resp = requests.get(url, params={"date": date}, timeout=10)
     if resp.status_code == constants.STATUS_NOT_FOUND:
-        raise LookupError(f"Processed weather data not found for hub {hub_id} on {date}")
+        raise LookupError(
+            f"Processed weather data not found for hub {hub_id} on {date}"
+        )
     if resp.status_code != constants.STATUS_OK:
-        raise RuntimeError(f"Retrieval service returned {resp.status_code}: {resp.text}")
-    logger.info(f"Successfully fetched processed weather data for hub_id={hub_id}, date={date}")
+        raise RuntimeError(
+            f"Retrieval service returned {resp.status_code}: {resp.text}"
+        )
+    logger.info(
+        f"Successfully fetched processed weather data for hub_id={hub_id}, date={date}"
+    )
     return resp.json()
 
 
@@ -290,7 +314,9 @@ def _handle_s3_event(event):
             hub_id = parts[2]
             if not validate_hub_id(os.environ.get("API_BASE_URL"), hub_id):
                 logger.error(f"S3 event for invalid hub_id: {hub_id}")
-                results.append({"status": "ignored", "reason": "invalid hub_id", "key": key})
+                results.append(
+                    {"status": "ignored", "reason": "invalid hub_id", "key": key}
+                )
                 continue
 
             date_str = parts[3].replace(".json", "")
@@ -300,8 +326,16 @@ def _handle_s3_event(event):
             results.append({"status": "scored", "hub_id": hub_id, "key": key})
 
         except Exception as e:
-            logger.exception(f"Error processing record for {record.get('s3', {}).get('object', {}).get('key', 'unknown')}: {e}")
-            results.append({"status": "error", "error": str(e), "key": record.get("s3", {}).get("object", {}).get("key", "unknown")})
+            logger.exception(
+                f"Error processing record for {record.get('s3', {}).get('object', {}).get('key', 'unknown')}: {e}"
+            )
+            results.append(
+                {
+                    "status": "error",
+                    "error": str(e),
+                    "key": record.get("s3", {}).get("object", {}).get("key", "unknown"),
+                }
+            )
 
     return results
 
@@ -327,16 +361,19 @@ def _handle_api_event(event):
         try:
             datetime.strptime(date, constants.DATE_FORMAT)
         except ValueError:
-            return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid date format. Use DD-MM-YYYY"})
+            return response(
+                constants.STATUS_BAD_REQUEST,
+                {"error": "Invalid date format. Use DD-MM-YYYY"},
+            )
     else:
-        logger.info("No date in analytics request, returning risk analytics for current date")
+        logger.info(
+            "No date in analytics request, returning risk analytics for current date"
+        )
         date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
 
     # Try to return the precomputed cached result
     try:
-        cached = s3.get_object(
-            Bucket=bucket, Key=f"risk/weather/{hub_id}/latest.json"
-        )
+        cached = s3.get_object(Bucket=bucket, Key=f"risk/weather/{hub_id}/latest.json")
         adage_response = json.loads(cached["Body"].read())
         logger.info(f"Returning cached risk scores for hub {hub_id}")
         return response(constants.STATUS_OK, adage_response)
@@ -353,10 +390,16 @@ def lambda_handler(event, context):
     try:
         if not os.environ.get("DATA_BUCKET"):
             logger.error("Missing DATA_BUCKET configuration")
-            return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing DATA_BUCKET configuration"})
+            return response(
+                constants.STATUS_INTERNAL_SERVER_ERROR,
+                {"error": "Missing DATA_BUCKET configuration"},
+            )
         if not os.environ.get("API_BASE_URL"):
             logger.error("Missing API_BASE_URL configuration")
-            return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing API_BASE_URL configuration"})
+            return response(
+                constants.STATUS_INTERNAL_SERVER_ERROR,
+                {"error": "Missing API_BASE_URL configuration"},
+            )
         if _is_s3_event(event):
             logger.info(f"Analytics triggered by S3 event: {event}")
             return _handle_s3_event(event)
@@ -381,6 +424,9 @@ def lambda_handler(event, context):
 def response(status, body):
     return {
         "statusCode": status,
-        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+        },
         "body": json.dumps(body),
     }
