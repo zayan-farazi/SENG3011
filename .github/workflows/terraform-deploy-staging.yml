@@ -82,6 +82,7 @@ jobs:
 
       - name: Terraform apply
         run: |
+          # The GitHub OIDC deploy role is responsible for the Terraform refresh/apply here.
           export TF_VAR_aws_region="${AWS_REGION}"
           export TF_VAR_data_bucket_name="${DATA_BUCKET_NAME}"
           export TF_VAR_pirate_weather_api_key="${PIRATE_WEATHER_API_KEY}"
