@@ -64,29 +64,32 @@ def _build_vector(features):
     return row
 
 def notify_watchlist(hub_id):
-    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-    ses = boto3.client("ses")
-    dynamodb = boto3.resource("dynamodb")
-    table = dynamodb.Table("watchlist")
+    try:
+        os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+        ses = boto3.client("ses")
+        dynamodb = boto3.resource("dynamodb")
+        table = dynamodb.Table("watchlist")
 
-    response = table.query(
-        KeyConditionExpression=Key("hub_id").eq(hub_id)
-    )
-    emails = [item["email"] for item in response.get("Items", [])]
-
-    if not emails:
-        return
-    
-    for email in emails:
-        ses.send_email(
-            Source="alerts@yourdomain.com",
-            Destination={"ToAddresses": [email]},
-            Message={
-                "Subject": {"Data": f"Hub {hub_id} Alert"},
-                "Body": {"Text": {"Data": "Critical risk level"}},
-            },
+        response = table.query(
+            KeyConditionExpression=Key("hub_id").eq(hub_id)
         )
+        emails = [item["email"] for item in response.get("Items", [])]
 
+        if not emails:
+            return
+        
+        for email in emails:
+            ses.send_email(
+                Source="alerts@yourdomain.com",
+                Destination={"ToAddresses": [email]},
+                Message={
+                    "Subject": {"Data": f"Hub {hub_id} Alert"},
+                    "Body": {"Text": {"Data": "Critical risk level"}},
+                },
+            )
+    except Exception:
+        # Im just putting this here so it can fail and then when the lab is on and we actaully run the deployment where the table exist it can work
+        return 
 
 def _risk_level(score, hub_id=None):
     if score < 0.20:
