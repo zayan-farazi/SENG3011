@@ -60,7 +60,7 @@ def get_hub_info_from_pos(lat, lon):
     logger.info(f"Lookup hub by coordinates lat={lat}, lon={lon}")
     region = os.environ.get("AWS_REGION", "us-east-1")
     dynamodb = boto3.resource("dynamodb", region_name=region)
-    table = dynamodb.Table("locations")
+    table = dynamodb.Table(os.environ.get("LOCATION_TABLE_NAME", "locations"))
 
     query_result = table.query(
         IndexName="lat-lon-index",

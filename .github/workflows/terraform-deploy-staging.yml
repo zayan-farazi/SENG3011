@@ -1,7 +1,8 @@
-name: Terraform Deploy Dev
+name: Terraform Deploy Staging
+
 on:
   push:
-    branches:
+    branches-ignore:
       - main
     paths:
       - "terraform/**"
@@ -14,28 +15,29 @@ on:
       - "tests/data/**"
       - "**/*.py"
       - "**/requirements*.txt"
+  workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: terraform-dev-deploy
-  cancel-in-progress: false
+  group: terraform-staging-deploy
+  cancel-in-progress: true
 
 jobs:
   deploy:
-    name: Apply Terraform to dev
+    name: Apply Terraform to staging
     runs-on: ubuntu-latest
-    environment: dev
+    environment: staging
     env:
       AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'ap-southeast-2' }}
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
-      TF_STATE_KEY: ${{ vars.TF_STATE_KEY != '' && vars.TF_STATE_KEY || 'dev/terraform.tfstate' }}
+      TF_STATE_KEY: ${{ vars.TF_STATE_KEY != '' && vars.TF_STATE_KEY || 'staging/terraform.tfstate' }}
       DATA_BUCKET_NAME: ${{ vars.TF_VAR_data_bucket_name }}
       PIRATE_WEATHER_API_KEY: ${{ secrets.PIRATE_WEATHER_API_KEY }}
-      TF_ENVIRONMENT_NAME: dev
-      TF_STAGE_NAME: dev
+      TF_ENVIRONMENT_NAME: staging
+      TF_STAGE_NAME: staging
 
     defaults:
       run:
@@ -90,7 +92,7 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install -r requirements-dev.txt
 
-      - name: Run system tests against deployed dev stack
+      - name: Run system tests against deployed staging stack
         run: |
           export DEV_BASE_URL="$(terraform -chdir=terraform output -raw base_invoke_url)"
           python -m pytest tests/system -q
