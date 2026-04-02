@@ -51,12 +51,14 @@ locals {
   ingestion_lambda_name  = "weather-ingestion-handler"
   processing_lambda_name = "weather-processing-handler"
   analytics_lambda_name  = "weather-analytics-handler"
+  watchlist_lambda_name  = "weather-watchlist-handler"
 
   lambda_artifact_dir = "${path.module}/../build/lambdas"
   retrieval_zip_path  = "${local.lambda_artifact_dir}/retrieval.zip"
   ingestion_zip_path  = "${local.lambda_artifact_dir}/ingestion.zip"
   processing_zip_path = "${local.lambda_artifact_dir}/processing.zip"
   analytics_zip_path  = "${local.lambda_artifact_dir}/analytics.zip"
+  watchlist_zip_path  = "${local.lambda_artifact_dir}/watchlist.zip"
   analytics_zip_key   = "artifacts/lambdas/analytics.zip"
 
   model_s3_key = "models/risk_model.joblib"
@@ -91,6 +93,17 @@ locals {
     risk_location = {
       route_key    = "GET /ese/v1/risk/location/{hub_id}"
       path_pattern = "GET/ese/v1/risk/location/*"
+    }
+  }
+
+  watchlist_routes = {
+    add_email = {
+      route_key    = "POST /ese/v1/watchlist/{hub_id}/{email}"
+      path_pattern = "POST/ese/v1/watchlist/*"
+    }
+    remove_email = {
+      route_key    = "DELETE /ese/v1/watchlist/{hub_id}/{email}"
+      path_pattern = "DELETE/ese/v1/watchlist/*"
     }
   }
 }
@@ -140,6 +153,29 @@ resource "aws_dynamodb_table" "locations" {
 
   tags = {
     Name        = "locations"
+    Environment = "dev"
+  }
+}
+
+resource "aws_dynamodb_table" "watchlist" {
+  name         = "watchlist"
+  billing_mode = "PAY_PER_REQUEST"
+
+  hash_key  = "hub_id"
+  range_key = "email"
+
+  attribute {
+    name = "hub_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "email"
+    type = "S"
+  }
+
+  tags = {
+    Name        = "watchlist"
     Environment = "dev"
   }
 }
@@ -311,6 +347,28 @@ resource "aws_lambda_function" "analytics" {
   }
 }
 
+resource "aws_lambda_function" "watchlist" {
+  function_name    = local.watchlist_lambda_name
+  role             = data.aws_iam_role.lab_role.arn
+  runtime          = "python3.12"
+  handler          = "lambdas.watchlist.handler.lambda_handler"
+  filename         = local.watchlist_zip_path
+  source_code_hash = filebase64sha256(local.watchlist_zip_path)
+  timeout          = 30
+
+  environment {
+    variables = {
+      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL = local.api_base_url
+    }
+  }
+
+  tags = {
+    Environment = "dev"
+    Project     = "seng3011"
+  }
+}
+
 ############################
 # API Gateway HTTP API
 ############################
@@ -358,6 +416,14 @@ resource "aws_apigatewayv2_integration" "analytics" {
   payload_format_version = "2.0"
 }
 
+resource "aws_apigatewayv2_integration" "watchlist" {
+  api_id                 = aws_apigatewayv2_api.weather_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.watchlist.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
 resource "aws_apigatewayv2_route" "retrieval" {
   for_each = local.retrieval_routes
 
@@ -388,6 +454,14 @@ resource "aws_apigatewayv2_route" "analytics" {
   api_id    = aws_apigatewayv2_api.weather_api.id
   route_key = each.value.route_key
   target    = "integrations/${aws_apigatewayv2_integration.analytics.id}"
+}
+
+resource "aws_apigatewayv2_route" "watchlist" {
+  for_each = local.watchlist_routes
+
+  api_id    = aws_apigatewayv2_api.weather_api.id
+  route_key = each.value.route_key
+  target    = "integrations/${aws_apigatewayv2_integration.watchlist.id}"
 }
 
 resource "aws_lambda_permission" "allow_apigw_retrieval" {
@@ -426,6 +500,16 @@ resource "aws_lambda_permission" "allow_apigw_analytics" {
   statement_id  = "AllowHttpApiInvoke-analytics-${each.key}"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.analytics.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.weather_api.execution_arn}/*/${each.value.path_pattern}"
+}
+
+resource "aws_lambda_permission" "allow_apigw_watchlist" {
+  for_each = local.watchlist_routes
+
+  statement_id  = "AllowHttpApiInvoke-watchlist-${each.key}"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.watchlist.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.weather_api.execution_arn}/*/${each.value.path_pattern}"
 }

@@ -2,7 +2,7 @@ import json
 import boto3
 import requests
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import constants
 import logging
 from lambdas.metrics import log_metric
@@ -81,7 +81,7 @@ def lambda_handler(event, context):
         logger.info(f"Automated ingestion triggered, loaded {len(hubs)} hubs from {constants.HUBS_FILE_KEY}")
 
     try:
-        date = datetime.now().strftime(constants.DATE_FORMAT)
+        date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
         for hub_id, hub_info in hubs.items():
             weather_data = fetch_weather(hub_info["lat"], hub_info["lon"], api_key)
             store_weather(s3, bucket_name, hub_id, date, weather_data)
