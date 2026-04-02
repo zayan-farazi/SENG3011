@@ -94,5 +94,6 @@ jobs:
 
       - name: Run system tests against deployed staging stack
         run: |
+          # Use the deployed base URL from Terraform output rather than a fixed repo variable.
           export DEV_BASE_URL="$(terraform -chdir=terraform output -raw base_invoke_url)"
           python -m pytest tests/system -q
