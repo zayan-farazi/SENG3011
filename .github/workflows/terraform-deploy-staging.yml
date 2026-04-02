@@ -52,6 +52,7 @@ jobs:
 
       - name: Check required GitHub environment variables
         run: |
+          # These values come from the GitHub staging environment, not the repo.
           test -n "${{ vars.AWS_ROLE_ARN }}"
           test -n "$TF_STATE_BUCKET"
           test -n "$DATA_BUCKET_NAME"

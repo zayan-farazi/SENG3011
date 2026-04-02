@@ -72,6 +72,7 @@
         "s3:CreateBucket",
         "s3:DeleteBucket",
         "s3:GetBucketLocation",
+        "s3:GetBucketPolicy",
         "s3:GetBucketNotification",
         "s3:ListBucket",
         "s3:PutBucketNotification",
@@ -94,6 +95,7 @@
         "events:DescribeRule",
         "events:DisableRule",
         "events:EnableRule",
+        "events:ListTagsForResource",
         "events:ListTargetsByRule",
         "events:PutRule",
         "events:PutTargets",
@@ -109,6 +111,7 @@
       "Action": [
         "dynamodb:CreateTable",
         "dynamodb:DeleteTable",
+        "dynamodb:DescribeContinuousBackups",
         "dynamodb:DescribeTable",
         "dynamodb:PutItem",
         "dynamodb:TagResource",
