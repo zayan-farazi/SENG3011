@@ -44,12 +44,6 @@ def valid_email(email):
     pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
     return re.match(pattern, email) is not None
 
-def valid_hub(hub_id):
-    s3 = boto3.client("s3")
-    bucket_name = os.environ.get("DATA_BUCKET")
-    s3_response = s3.get_object(Bucket=bucket_name, Key=constants.HUBS_FILE_KEY)
-    hubs = json.loads(s3_response["Body"].read().decode("utf-8"))
-    return hub_id in hubs
 
 def lambda_handler(event, context):
     region = os.environ.get("AWS_REGION", "us-east-1")
