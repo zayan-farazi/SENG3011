@@ -2,12 +2,14 @@ import json
 import boto3
 from lambdas.watchlist.handler import lambda_handler
 from constants import STATUS_OK, STATUS_BAD_REQUEST
+from unittest.mock import patch, Mock
 
 
 TABLE_NAME = "watchlist"
 
-
-def test_post_add_email_success(setup_dynamodb):
+@patch("lambdas.watchlist.handler.requests.get")
+def test_post_add_email_success(mock_get, setup_dynamodb):
+    mock_get.return_value = Mock(status_code=200)
     table = boto3.resource("dynamodb", region_name="us-east-1").Table(TABLE_NAME)
 
     event = {
@@ -29,8 +31,9 @@ def test_post_add_email_success(setup_dynamodb):
     })
     assert "Item" in result
 
-
-def test_delete_email_success(setup_dynamodb):
+@patch("lambdas.watchlist.handler.requests.get")
+def test_delete_email_success(mock_get, setup_dynamodb):
+    mock_get.return_value = Mock(status_code=200)
     table = boto3.resource("dynamodb", region_name="us-east-1").Table(TABLE_NAME)
 
     table.put_item(Item={
@@ -62,8 +65,9 @@ def test_missing_params(setup_dynamodb):
 
     assert response["statusCode"] == STATUS_BAD_REQUEST
 
-
-def test_invalid_method(setup_dynamodb):
+@patch("lambdas.watchlist.handler.requests.get")
+def test_invalid_method(mock_get, setup_dynamodb):
+    mock_get.return_value = Mock(status_code=200)
     event = {
         "httpMethod": "GET",
         "pathParameters": {

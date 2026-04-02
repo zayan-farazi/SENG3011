@@ -44,6 +44,7 @@ def setup_dynamodb():
         dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
         _create_location_table(dynamodb)
         _create_watchlist_table(dynamodb)
+        os.environ["API_BASE_URL"] = "http://test-api"
         yield
 
 @pytest.fixture
