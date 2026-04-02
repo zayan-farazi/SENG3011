@@ -64,5 +64,6 @@ build_lambda "retrieval" "retrieval.zip"
 build_lambda "ingestion" "ingestion.zip"
 build_lambda "processing" "processing.zip"
 build_lambda "analytics" "analytics.zip"
+build_lambda "watchlist" "watchlist.zip"
 
 rm -rf "$WORK_DIR"

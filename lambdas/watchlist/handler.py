@@ -1,0 +1,102 @@
+import json
+import re
+import os
+import boto3
+import constants
+import logging
+from urllib.parse import unquote
+import requests
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+def add_email(hub_id, email, table):
+    try:
+        table.put_item(
+            Item={
+                "hub_id": hub_id,
+                "email": email
+            }
+        )
+        logger.info(f"adding {email} to hub {hub_id} watchlist")
+    except Exception as e:
+        logger.error(f"DynamoDB error: {str(e)}")
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
+    
+    return response(constants.STATUS_OK, f"{email} added to hub {hub_id}")
+
+def delete_email(hub_id, email, table):
+    try:
+        table.delete_item(
+            Key={
+                "hub_id": hub_id,
+                "email": email
+            }
+        )
+        logger.info(f"deleting {email} from hub {hub_id} watchlist")
+    except Exception as e:
+        logger.error(f"DynamoDB error: {str(e)}")
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
+
+    return response(constants.STATUS_OK, f"{email} removed from hub {hub_id}")
+
+def valid_email(email):
+    pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+    return re.match(pattern, email) is not None
+
+def valid_hub_id(base_url, hub_id):
+    url = f"{base_url}/{constants.LOCATION_PATH}/{hub_id}"
+    response = requests.get(url, timeout=10)
+    return response.status_code == constants.STATUS_OK
+
+def lambda_handler(event, context):
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    dynamodb = boto3.resource("dynamodb", region_name=region)
+    table = dynamodb.Table("watchlist")
+    
+
+    http_method = event.get("httpMethod")
+    path_params = event.get("pathParameters") or {}
+
+    hub_id = path_params.get("hub_id")
+    email = path_params.get("email")
+    
+
+    if not email or not hub_id:
+        logger.error("missing hub_id or email")
+        return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id or email"})
+    
+    email = unquote(email)
+
+    if not valid_email(email):
+        logger.error("Invalid email")
+        return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid email"})
+    
+    base_url = os.environ.get("API_BASE_URL")
+    if not base_url:
+        logger.error("Missing API_BASE_URL configuration")
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing API_BASE_URL configuration"})
+
+    if not valid_hub_id(base_url, hub_id):
+        logger.error("Invalid hub_id")
+        return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
+
+    if http_method == "POST":
+        logger.info("POST method requested")
+        return add_email(hub_id, email, table)
+
+    elif http_method == "DELETE":
+        logger.info("DELETE method requested")
+        return delete_email(hub_id, email, table)
+
+    else:
+        logger.info("Invalid request call")
+        return response(constants.STATUS_BAD_REQUEST, "Method not allowed")
+
+
+
+def response(status, message):
+    return {
+        "statusCode": status,
+        "body": json.dumps({"message": message})
+    }

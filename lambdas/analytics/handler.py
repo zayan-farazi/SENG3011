@@ -5,6 +5,7 @@ import tempfile
 from datetime import datetime, timezone
 
 import boto3
+from boto3.dynamodb.conditions import Key
 import joblib  # type: ignore[import-untyped]
 import numpy as np
 import requests
@@ -70,13 +71,44 @@ def _build_vector(features):
         row.append(val)
     return row
 
-def _risk_level(score):
+def notify_watchlist(hub_id):
+    try:
+        region = os.environ.get("AWS_REGION", "us-east-1")
+        ses = boto3.client("ses", region_name=region)
+        dynamodb = boto3.resource("dynamodb", region_name=region)
+        table = dynamodb.Table("watchlist")
+
+        response = table.query(
+            KeyConditionExpression=Key("hub_id").eq(hub_id)
+        )
+        emails = [item["email"] for item in response.get("Items", [])]
+
+        if not emails:
+            return
+        
+        for email in emails:
+            ses.send_email(
+                Source="alerts@yourdomain.com",
+                Destination={"ToAddresses": [email]},
+                Message={
+                    "Subject": {"Data": f"Hub {hub_id} Alert"},
+                    "Body": {"Text": {"Data": "Critical risk level"}},
+                },
+            )
+    except Exception:
+        # Im just putting this here so it can fail and then when the lab is on and we actaully run the deployment where the table exist it can work
+        return 
+
+def _risk_level(score, hub_id=None):
     if score < 0.20:
         return "Low"
     elif score < 0.40:
         return "Elevated"
     elif score < 0.60:
         return "High"
+    
+    if hub_id is not None:
+        notify_watchlist(hub_id)
     return "Critical"
 
 
@@ -100,8 +132,7 @@ def _primary_driver(features):
     scores = {f: weights[f] * norm[f](float(features.get(f, 0))) for f in weights}
     return max(scores, key=scores.get).replace("_", " ").title()
 
-
-def _score_day(model, day_obj):
+def _score_day(model, day_obj, hub_id):
     snapshots = day_obj.get("snapshots", [])
     if not snapshots:
         raise ValueError(f"Day {day_obj.get('day', '?')} has no snapshots")
@@ -112,15 +143,13 @@ def _score_day(model, day_obj):
     scored_snapshots = []
     for snapshot, score in zip(snapshots, raw_scores):
         score = float(score)
-        scored_snapshots.append(
-            {
-                "forecast_timestamp": snapshot["forecast_timestamp"],
-                "forecast_lead_hours": int(snapshot.get("forecast_lead_hours", 0)),
-                "risk_score": round(score, 4),
-                "risk_level": _risk_level(score),
-                "primary_driver": _primary_driver(snapshot["features"]),
-            }
-        )
+        scored_snapshots.append({
+            "forecast_timestamp": snapshot["forecast_timestamp"],
+            "forecast_lead_hours": int(snapshot.get("forecast_lead_hours", 0)),
+            "risk_score": round(score, 4),
+            "risk_level": _risk_level(score, hub_id),
+            "primary_driver": _primary_driver(snapshot["features"]),
+        })
 
     all_scores = [s["risk_score"] for s in scored_snapshots]
     peak_score = max(all_scores)
@@ -250,7 +279,7 @@ def _compute_and_store_risk(s3, bucket, hub_id, processed):
         logger.error(f"Expected 7 day objects, received {len(days)}")
 
     model = _load_model()
-    scored_days = [_score_day(model, d) for d in days]
+    scored_days = [_score_day(model, d, hub_id) for d in days]
     log_metric(constants.RISK_CALCULATIONS, 1, constants.RISK_SERVICE)
     adage_response = _build_adage_response(processed, scored_days)
 
