@@ -1,19 +1,10 @@
 name: Terraform Deploy Dev
-oon:
-  push:
-    branches-ignore:
-      - main
-    paths:
-      - "terraform/**"
-      - ".github/workflows/**"
-      - "docs/openapi.yaml"
-      - "hubs.json"
-      - "lambdas/**"
-      - "models/**"
-      - "scripts/**"
-      - "tests/data/**"
-      - "**/*.py"
-      - "**/requirements*.txt"
+on:
+  workflow_run:
+    workflows:
+      - Terraform CI
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       ref:
