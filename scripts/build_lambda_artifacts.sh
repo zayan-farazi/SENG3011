@@ -52,6 +52,9 @@ build_lambda() {
   cp "$ROOT_DIR/lambdas/__init__.py" "$stage_dir/lambdas/__init__.py"
   cp "$ROOT_DIR/lambdas/metrics.py" "$stage_dir/lambdas/metrics.py"
   cp -R "$service_dir/." "$stage_dir/lambdas/$service/"
+  if [ "$service" = "testing" ]; then
+    cp -R "$ROOT_DIR/tests" "$stage_dir/tests"
+  fi
   find "$stage_dir" -name '__pycache__' -type d -prune -exec rm -rf {} +
 
   (
@@ -66,5 +69,6 @@ build_lambda "ingestion" "ingestion.zip"
 build_lambda "processing" "processing.zip"
 build_lambda "analytics" "analytics.zip"
 build_lambda "watchlist" "watchlist.zip"
+build_lambda "testing" "testing.zip"
 
 rm -rf "$WORK_DIR"
