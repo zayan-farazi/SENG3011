@@ -36,7 +36,7 @@ def create_dynamic_hub(table, lat, lon, name):
     )
     if existing["Items"]:
         hub = existing["Items"][0]
-        logger.info(f"Found existing hub {hub["hub_id"]} for lat_lon={lat_lon}")
+        logger.info(f"Found existing hub {hub['hub_id']} for lat_lon={lat_lon}")
         return hub
 
     # Insert new dynamic hub
@@ -59,12 +59,18 @@ def get_hub(table, hub_id):
     response = table.get_item(Key={"hub_id": hub_id})
     return response.get("Item")
 
+
+def get_http_method(event):
+    request_context = event.get("requestContext") or {}
+    http_context = request_context.get("http") or {}
+    return http_context.get("method") or event.get("httpMethod")
+
 def lambda_handler(event, context):
     region = os.environ.get("AWS_REGION", "us-east-1")
     dynamodb = boto3.resource("dynamodb", region_name=region)
-    table = dynamodb.Table("locations")
+    table = dynamodb.Table(os.environ.get("LOCATION_TABLE_NAME", "locations"))
 
-    http_method = event.get("httpMethod")
+    http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
     
     # POST /ese/v1/location

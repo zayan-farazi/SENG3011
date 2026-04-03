@@ -60,6 +60,7 @@ build_lambda() {
   )
 }
 
+build_lambda "location" "location.zip"
 build_lambda "retrieval" "retrieval.zip"
 build_lambda "ingestion" "ingestion.zip"
 build_lambda "processing" "processing.zip"
