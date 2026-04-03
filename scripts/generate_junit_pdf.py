@@ -6,11 +6,11 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
-from reportlab.pdfbase.pdfmetrics import stringWidth
-from reportlab.pdfgen import canvas
+from reportlab.lib import colors  # type: ignore[import-untyped]
+from reportlab.lib.pagesizes import A4  # type: ignore[import-untyped]
+from reportlab.lib.units import mm  # type: ignore[import-untyped]
+from reportlab.pdfbase.pdfmetrics import stringWidth  # type: ignore[import-untyped]
+from reportlab.pdfgen import canvas  # type: ignore[import-untyped]
 
 
 @dataclass
@@ -70,19 +70,19 @@ def main() -> None:
 
     for file_name in args.input:
         root = ET.parse(file_name).getroot()
-        for suite in iter_suites(root):
-            name = suite.attrib.get("name", Path(file_name).stem)
-            tests = int(suite.attrib.get("tests", 0))
-            failures = int(suite.attrib.get("failures", 0))
-            errors = int(suite.attrib.get("errors", 0))
-            skipped = int(suite.attrib.get("skipped", 0))
-            time = float(suite.attrib.get("time", 0.0))
+        for suite_node in iter_suites(root):
+            name = suite_node.attrib.get("name", Path(file_name).stem)
+            tests = int(suite_node.attrib.get("tests", 0))
+            failures = int(suite_node.attrib.get("failures", 0))
+            errors = int(suite_node.attrib.get("errors", 0))
+            skipped = int(suite_node.attrib.get("skipped", 0))
+            time = float(suite_node.attrib.get("time", 0.0))
             summaries.append(SuiteSummary(name, tests, failures, errors, skipped, time))
 
-            for case in suite.findall("testcase"):
-                if case.find("failure") is not None or case.find("error") is not None:
-                    case_name = case.attrib.get("name", "unknown")
-                    class_name = case.attrib.get("classname", "")
+            for case_node in suite_node.findall("testcase"):
+                if case_node.find("failure") is not None or case_node.find("error") is not None:
+                    case_name = case_node.attrib.get("name", "unknown")
+                    class_name = case_node.attrib.get("classname", "")
                     failed_cases.append(f"{class_name}::{case_name}".strip(":"))
 
     total_tests = sum(item.tests for item in summaries)
@@ -122,14 +122,14 @@ def main() -> None:
     pdf.line(20 * mm, y, page_width - 20 * mm, y)
     y -= 6 * mm
 
-    for suite in summaries:
+    for summary in summaries:
         y = ensure_space(pdf, y, 30 * mm, args.title, page_width, page_height)
         pdf.setFont("Helvetica", 9)
-        pdf.drawString(20 * mm, y, truncate(suite.name, 95 * mm, "Helvetica", 9))
-        pdf.drawRightString(132 * mm, y, str(suite.tests))
-        pdf.drawRightString(152 * mm, y, str(suite.failures + suite.errors))
-        pdf.drawRightString(172 * mm, y, str(suite.skipped))
-        pdf.drawRightString(page_width - 20 * mm, y, f"{suite.time:.2f}s")
+        pdf.drawString(20 * mm, y, truncate(summary.name, 95 * mm, "Helvetica", 9))
+        pdf.drawRightString(132 * mm, y, str(summary.tests))
+        pdf.drawRightString(152 * mm, y, str(summary.failures + summary.errors))
+        pdf.drawRightString(172 * mm, y, str(summary.skipped))
+        pdf.drawRightString(page_width - 20 * mm, y, f"{summary.time:.2f}s")
         y -= 5 * mm
 
     if failed_cases:
@@ -137,10 +137,10 @@ def main() -> None:
         pdf.setFont("Helvetica-Bold", 10)
         pdf.drawString(20 * mm, y, "Failed Test Cases")
         y -= 7 * mm
-        for case in failed_cases[:40]:
+        for failed_case in failed_cases[:40]:
             y = ensure_space(pdf, y, 25 * mm, args.title, page_width, page_height)
             pdf.setFont("Helvetica", 9)
-            pdf.drawString(20 * mm, y, truncate(case, 170 * mm, "Helvetica", 9))
+            pdf.drawString(20 * mm, y, truncate(failed_case, 170 * mm, "Helvetica", 9))
             y -= 5 * mm
 
     pdf.save()
