@@ -26,8 +26,6 @@ concurrency:
 jobs:
   deploy:
     name: Apply Terraform to dev
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_branch != 'main' && github.event.workflow_run.head_repository.full_name == github.repository) }}
-    runs-on: ubuntu-latest
     environment: dev
     env:
       AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'ap-southeast-2' }}
@@ -45,8 +43,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && (inputs.ref != '' && inputs.ref || github.ref_name) || github.event.workflow_run.head_sha }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
