@@ -1,0 +1,118 @@
+name: Combined Quality Report
+
+on:
+  workflow_run:
+    workflows:
+      - Terraform Deploy Staging
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  combine:
+    name: Build combined coverage and test reports
+    if: ${{ github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install reporting dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install coverage reportlab
+          mkdir -p reporting/combined
+
+      - name: Download staging metadata
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          run_id: ${{ github.event.workflow_run.id }}
+          name: staging-test-results
+          path: reporting/staging
+
+      - name: Read CI run id from staging metadata
+        id: metadata
+        run: |
+          ci_run_id=$(awk -F= '/^ci_run_id=/{print $2}' reporting/staging/staging-report-metadata.txt)
+          head_sha=$(awk -F= '/^head_sha=/{print $2}' reporting/staging/staging-report-metadata.txt)
+          if [ -z "$ci_run_id" ]; then
+            echo "Missing ci_run_id in staging metadata"
+            exit 1
+          fi
+          if [ -z "$head_sha" ]; then
+            echo "Missing head_sha in staging metadata"
+            exit 1
+          fi
+          echo "ci_run_id=$ci_run_id" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.metadata.outputs.head_sha }}
+
+      - name: Download CI coverage data
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          run_id: ${{ steps.metadata.outputs.ci_run_id }}
+          name: ci-coverage-data
+          path: reporting/ci
+
+      - name: Download CI test results
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          run_id: ${{ steps.metadata.outputs.ci_run_id }}
+          name: ci-test-results
+          path: reporting/ci
+
+      - name: Download staging coverage data
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          run_id: ${{ github.event.workflow_run.id }}
+          name: staging-coverage-data
+          path: reporting/staging
+
+      - name: Combine coverage data
+        run: |
+          python -m coverage combine reporting/ci reporting/staging
+          python -m coverage report
+          python -m coverage xml -o reporting/combined/coverage.xml
+          python -m coverage html -d reporting/combined/htmlcov
+          if [ -f .coverage ]; then
+            mv .coverage reporting/combined/.coverage
+          fi
+
+      - name: Generate combined PDF reports
+        run: |
+          python scripts/generate_coverage_pdf.py \
+            --xml reporting/combined/coverage.xml \
+            --output reporting/combined/combined-coverage-report.pdf \
+            --title "Combined Coverage Report"
+          python scripts/generate_junit_pdf.py \
+            --input reporting/ci/unit-integration-junit.xml \
+            --input reporting/staging/staging-junit.xml \
+            --input reporting/staging/staging-e2e-junit.xml \
+            --output reporting/combined/combined-test-report.pdf \
+            --title "Combined Test Report"
+
+      - name: Upload combined PDF reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: combined-report-pdfs
+          path: reporting/combined/
+
+      - name: Upload combined raw reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: combined-report-data
+          path: reporting/combined/
