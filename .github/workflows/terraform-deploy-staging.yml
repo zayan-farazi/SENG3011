@@ -238,8 +238,8 @@ jobs:
           if [ "$curl_exit" -eq 0 ]; then
             echo "E2E response:"
             echo "$response" | jq .
-            parsed_status=$(echo "$response" | jq -r '.body | fromjson | .status' 2>/dev/null)
-            parsed_results=$(echo "$response" | jq -r '.body | fromjson | .results' 2>/dev/null)
+            parsed_status=$(echo "$response" | jq -r '.status' 2>/dev/null)
+            parsed_results=$(echo "$response" | jq -c '.results' 2>/dev/null)
             if [ "$parsed_status" = "pass" ]; then
               status="pass"
               message="E2E tests passed"
@@ -247,8 +247,6 @@ jobs:
               status="fail"
               message="E2E tests failed"
             fi
-            echo "Parsed E2E status: ${parsed_status:-unknown}"
-            echo "Parsed E2E results: ${parsed_results:-unavailable}"
           else
             echo "curl failed with exit code: $curl_exit"
           fi
