@@ -106,6 +106,7 @@ Add these variables in each GitHub environment:
 - `TF_STATE_BUCKET=<your-state-bucket-name>`
 - `TF_STATE_KEY=<environment>/terraform.tfstate`
 - `TF_VAR_data_bucket_name=<your-app-bucket-name>`
+- `DEV_BASE_URL=https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev`
 
 Examples:
 

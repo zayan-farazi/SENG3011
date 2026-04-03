@@ -23,6 +23,8 @@ Add this secret to all three environments:
 
 - `PIRATE_WEATHER_API_KEY`: Pirate Weather API key used by the ingestion Lambda
 
+Update `DEV_BASE_URL` whenever the dev stack is recreated in a new AWS account or gets a new API Gateway URL, otherwise the post-merge system tests will still point at the old deployment.
+
 AWS IAM setup details and example policies are in [docs/aws/README.md](/Users/zayanfarazi/Developer/uni/seng3011/docs/aws/README.md).
 
 Add branch protection on `main` so the Terraform CI workflow must pass before merge.
