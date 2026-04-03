@@ -1,16 +1,19 @@
 name: Terraform Deploy Dev
 on:
-  workflow_run:
-    workflows:
-      - Terraform CI
-    types:
-      - completed
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: Branch, tag, or SHA to deploy manually
-        required: false
-        default: ""
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - "terraform/**"
+      - ".github/workflows/**"
+      - "docs/openapi.yaml"
+      - "hubs.json"
+      - "lambdas/**"
+      - "models/**"
+      - "scripts/**"
+      - "tests/data/**"
+      - "**/*.py"
+      - "**/requirements*.txt"
 
 permissions:
   contents: read
