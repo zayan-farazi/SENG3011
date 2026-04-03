@@ -250,6 +250,7 @@ jobs:
           else
             echo "curl failed with exit code: $curl_exit"
           fi
+          echo "$message"
 
           if [ "$status" = "pass" ]; then
             failures="0"
