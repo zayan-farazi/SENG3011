@@ -8,7 +8,7 @@ from constants import STATUS_OK, RETRIEVE_PROCESSED_WEATHER_PATH, PROCESS_WEATHE
 from .schemas.processed_data_schema import PROCESSED_DATA_SCHEMA, PROCESSING_API_SCHEMA
 from .schemas.raw_weather_schema import RAW_WEATHER_SCHEMA
 
-BASE_URL = os.environ["DEV_BASE_URL"]
+BASE_URL = os.environ["STAGING_BASE_URL"]
 
 def test_valid_process_retrieval_contract():
     url_process = f"{BASE_URL}/{PROCESS_WEATHER_PATH}"
