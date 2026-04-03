@@ -77,7 +77,6 @@ jobs:
 
       - name: Reuse CI coverage data
         run: |
-          cp reporting/ci/.coverage reporting/report/.coverage
           cp reporting/ci/coverage.xml reporting/report/coverage.xml
           cp -R reporting/ci/htmlcov reporting/report/htmlcov
 
