@@ -70,6 +70,7 @@ locals {
   processing_lambda_name = "weather-processing-handler${local.resource_suffix}"
   analytics_lambda_name  = "weather-analytics-handler${local.resource_suffix}"
   watchlist_lambda_name  = "weather-watchlist-handler${local.resource_suffix}"
+  testing_lambda_name    = "weather-testing-handler${local.resource_suffix}"
 
   lambda_artifact_dir = "${path.module}/../build/lambdas"
   location_zip_path   = "${local.lambda_artifact_dir}/location.zip"
@@ -78,6 +79,7 @@ locals {
   processing_zip_path = "${local.lambda_artifact_dir}/processing.zip"
   analytics_zip_path  = "${local.lambda_artifact_dir}/analytics.zip"
   watchlist_zip_path  = "${local.lambda_artifact_dir}/watchlist.zip"
+  testing_zip_path    = "${local.lambda_artifact_dir}/testing.zip"
   analytics_zip_key   = "artifacts/lambdas/analytics.zip"
 
   model_s3_key = "models/risk_model.joblib"
@@ -134,6 +136,13 @@ locals {
     remove_email = {
       route_key    = "DELETE /ese/v1/watchlist/{hub_id}/{email}"
       path_pattern = "DELETE/ese/v1/watchlist/*"
+    }
+  }
+
+  testing_routes = {
+    run_tests = {
+      route_key    = "POST /ese/v1/testing/run"
+      path_pattern = "POST/ese/v1/testing/run"
     }
   }
 }
@@ -523,6 +532,31 @@ resource "aws_lambda_function" "watchlist" {
   }
 }
 
+resource "aws_lambda_function" "testing" {
+  function_name    = local.testing_lambda_name
+  role             = aws_iam_role.lambda_execution.arn
+  runtime          = "python3.12"
+  handler          = "lambdas.testing.handler.lambda_handler"
+  filename         = local.testing_zip_path
+  source_code_hash = filebase64sha256(local.testing_zip_path)
+  timeout          = 120
+
+  environment {
+    variables = {
+      DEV_BASE_URL = local.api_base_url
+    }
+  }
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  tags = {
+    Environment = var.environment_name
+    Project     = "seng3011"
+  }
+}
+
 ############################
 # API Gateway HTTP API
 ############################
@@ -586,6 +620,14 @@ resource "aws_apigatewayv2_integration" "watchlist" {
   payload_format_version = "2.0"
 }
 
+resource "aws_apigatewayv2_integration" "testing" {
+  api_id                 = aws_apigatewayv2_api.weather_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.testing.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
 resource "aws_apigatewayv2_route" "location" {
   for_each = local.location_routes
 
@@ -632,6 +674,14 @@ resource "aws_apigatewayv2_route" "watchlist" {
   api_id    = aws_apigatewayv2_api.weather_api.id
   route_key = each.value.route_key
   target    = "integrations/${aws_apigatewayv2_integration.watchlist.id}"
+}
+
+resource "aws_apigatewayv2_route" "testing" {
+  for_each = local.testing_routes
+
+  api_id    = aws_apigatewayv2_api.weather_api.id
+  route_key = each.value.route_key
+  target    = "integrations/${aws_apigatewayv2_integration.testing.id}"
 }
 
 resource "aws_lambda_permission" "allow_apigw_location" {
@@ -690,6 +740,16 @@ resource "aws_lambda_permission" "allow_apigw_watchlist" {
   statement_id  = "AllowHttpApiInvoke-watchlist-${each.key}"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.watchlist.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.weather_api.execution_arn}/*/${each.value.path_pattern}"
+}
+
+resource "aws_lambda_permission" "allow_apigw_testing" {
+  for_each = local.testing_routes
+
+  statement_id  = "AllowHttpApiInvoke-testing-${each.key}"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.testing.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.weather_api.execution_arn}/*/${each.value.path_pattern}"
 }
@@ -812,4 +872,8 @@ output "weather_process_url_example" {
 
 output "risk_location_url_example" {
   value = "${local.api_base_url}/ese/v1/risk/location/${local.seeded_hub_id}?date=${local.seeded_date}"
+}
+
+output "testing_run_url_example" {
+  value = "${local.api_base_url}/ese/v1/testing/run"
 }
