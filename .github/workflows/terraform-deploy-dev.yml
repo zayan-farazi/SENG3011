@@ -26,6 +26,7 @@ concurrency:
 jobs:
   deploy:
     name: Apply Terraform to dev
+    runs-on: ubuntu-latest
     environment: dev
     env:
       AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'ap-southeast-2' }}
