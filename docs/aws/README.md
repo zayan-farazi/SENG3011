@@ -20,7 +20,7 @@ aws configure
 aws sts get-caller-identity
 ```
 
-If you want GitHub Actions to deploy, create an IAM role using the trust and permissions policies in this folder and then set the GitHub `dev` environment variables.
+If you want GitHub Actions to deploy, create an IAM role using the trust and permissions policies in this folder and then set the GitHub `staging`, `dev`, and `prod` environment variables.
 
 ## 2. Create the Terraform state bucket
 
@@ -82,7 +82,7 @@ Create the role:
 
 ```bash
 aws iam create-role \
-  --role-name seng3011-github-actions-dev \
+  --role-name seng3011-github-actions \
   --assume-role-policy-document file://docs/aws/github-actions-oidc-trust-policy.json
 ```
 
@@ -90,29 +90,41 @@ Create the inline policy:
 
 ```bash
 aws iam put-role-policy \
-  --role-name seng3011-github-actions-dev \
-  --policy-name seng3011-terraform-dev \
+  --role-name seng3011-github-actions \
+  --policy-name seng3011-terraform \
   --policy-document file://docs/aws/github-actions-terraform-policy.json
 ```
 
 Terraform now creates the shared Lambda execution role directly, so the GitHub deploy role must be allowed to create, update, attach policies to, and pass that role.
 
-## 4. Configure the GitHub `dev` environment
+## 4. Configure the GitHub `staging`, `dev`, and `prod` environments
 
-Add these variables in GitHub:
+Add these variables in each GitHub environment:
 
-- `AWS_ROLE_ARN=arn:aws:iam::<aws-account-id>:role/seng3011-github-actions-dev`
+- `AWS_ROLE_ARN=arn:aws:iam::<aws-account-id>:role/seng3011-github-actions`
 - `AWS_REGION=ap-southeast-2`
 - `TF_STATE_BUCKET=<your-state-bucket-name>`
-- `TF_STATE_KEY=dev/terraform.tfstate`
+- `TF_STATE_KEY=<environment>/terraform.tfstate`
 - `TF_VAR_data_bucket_name=<your-app-bucket-name>`
 - `DEV_BASE_URL=https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev`
 
-Add this GitHub `dev` environment secret:
+Examples:
+
+- `staging`: `TF_STATE_KEY=staging/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-staging`
+- `dev`: `TF_STATE_KEY=dev/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-dev`
+- `prod`: `TF_STATE_KEY=prod/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-prod`
+
+Add this GitHub secret to all three environments:
 
 - `PIRATE_WEATHER_API_KEY=<your-pirate-weather-key>`
 
-If the stack is redeployed into a different AWS account or a new API Gateway is created, update `DEV_BASE_URL` in GitHub to the new dev invoke URL before relying on the `system-tests` workflow job.
+The shared trust policy can cover all three environments. A common release flow is:
+
+- `dev` on non-`main` branch pushes
+- `staging` on `main`
+- `prod` by manual promotion
+
+The separate GitHub environment names still let you add approval gates for `prod` if you want.
 
 ## 5. Initialize and apply Terraform locally
 

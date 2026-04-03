@@ -76,7 +76,7 @@ def notify_watchlist(hub_id):
         region = os.environ.get("AWS_REGION", "us-east-1")
         ses = boto3.client("ses", region_name=region)
         dynamodb = boto3.resource("dynamodb", region_name=region)
-        table = dynamodb.Table("watchlist")
+        table = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
 
         response = table.query(
             KeyConditionExpression=Key("hub_id").eq(hub_id)

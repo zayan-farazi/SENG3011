@@ -53,18 +53,23 @@ variable "lambda_execution_role_name" {
 ############################
 
 locals {
-  seeded_hub_id             = "H001"
-  seeded_date               = "10-03-2026"
-  daily_ingestion_rule_name = "weather-ingestion-daily-all-hubs"
+  seeded_hub_id              = "H001"
+  seeded_date                = "17-03-2026"
+  resource_suffix            = var.environment_name == "dev" ? "" : "-${var.environment_name}"
+  api_name                   = "weather-supply-chain-api${local.resource_suffix}"
+  daily_ingestion_rule_name  = "weather-ingestion-daily-all-hubs${local.resource_suffix}"
+  location_table_name        = "locations${local.resource_suffix}"
+  watchlist_table_name       = "watchlist${local.resource_suffix}"
+  lambda_execution_role_name = var.environment_name == "dev" ? var.lambda_execution_role_name : "${var.lambda_execution_role_name}-${var.environment_name}"
 
   hub_items = jsondecode(file("${path.module}/../hubs.json"))
 
-  location_lambda_name   = "weather-location-handler"
-  retrieval_lambda_name  = "weather-retrieval-handler"
-  ingestion_lambda_name  = "weather-ingestion-handler"
-  processing_lambda_name = "weather-processing-handler"
-  analytics_lambda_name  = "weather-analytics-handler"
-  watchlist_lambda_name  = "weather-watchlist-handler"
+  location_lambda_name   = "weather-location-handler${local.resource_suffix}"
+  retrieval_lambda_name  = "weather-retrieval-handler${local.resource_suffix}"
+  ingestion_lambda_name  = "weather-ingestion-handler${local.resource_suffix}"
+  processing_lambda_name = "weather-processing-handler${local.resource_suffix}"
+  analytics_lambda_name  = "weather-analytics-handler${local.resource_suffix}"
+  watchlist_lambda_name  = "weather-watchlist-handler${local.resource_suffix}"
 
   lambda_artifact_dir = "${path.module}/../build/lambdas"
   location_zip_path   = "${local.lambda_artifact_dir}/location.zip"
@@ -198,7 +203,7 @@ data "aws_iam_policy_document" "lambda_access" {
 }
 
 resource "aws_iam_role" "lambda_execution" {
-  name               = var.lambda_execution_role_name
+  name               = local.lambda_execution_role_name
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 
   tags = {
@@ -208,7 +213,7 @@ resource "aws_iam_role" "lambda_execution" {
 }
 
 resource "aws_iam_role_policy" "lambda_access" {
-  name   = "${var.lambda_execution_role_name}-access"
+  name   = "${local.lambda_execution_role_name}-access"
   role   = aws_iam_role.lambda_execution.id
   policy = data.aws_iam_policy_document.lambda_access.json
 }
@@ -237,7 +242,7 @@ resource "aws_s3_bucket" "seng_3011_bkt" {
 }
 
 resource "aws_dynamodb_table" "locations" {
-  name         = "locations"
+  name         = local.location_table_name
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "hub_id"
 
@@ -259,13 +264,13 @@ resource "aws_dynamodb_table" "locations" {
   }
 
   tags = {
-    Name        = "locations"
+    Name        = local.location_table_name
     Environment = var.environment_name
   }
 }
 
 resource "aws_dynamodb_table" "watchlist" {
-  name         = "watchlist"
+  name         = local.watchlist_table_name
   billing_mode = "PAY_PER_REQUEST"
 
   hash_key  = "hub_id"
@@ -282,7 +287,7 @@ resource "aws_dynamodb_table" "watchlist" {
   }
 
   tags = {
-    Name        = "watchlist"
+    Name        = local.watchlist_table_name
     Environment = var.environment_name
   }
 }
@@ -332,15 +337,15 @@ resource "aws_s3_object" "hubs_file" {
 resource "aws_s3_object" "sample_raw_weather" {
   bucket = aws_s3_bucket.seng_3011_bkt.id
   key    = "raw/weather/${local.seeded_hub_id}/${local.seeded_date}.json"
-  source = "${path.module}/../tests/data/pirate_weather_raw_sample.json"
-  etag   = filemd5("${path.module}/../tests/data/pirate_weather_raw_sample.json")
+  source = "${path.module}/../tests/data/pirate_weather_raw_h1.json"
+  etag   = filemd5("${path.module}/../tests/data/pirate_weather_raw_h1.json")
 }
 
 resource "aws_s3_object" "sample_processed_weather" {
   bucket = aws_s3_bucket.seng_3011_bkt.id
   key    = "processed/weather/${local.seeded_hub_id}/${local.seeded_date}.json"
-  source = "${path.module}/../tests/data/processed_sample.json"
-  etag   = filemd5("${path.module}/../tests/data/processed_sample.json")
+  source = "${path.module}/../tests/data/processed_sample_h1.json"
+  etag   = filemd5("${path.module}/../tests/data/processed_sample_h1.json")
 }
 
 resource "aws_s3_object" "risk_model" {
@@ -369,6 +374,12 @@ resource "aws_lambda_function" "location" {
   filename         = local.location_zip_path
   source_code_hash = filebase64sha256(local.location_zip_path)
   timeout          = 30
+
+  environment {
+    variables = {
+      LOCATION_TABLE_NAME = aws_dynamodb_table.locations.name
+    }
+  }
 
   tracing_config {
     mode = "Active"
@@ -444,8 +455,9 @@ resource "aws_lambda_function" "processing" {
 
   environment {
     variables = {
-      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
-      API_BASE_URL = local.api_base_url
+      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL        = local.api_base_url
+      LOCATION_TABLE_NAME = aws_dynamodb_table.locations.name
     }
   }
 
@@ -471,9 +483,10 @@ resource "aws_lambda_function" "analytics" {
 
   environment {
     variables = {
-      DATA_BUCKET    = aws_s3_bucket.seng_3011_bkt.bucket
-      API_BASE_URL   = local.api_base_url
-      RISK_MODEL_KEY = local.model_s3_key
+      DATA_BUCKET          = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL         = local.api_base_url
+      RISK_MODEL_KEY       = local.model_s3_key
+      WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
     }
   }
 
@@ -498,8 +511,9 @@ resource "aws_lambda_function" "watchlist" {
 
   environment {
     variables = {
-      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
-      API_BASE_URL = local.api_base_url
+      DATA_BUCKET          = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL         = local.api_base_url
+      WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
     }
   }
 
@@ -514,12 +528,12 @@ resource "aws_lambda_function" "watchlist" {
 ############################
 
 resource "aws_apigatewayv2_api" "weather_api" {
-  name          = "weather-supply-chain-api"
+  name          = local.api_name
   description   = "Weather and supply-chain risk HTTP API"
   protocol_type = "HTTP"
 
   tags = {
-    Environment = "dev"
+    Environment = var.environment_name
     Project     = "seng3011"
   }
 }
@@ -693,7 +707,7 @@ resource "aws_cloudwatch_event_rule" "daily_all_hubs_ingestion" {
 
 resource "aws_cloudwatch_event_target" "daily_all_hubs_ingestion" {
   rule      = aws_cloudwatch_event_rule.daily_all_hubs_ingestion.name
-  target_id = "weather-ingestion-handler"
+  target_id = local.ingestion_lambda_name
   arn       = aws_lambda_function.ingestion.arn
   input     = jsonencode({})
 }

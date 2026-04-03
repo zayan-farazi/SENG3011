@@ -68,7 +68,7 @@ def get_http_method(event):
 def lambda_handler(event, context):
     region = os.environ.get("AWS_REGION", "us-east-1")
     dynamodb = boto3.resource("dynamodb", region_name=region)
-    table = dynamodb.Table("locations")
+    table = dynamodb.Table(os.environ.get("LOCATION_TABLE_NAME", "locations"))
 
     http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}

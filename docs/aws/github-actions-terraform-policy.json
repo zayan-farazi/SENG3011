@@ -21,6 +21,8 @@
         "lambda:DeleteFunction",
         "lambda:GetFunction",
         "lambda:GetFunctionConfiguration",
+        "lambda:GetFunctionCodeSigningConfig",
+        "lambda:ListVersionsByFunction",
         "lambda:UpdateFunctionCode",
         "lambda:UpdateFunctionConfiguration",
         "lambda:AddPermission",
@@ -31,18 +33,12 @@
         "lambda:ListTags"
       ],
       "Resource": [
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-location-handler",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-location-handler:*",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-retrieval-handler",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-retrieval-handler:*",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-ingestion-handler",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-ingestion-handler:*",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-processing-handler",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-processing-handler:*",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-analytics-handler",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-analytics-handler:*",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-watchlist-handler",
-        "arn:aws:lambda:us-east-1:<aws-account-id>:function:weather-watchlist-handler:*"
+        "arn:aws:lambda:ap-southeast-2:<aws-account-id>:function:weather-location-handler*",
+        "arn:aws:lambda:ap-southeast-2:<aws-account-id>:function:weather-retrieval-handler*",
+        "arn:aws:lambda:ap-southeast-2:<aws-account-id>:function:weather-ingestion-handler*",
+        "arn:aws:lambda:ap-southeast-2:<aws-account-id>:function:weather-processing-handler*",
+        "arn:aws:lambda:ap-southeast-2:<aws-account-id>:function:weather-analytics-handler*",
+        "arn:aws:lambda:ap-southeast-2:<aws-account-id>:function:weather-watchlist-handler*"
       ]
     },
     {
@@ -63,16 +59,28 @@
         "iam:TagRole",
         "iam:UntagRole"
       ],
-      "Resource": "arn:aws:iam::<aws-account-id>:role/seng3011-weather-lambda-role"
+      "Resource": "arn:aws:iam::<aws-account-id>:role/seng3011-weather-lambda-role*"
     },
     {
-      "Sid": "ManageApplicationBucket",
+      "Sid": "ManageApplicationBuckets",
       "Effect": "Allow",
       "Action": [
         "s3:CreateBucket",
         "s3:DeleteBucket",
+        "s3:GetBucketAcl",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetBucketCors",
+        "s3:GetBucketEncryption",
+        "s3:GetLifecycleConfiguration",
         "s3:GetBucketLocation",
+        "s3:GetBucketLogging",
+        "s3:GetBucketPolicy",
         "s3:GetBucketNotification",
+        "s3:GetBucketOwnershipControls",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketRequestPayment",
+        "s3:GetBucketVersioning",
+        "s3:GetBucketWebsite",
         "s3:ListBucket",
         "s3:PutBucketNotification",
         "s3:PutBucketTagging",
@@ -82,18 +90,23 @@
         "s3:DeleteObject"
       ],
       "Resource": [
-        "arn:aws:s3:::<app-bucket-name>",
-        "arn:aws:s3:::<app-bucket-name>/*"
+        "arn:aws:s3:::<app-bucket-name-dev>",
+        "arn:aws:s3:::<app-bucket-name-dev>/*",
+        "arn:aws:s3:::<app-bucket-name-staging>",
+        "arn:aws:s3:::<app-bucket-name-staging>/*",
+        "arn:aws:s3:::<app-bucket-name-prod>",
+        "arn:aws:s3:::<app-bucket-name-prod>/*"
       ]
     },
     {
-      "Sid": "ManageEventBridgeRule",
+      "Sid": "ManageEventBridgeRules",
       "Effect": "Allow",
       "Action": [
         "events:DeleteRule",
         "events:DescribeRule",
         "events:DisableRule",
         "events:EnableRule",
+        "events:ListTagsForResource",
         "events:ListTargetsByRule",
         "events:PutRule",
         "events:PutTargets",
@@ -101,7 +114,11 @@
         "events:TagResource",
         "events:UntagResource"
       ],
-      "Resource": "arn:aws:events:us-east-1:<aws-account-id>:rule/weather-ingestion-daily-all-hubs"
+      "Resource": [
+        "arn:aws:events:ap-southeast-2:<aws-account-id>:rule/weather-ingestion-daily-all-hubs",
+        "arn:aws:events:ap-southeast-2:<aws-account-id>:rule/weather-ingestion-daily-all-hubs-staging",
+        "arn:aws:events:ap-southeast-2:<aws-account-id>:rule/weather-ingestion-daily-all-hubs-prod"
+      ]
     },
     {
       "Sid": "ManageProjectDynamoTables",
@@ -109,15 +126,23 @@
       "Action": [
         "dynamodb:CreateTable",
         "dynamodb:DeleteTable",
+        "dynamodb:DescribeContinuousBackups",
         "dynamodb:DescribeTable",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:GetItem",
+        "dynamodb:ListTagsOfResource",
         "dynamodb:PutItem",
         "dynamodb:TagResource",
         "dynamodb:UntagResource",
         "dynamodb:UpdateTable"
       ],
       "Resource": [
-        "arn:aws:dynamodb:us-east-1:<aws-account-id>:table/locations",
-        "arn:aws:dynamodb:us-east-1:<aws-account-id>:table/watchlist"
+        "arn:aws:dynamodb:ap-southeast-2:<aws-account-id>:table/locations",
+        "arn:aws:dynamodb:ap-southeast-2:<aws-account-id>:table/watchlist",
+        "arn:aws:dynamodb:ap-southeast-2:<aws-account-id>:table/locations-staging",
+        "arn:aws:dynamodb:ap-southeast-2:<aws-account-id>:table/watchlist-staging",
+        "arn:aws:dynamodb:ap-southeast-2:<aws-account-id>:table/locations-prod",
+        "arn:aws:dynamodb:ap-southeast-2:<aws-account-id>:table/watchlist-prod"
       ]
     },
     {
@@ -152,18 +177,12 @@
         "logs:PutLogEvents"
       ],
       "Resource": [
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-location-handler",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-location-handler:*",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-retrieval-handler",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-retrieval-handler:*",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-ingestion-handler",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-ingestion-handler:*",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-processing-handler",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-processing-handler:*",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler:*",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-watchlist-handler",
-        "arn:aws:logs:us-east-1:<aws-account-id>:log-group:/aws/lambda/weather-watchlist-handler:*"
+        "arn:aws:logs:ap-southeast-2:<aws-account-id>:log-group:/aws/lambda/weather-location-handler*",
+        "arn:aws:logs:ap-southeast-2:<aws-account-id>:log-group:/aws/lambda/weather-retrieval-handler*",
+        "arn:aws:logs:ap-southeast-2:<aws-account-id>:log-group:/aws/lambda/weather-ingestion-handler*",
+        "arn:aws:logs:ap-southeast-2:<aws-account-id>:log-group:/aws/lambda/weather-processing-handler*",
+        "arn:aws:logs:ap-southeast-2:<aws-account-id>:log-group:/aws/lambda/weather-analytics-handler*",
+        "arn:aws:logs:ap-southeast-2:<aws-account-id>:log-group:/aws/lambda/weather-watchlist-handler*"
       ]
     }
   ]
