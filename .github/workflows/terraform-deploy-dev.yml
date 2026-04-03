@@ -5,6 +5,12 @@ on:
       - Terraform CI
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to deploy manually
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -17,7 +23,7 @@ concurrency:
 jobs:
   deploy:
     name: Apply Terraform to dev
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch != 'main' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch != 'main' && github.event.workflow_run.head_repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
     environment: dev
     env:
@@ -37,7 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && (inputs.ref != '' && inputs.ref || github.ref_name) || github.event.workflow_run.head_sha }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
