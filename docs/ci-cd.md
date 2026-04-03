@@ -1,24 +1,25 @@
 # CI/CD Setup
 
-This repository uses three GitHub Actions workflows:
+This repository uses four GitHub Actions workflows:
 
 - `terraform-ci.yml`: runs on pull requests and non-`main` pushes for Terraform formatting, backend-free validation, OpenAPI YAML parsing, and Python quality checks
 - `terraform-deploy-staging.yml`: runs on non-`main` pushes and applies Terraform to the `staging` environment
 - `terraform-deploy-dev.yml`: runs on pushes to `main` and applies Terraform to the `dev` environment
+- `terraform-deploy-prod.yml`: runs manually and applies Terraform to the `prod` environment
 
 ## GitHub setup
 
-Create GitHub environments named `staging` and `dev`. Each environment should have its own AWS role, Terraform state key, and application bucket so the stacks can coexist in the same AWS account.
+Create GitHub environments named `staging`, `dev`, and `prod`. Each environment should have its own Terraform state key and application bucket so the stacks can coexist in the same AWS account. You can use one shared GitHub OIDC deploy role across all three environments if you prefer.
 
-Add these variables to both environments:
+Add these variables to all three environments:
 
 - `AWS_ROLE_ARN`: IAM role assumed by GitHub Actions through OIDC
 - `AWS_REGION`: AWS region for Terraform and the provider, for example `ap-southeast-2`
 - `TF_STATE_BUCKET`: S3 bucket name used for remote Terraform state
-- `TF_STATE_KEY`: state object path, for example `staging/terraform.tfstate` or `dev/terraform.tfstate`
-- `TF_VAR_data_bucket_name`: app bucket name for application data, for example `<team>-app-<account-id>-staging` or `<team>-app-<account-id>-dev`
+- `TF_STATE_KEY`: state object path, for example `staging/terraform.tfstate`, `dev/terraform.tfstate`, or `prod/terraform.tfstate`
+- `TF_VAR_data_bucket_name`: app bucket name for application data, for example `<team>-app-<account-id>-staging`, `<team>-app-<account-id>-dev`, or `<team>-app-<account-id>-prod`
 
-Add this secret to both environments:
+Add this secret to all three environments:
 
 - `PIRATE_WEATHER_API_KEY`: Pirate Weather API key used by the ingestion Lambda
 
@@ -67,11 +68,18 @@ Example trust policy:
 - CI also builds Linux Lambda zip artifacts to validate the deploy packaging path
 - Pushes to non-`main` branches touching those paths run the staging deploy workflow
 - Merge to `main` touching those paths runs the dev deploy workflow
+- Production deploys are manual through the prod workflow so release timing stays explicit
 - Each deploy builds Linux Lambda artifacts, uploads the risk model to S3, applies Terraform with the correct `environment_name` and stage, then runs the system tests against the freshly deployed base URL from Terraform output
 - Deploy builds Linux Lambda artifacts, uploads the risk model to S3, and wires the location, retrieval, ingestion, processing, `risk/location`, and watchlist routes to API Gateway
 - Terraform also creates a daily EventBridge rule at `02:00 UTC` that invokes the ingestion Lambda with an empty payload so it ingests all hubs automatically
 - `risk/region` stays documented only until a handler is implemented
 - Generic CI stays AWS-free; environment-specific system tests now run from the deploy workflows after each successful apply
+
+Recommended environment values:
+
+- `staging`: `TF_STATE_KEY=staging/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-staging`
+- `dev`: `TF_STATE_KEY=dev/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-dev`
+- `prod`: `TF_STATE_KEY=prod/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-prod`
 
 ## Python quality checks
 
