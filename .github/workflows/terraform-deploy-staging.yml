@@ -2,7 +2,7 @@ name: Terraform Deploy Staging
 
 on:
   push:
-    branches-ignore:
+    branches:
       - main
     paths:
       - "terraform/**"
@@ -23,7 +23,7 @@ permissions:
 
 concurrency:
   group: terraform-staging-deploy
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -74,7 +74,7 @@ jobs:
 
       - name: Terraform init
         run: |
-          # The staging backend key stays isolated from dev in the same state bucket.
+          # The staging backend key stays isolated from dev and prod in the same state bucket.
           terraform -chdir=terraform init -input=false \
             -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="key=${TF_STATE_KEY}" \

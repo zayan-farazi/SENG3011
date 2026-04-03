@@ -117,7 +117,13 @@ Add this GitHub secret to all three environments:
 
 - `PIRATE_WEATHER_API_KEY=<your-pirate-weather-key>`
 
-The shared trust policy can cover all three environments, and the separate GitHub environment names still let you add approval gates for `prod` if you want.
+The shared trust policy can cover all three environments. A common release flow is:
+
+- `dev` on non-`main` branch pushes
+- `staging` on `main`
+- `prod` by manual promotion
+
+The separate GitHub environment names still let you add approval gates for `prod` if you want.
 
 ## 5. Initialize and apply Terraform locally
 

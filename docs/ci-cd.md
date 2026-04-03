@@ -3,8 +3,8 @@
 This repository uses four GitHub Actions workflows:
 
 - `terraform-ci.yml`: runs on pull requests and non-`main` pushes for Terraform formatting, backend-free validation, OpenAPI YAML parsing, and Python quality checks
-- `terraform-deploy-staging.yml`: runs on non-`main` pushes and applies Terraform to the `staging` environment
-- `terraform-deploy-dev.yml`: runs on pushes to `main` and applies Terraform to the `dev` environment
+- `terraform-deploy-dev.yml`: runs on non-`main` pushes and applies Terraform to the `dev` environment
+- `terraform-deploy-staging.yml`: runs on pushes to `main` and applies Terraform to the `staging` environment
 - `terraform-deploy-prod.yml`: runs manually and applies Terraform to the `prod` environment
 
 ## GitHub setup
@@ -66,8 +66,8 @@ Example trust policy:
 - Pull request or branch push touching `terraform/**`, `docs/openapi.yaml`, `scripts/**`, `models/**`, or `.github/workflows/**` runs static CI checks without requiring AWS credentials or remote backend access
 - If Python project files are present, the CI workflow also runs Python linting, type checking, tests, and coverage
 - CI also builds Linux Lambda zip artifacts to validate the deploy packaging path
-- Pushes to non-`main` branches touching those paths run the staging deploy workflow
-- Merge to `main` touching those paths runs the dev deploy workflow
+- Pushes to non-`main` branches touching those paths run the dev deploy workflow
+- Merge to `main` touching those paths runs the staging deploy workflow
 - Production deploys are manual through the prod workflow so release timing stays explicit
 - Each deploy builds Linux Lambda artifacts, uploads the risk model to S3, applies Terraform with the correct `environment_name` and stage, then runs the system tests against the freshly deployed base URL from Terraform output
 - Deploy builds Linux Lambda artifacts, uploads the risk model to S3, and wires the location, retrieval, ingestion, processing, `risk/location`, and watchlist routes to API Gateway
@@ -77,8 +77,8 @@ Example trust policy:
 
 Recommended environment values:
 
-- `staging`: `TF_STATE_KEY=staging/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-staging`
 - `dev`: `TF_STATE_KEY=dev/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-dev`
+- `staging`: `TF_STATE_KEY=staging/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-staging`
 - `prod`: `TF_STATE_KEY=prod/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-prod`
 
 ## Python quality checks
