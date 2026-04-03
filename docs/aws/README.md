@@ -2,12 +2,12 @@
 
 This repo currently deploys:
 
-- four Lambdas: retrieval, ingestion, processing, and analytics
-- one HTTP API with five live routes
+- six Lambdas: location, retrieval, ingestion, processing, analytics, and watchlist
+- one HTTP API with location, retrieval, ingestion, processing, risk, and watchlist routes
 - one daily EventBridge rule at `02:00 UTC` that invokes ingestion for all hubs
-- one application data bucket: `seng3011-app-zayan-360990919154-dev`
+- one application data bucket chosen per AWS account
 - one ML model artifact at `models/risk_model.joblib`
-- the Lambda uses the existing IAM execution role `LabRole`
+- one shared Lambda execution role managed by Terraform
 
 ## 1. Fix local AWS credentials or use GitHub OIDC
 
@@ -20,14 +20,14 @@ aws configure
 aws sts get-caller-identity
 ```
 
-If you want GitHub Actions to deploy, create an IAM role using the trust and permissions policies in this folder and then set the GitHub `dev` environment variables.
+If you want GitHub Actions to deploy, create an IAM role using the trust and permissions policies in this folder and then set the GitHub `staging`, `dev`, and `prod` environment variables.
 
 ## 2. Create the Terraform state bucket
 
 Pick a globally unique bucket name. Example:
 
 ```bash
-export AWS_REGION=us-east-1
+export AWS_REGION=ap-southeast-2
 export TF_STATE_BUCKET=seng3011-tf-state-zayan-001
 ```
 
@@ -76,12 +76,13 @@ Replace these placeholders before creating the role:
 
 - `<aws-account-id>`
 - `<tf-state-bucket-name>`
+- `<app-bucket-name>`
 
 Create the role:
 
 ```bash
 aws iam create-role \
-  --role-name seng3011-github-actions-dev \
+  --role-name seng3011-github-actions \
   --assume-role-policy-document file://docs/aws/github-actions-oidc-trust-policy.json
 ```
 
@@ -89,26 +90,40 @@ Create the inline policy:
 
 ```bash
 aws iam put-role-policy \
-  --role-name seng3011-github-actions-dev \
-  --policy-name seng3011-terraform-dev \
+  --role-name seng3011-github-actions \
+  --policy-name seng3011-terraform \
   --policy-document file://docs/aws/github-actions-terraform-policy.json
 ```
 
-This branch intentionally does not create a dedicated Lambda execution role because the current lab identity cannot perform `iam:CreateRole`. Terraform references the existing `LabRole` instead.
+Terraform now creates the shared Lambda execution role directly, so the GitHub deploy role must be allowed to create, update, attach policies to, and pass that role.
 
-## 4. Configure the GitHub `dev` environment
+## 4. Configure the GitHub `staging`, `dev`, and `prod` environments
 
-Add these variables in GitHub:
+Add these variables in each GitHub environment:
 
-- `AWS_ROLE_ARN=arn:aws:iam::<aws-account-id>:role/seng3011-github-actions-dev`
-- `AWS_REGION=us-east-1`
+- `AWS_ROLE_ARN=arn:aws:iam::<aws-account-id>:role/seng3011-github-actions`
+- `AWS_REGION=ap-southeast-2`
 - `TF_STATE_BUCKET=<your-state-bucket-name>`
-- `TF_STATE_KEY=dev/terraform.tfstate`
-- `TF_VAR_data_bucket_name=seng3011-app-zayan-360990919154-dev`
+- `TF_STATE_KEY=<environment>/terraform.tfstate`
+- `TF_VAR_data_bucket_name=<your-app-bucket-name>`
 
-Add this GitHub `dev` environment secret:
+Examples:
+
+- `staging`: `TF_STATE_KEY=staging/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-staging`
+- `dev`: `TF_STATE_KEY=dev/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-dev`
+- `prod`: `TF_STATE_KEY=prod/terraform.tfstate`, `TF_VAR_data_bucket_name=<team>-app-<account-id>-prod`
+
+Add this GitHub secret to all three environments:
 
 - `PIRATE_WEATHER_API_KEY=<your-pirate-weather-key>`
+
+The shared trust policy can cover all three environments. A common release flow is:
+
+- `dev` on non-`main` branch pushes
+- `staging` on `main`
+- `prod` by manual promotion
+
+The separate GitHub environment names still let you add approval gates for `prod` if you want.
 
 ## 5. Initialize and apply Terraform locally
 
@@ -130,7 +145,7 @@ terraform init \
 
 ```bash
 terraform apply \
-  -var='data_bucket_name=seng3011-app-zayan-360990919154-dev' \
+  -var='data_bucket_name=<your-app-bucket-name>' \
   -var='pirate_weather_api_key=<your-pirate-weather-key>'
 ```
 
@@ -139,17 +154,17 @@ terraform apply \
 After apply, use the Terraform outputs or call the expected URLs directly.
 
 ```bash
-curl "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/retrieve/raw/weather/H001?date=10-03-2026"
+curl "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/retrieve/raw/weather/H001?date=10-03-2026"
 ```
 
 ```bash
-curl "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/retrieve/processed/weather/H001?date=10-03-2026"
+curl "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/retrieve/processed/weather/H001?date=10-03-2026"
 ```
 
 ```bash
-curl -X POST "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/ingest/weather/H001"
+curl -X POST "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/ingest/weather/H001"
 ```
 
 ```bash
-curl -X GET "https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/ese/v1/risk/location/H001?date=10-03-2026"
+curl -X GET "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/risk/location/H001?date=10-03-2026"
 ```

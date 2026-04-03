@@ -31,7 +31,7 @@ If the Lambda needs shared constants, keep using [constants.py](/Users/zayanfara
 
 ### 2. Package it in Terraform
 
-Add a new `archive_file` block in [terraform/main.tf](/Users/zayanfarazi/Developer/uni/seng3011/terraform/main.tf). Copy the retrieval pattern and change the service paths:
+Add a new build artifact path and package the Lambda source in [scripts/build_lambda_artifacts.sh](/Users/zayanfarazi/Developer/uni/seng3011/scripts/build_lambda_artifacts.sh). Copy the existing service pattern and change the service paths:
 
 ```hcl
 data "archive_file" "ingest_lambda" {
@@ -64,18 +64,18 @@ If a Lambda needs extra local modules, add another `source` block for each file.
 
 ### 3. Create the Lambda resource
 
-Add a new `aws_lambda_function` using either the existing `LabRole` or a dedicated role later.
+Add a new `aws_lambda_function` using the shared Lambda execution role managed by Terraform.
 
 Example:
 
 ```hcl
 resource "aws_lambda_function" "ingest" {
   function_name    = "weather-ingest-handler"
-  role             = data.aws_iam_role.lab_role.arn
+  role             = aws_iam_role.lambda_execution.arn
   runtime          = "python3.12"
   handler          = "lambdas.ingest.handler.lambda_handler"
-  filename         = data.archive_file.ingest_lambda.output_path
-  source_code_hash = data.archive_file.ingest_lambda.output_base64sha256
+  filename         = local.ingest_zip_path
+  source_code_hash = filebase64sha256(local.ingest_zip_path)
   timeout          = 30
 
   environment {
@@ -200,7 +200,7 @@ At minimum, cover:
 From [/Users/zayanfarazi/Developer/uni/seng3011/terraform](/Users/zayanfarazi/Developer/uni/seng3011/terraform):
 
 ```bash
-terraform apply -var='data_bucket_name=seng3011-app-zayan-360990919154-dev'
+terraform apply -var='data_bucket_name=<your-app-bucket-name>'
 ```
 
 Then test the new endpoint with `curl`.
