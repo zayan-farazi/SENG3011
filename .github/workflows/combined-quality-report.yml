@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   combine:
-    name: Build combined coverage and test reports
+    name: Build final test and coverage reports
     if: ${{ github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-latest
 
@@ -31,7 +31,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip wheel
           python -m pip install coverage reportlab
-          mkdir -p reporting/combined
+          mkdir -p reporting/report
 
       - name: Download staging metadata
         uses: dawidd6/action-download-artifact@v3
@@ -75,44 +75,33 @@ jobs:
           name: ci-test-results
           path: reporting/ci
 
-      - name: Download staging coverage data
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          run_id: ${{ github.event.workflow_run.id }}
-          name: staging-coverage-data
-          path: reporting/staging
-
-      - name: Combine coverage data
+      - name: Reuse CI coverage data
         run: |
-          python -m coverage combine reporting/ci reporting/staging
-          python -m coverage report
-          python -m coverage xml -o reporting/combined/coverage.xml
-          python -m coverage html -d reporting/combined/htmlcov
-          if [ -f .coverage ]; then
-            mv .coverage reporting/combined/.coverage
-          fi
+          cp reporting/ci/.coverage reporting/report/.coverage
+          cp reporting/ci/coverage.xml reporting/report/coverage.xml
+          cp -R reporting/ci/htmlcov reporting/report/htmlcov
 
-      - name: Generate combined PDF reports
+      - name: Generate final PDF reports
         run: |
           python scripts/generate_coverage_pdf.py \
-            --xml reporting/combined/coverage.xml \
-            --output reporting/combined/combined-coverage-report.pdf \
-            --title "Combined Coverage Report"
+            --xml reporting/report/coverage.xml \
+            --output reporting/report/coverage-report.pdf \
+            --title "CI Coverage Report"
           python scripts/generate_junit_pdf.py \
             --input reporting/ci/unit-integration-junit.xml \
             --input reporting/staging/staging-junit.xml \
             --input reporting/staging/staging-e2e-junit.xml \
-            --output reporting/combined/combined-test-report.pdf \
+            --output reporting/report/test-report.pdf \
             --title "Combined Test Report"
 
-      - name: Upload combined PDF reports
+      - name: Upload final PDF reports
         uses: actions/upload-artifact@v4
         with:
-          name: combined-report-pdfs
-          path: reporting/combined/
+          name: final-report-pdfs
+          path: reporting/report/
 
-      - name: Upload combined raw reports
+      - name: Upload final raw reports
         uses: actions/upload-artifact@v4
         with:
-          name: combined-report-data
-          path: reporting/combined/
+          name: final-report-data
+          path: reporting/report/
