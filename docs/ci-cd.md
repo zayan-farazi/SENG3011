@@ -14,10 +14,13 @@ Create a GitHub environment named `dev` and add these variables:
 - `TF_STATE_BUCKET`: S3 bucket name used for remote Terraform state
 - `TF_STATE_KEY`: state object path, for example `dev/terraform.tfstate`
 - `TF_VAR_data_bucket_name`: app bucket name for application data, for example `<team>-app-<account-id>-dev`
+- `DEV_BASE_URL`: deployed dev API base URL used by `tests/system`, for example `https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev`
 
 Add this GitHub `dev` environment secret:
 
 - `PIRATE_WEATHER_API_KEY`: Pirate Weather API key used by the ingestion Lambda
+
+Update `DEV_BASE_URL` whenever the dev stack is recreated in a new AWS account or gets a new API Gateway URL, otherwise the post-merge system tests will still point at the old deployment.
 
 AWS IAM setup details and example policies are in [docs/aws/README.md](/Users/zayanfarazi/Developer/uni/seng3011/docs/aws/README.md).
 

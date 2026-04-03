@@ -106,10 +106,13 @@ Add these variables in GitHub:
 - `TF_STATE_BUCKET=<your-state-bucket-name>`
 - `TF_STATE_KEY=dev/terraform.tfstate`
 - `TF_VAR_data_bucket_name=<your-app-bucket-name>`
+- `DEV_BASE_URL=https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev`
 
 Add this GitHub `dev` environment secret:
 
 - `PIRATE_WEATHER_API_KEY=<your-pirate-weather-key>`
+
+If the stack is redeployed into a different AWS account or a new API Gateway is created, update `DEV_BASE_URL` in GitHub to the new dev invoke URL before relying on the `system-tests` workflow job.
 
 ## 5. Initialize and apply Terraform locally
 
