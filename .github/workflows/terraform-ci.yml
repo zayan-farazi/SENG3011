@@ -120,7 +120,7 @@ jobs:
           ruby -e 'require "yaml"; data = YAML.load_file("docs/openapi.yaml"); abort("missing openapi key") unless data["openapi"]'
 
   python-quality:
-    name: Python lint, types, tests, and coverage
+    name: Python lint and types
     runs-on: ubuntu-latest
     needs: detect-python
     if: ${{ needs.detect-python.outputs.has_python == 'true' }}
@@ -164,10 +164,101 @@ jobs:
           PYTHONPATH: ${{ needs.detect-python.outputs.project_dir }}
         run: python -m mypy .
 
-      - name: Pytest (unit tests) with coverage
+  unit-integration-tests:
+    name: Unit and integration tests, and coverage
+    runs-on: ubuntu-latest
+    needs:
+      - detect-python
+      - static-checks
+      - python-quality
+    if: ${{ needs.detect-python.outputs.has_python == 'true' }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies and tooling
+        run: |
+          set -euo pipefail
+
+          python -m pip install --upgrade pip wheel
+
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          fi
+
+          if [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
+          fi
+
+          if [ -f pyproject.toml ]; then
+            python -m pip install -e .
+          fi
+
+      - name: Run unit and integration tests with coverage
+        id: unit-integration-tests
         env:
           PYTHONPATH: ${{ needs.detect-python.outputs.project_dir }}
-        run: python -m pytest tests/unit --cov=lambdas --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+        run: |
+          set +e
+          mkdir -p reporting/ci/htmlcov
+          python -m pytest tests/unit tests/integration \
+            --junitxml=reporting/ci/unit-integration-junit.xml \
+            --html=reporting/ci/unit-integration-report.html --self-contained-html \
+            --cov=lambdas --cov-report=term-missing --cov-report=xml:reporting/ci/coverage.xml --cov-report=html:reporting/ci/htmlcov --cov-fail-under=85
+          exit_code=$?
+          if [ -f .coverage ]; then
+            mv .coverage reporting/ci/.coverage
+          fi
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Generate CI PDF reports
+        if: ${{ always() }}
+        run: |
+          mkdir -p reporting/ci
+          python scripts/generate_junit_pdf.py \
+            --input reporting/ci/unit-integration-junit.xml \
+            --output reporting/ci/ci-test-report.pdf \
+            --title "CI Test Report"
+          python scripts/generate_coverage_pdf.py \
+            --xml reporting/ci/coverage.xml \
+            --output reporting/ci/ci-coverage-report.pdf \
+            --title "CI Coverage Report"
+
+      - name: Upload unit/integration report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-test-results
+          path: reporting/ci/
+
+      - name: Upload coverage data
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-coverage-data
+          path: reporting/ci/
+
+      - name: Upload CI PDF reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-report-pdfs
+          path: reporting/ci/
 
       - name: Build Lambda artifacts
         run: bash ./scripts/build_lambda_artifacts.sh
+
+      - name: Fail if unit or integration tests failed
+        if: ${{ steps.unit-integration-tests.outputs.exit_code != '0' }}
+        run: exit 1
