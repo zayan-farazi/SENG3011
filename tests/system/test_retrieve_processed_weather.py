@@ -3,7 +3,7 @@ import os
 from tests.test_constants import HUB_ID_1, DATE_2, DATE_INVALID
 from constants import STATUS_OK, STATUS_BAD_REQUEST, RETRIEVE_PROCESSED_WEATHER_PATH
 
-BASE_URL = os.environ["DEV_BASE_URL"]
+BASE_URL = os.environ["STAGING_BASE_URL"]
 
 def test_processed_valid():
     url = f"{BASE_URL}/{RETRIEVE_PROCESSED_WEATHER_PATH}/{HUB_ID_1}"

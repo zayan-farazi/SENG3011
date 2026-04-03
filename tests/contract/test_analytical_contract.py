@@ -5,7 +5,7 @@ from tests.test_constants import HUB_ID_1, DATE_2
 from constants import STATUS_OK, RISK_LOCATION_PATH
 from .schemas.analytic_schema import ANALYTICS_API_SCHEMA
 
-BASE_URL = os.environ["DEV_BASE_URL"]
+BASE_URL = os.environ["STAGING_BASE_URL"]
 
 def test_risk_valid():
     url = f"{BASE_URL}/{RISK_LOCATION_PATH}/{HUB_ID_1}"
