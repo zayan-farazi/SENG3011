@@ -275,12 +275,30 @@ jobs:
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           exit 0
 
+      - name: Install wkhtmltopdf
+        if: ${{ always() }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wkhtmltopdf
+
+      - name: Convert staging HTML report to PDF
+        if: ${{ always() }}
+        run: |
+          wkhtmltopdf reporting/staging/staging-test-report.html reporting/staging/staging-test-report.pdf
+
       - name: Upload staging test results
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: staging-test-results
           path: reporting/staging/
+
+      - name: Upload staging PDF reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-report-pdfs
+          path: reporting/staging/staging-test-report.pdf
 
       - name: Fail if staging tests failed
         if: ${{ steps.staging-pytest.outputs.exit_code != '0' || steps.staging-e2e.outputs.exit_code != '0' }}
