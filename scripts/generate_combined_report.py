@@ -6,9 +6,6 @@ import html
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from xhtml2pdf import pisa  # type: ignore[import-not-found,import-untyped]
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate combined HTML and PDF reports from CI and staging artifacts.")
     parser.add_argument("--ci-dir", required=True, help="Directory containing CI report artifacts")
@@ -178,16 +175,6 @@ def build_test_report(ci_dir: Path, staging_dir: Path, output_dir: Path) -> None
     (output_dir / "test-report.html").write_text(render_page("Combined Test Report", test_body), encoding="utf-8")
 
 
-def html_to_pdf(output_dir: Path) -> None:
-    for report_name in ("coverage-report", "test-report"):
-        html_path = output_dir / f"{report_name}.html"
-        pdf_path = output_dir / f"{report_name}.pdf"
-        with html_path.open("r", encoding="utf-8") as src, pdf_path.open("wb") as dst:
-            result = pisa.CreatePDF(src.read(), dest=dst)
-        if result.err:
-            raise SystemExit(f"Failed to render {html_path} to PDF")
-
-
 def main() -> None:
     args = parse_args()
     ci_dir = Path(args.ci_dir)
@@ -197,7 +184,6 @@ def main() -> None:
 
     build_coverage_report(ci_dir, output_dir)
     build_test_report(ci_dir, staging_dir, output_dir)
-    html_to_pdf(output_dir)
 
 
 if __name__ == "__main__":

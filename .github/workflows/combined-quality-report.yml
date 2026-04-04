@@ -39,10 +39,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install system packages for PDF generation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wkhtmltopdf
+
       - name: Install reporting dependencies
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install xhtml2pdf
           mkdir -p reporting/final
 
       - name: Download staging metadata
@@ -103,12 +107,17 @@ jobs:
           cp reporting/ci/coverage.xml reporting/final/coverage.xml
           cp -R reporting/ci/htmlcov reporting/final/htmlcov
 
-      - name: Generate final HTML and PDF reports
+      - name: Generate final HTML reports
         run: |
           python scripts/generate_combined_report.py \
             --ci-dir reporting/ci \
             --staging-dir reporting/staging \
             --output-dir reporting/final
+
+      - name: Convert final HTML reports to PDF
+        run: |
+          wkhtmltopdf reporting/final/coverage-report.html reporting/final/coverage-report.pdf
+          wkhtmltopdf reporting/final/test-report.html reporting/final/test-report.pdf
 
       - name: Upload final PDF reports
         uses: actions/upload-artifact@v4
