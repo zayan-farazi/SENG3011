@@ -1,10 +1,19 @@
 name: Terraform Deploy Dev
 on:
-  workflow_run:
-    workflows:
-      - Terraform CI
-    types:
-      - completed
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - "terraform/**"
+      - ".github/workflows/**"
+      - "docs/openapi.yaml"
+      - "hubs.json"
+      - "lambdas/**"
+      - "models/**"
+      - "scripts/**"
+      - "tests/data/**"
+      - "**/*.py"
+      - "**/requirements*.txt"
 
 permissions:
   contents: read
@@ -17,11 +26,6 @@ concurrency:
 jobs:
   deploy:
     name: Apply Terraform to dev
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch != 'main' &&
-      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     environment: dev
     env:
@@ -40,8 +44,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3

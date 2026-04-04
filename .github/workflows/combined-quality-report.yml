@@ -43,7 +43,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip wheel
           python -m pip install coverage reportlab
-          mkdir -p reporting/report
+          mkdir -p reporting/final
 
       - name: Download staging metadata
         uses: dawidd6/action-download-artifact@v3
@@ -100,30 +100,30 @@ jobs:
 
       - name: Reuse CI coverage data
         run: |
-          cp reporting/ci/coverage.xml reporting/report/coverage.xml
-          cp -R reporting/ci/htmlcov reporting/report/htmlcov
+          cp reporting/ci/coverage.xml reporting/final/coverage.xml
+          cp -R reporting/ci/htmlcov reporting/final/htmlcov
 
       - name: Generate final PDF reports
         run: |
           python scripts/generate_coverage_pdf.py \
-            --xml reporting/report/coverage.xml \
-            --output reporting/report/coverage-report.pdf \
+            --xml reporting/final/coverage.xml \
+            --output reporting/final/coverage-report.pdf \
             --title "CI Coverage Report"
           python scripts/generate_junit_pdf.py \
             --input reporting/ci/unit-integration-junit.xml \
             --input reporting/staging/staging-junit.xml \
             --input reporting/staging/staging-e2e-junit.xml \
-            --output reporting/report/test-report.pdf \
+            --output reporting/final/test-report.pdf \
             --title "Combined Test Report"
 
       - name: Upload final PDF reports
         uses: actions/upload-artifact@v4
         with:
           name: final-report-pdfs
-          path: reporting/report/
+          path: reporting/final/
 
       - name: Upload final raw reports
         uses: actions/upload-artifact@v4
         with:
           name: final-report-data
-          path: reporting/report/
+          path: reporting/final/
