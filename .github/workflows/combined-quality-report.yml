@@ -49,20 +49,36 @@ jobs:
           python -m pip install --upgrade pip wheel
           mkdir -p reporting/final
 
-      - name: Download staging metadata
+      - name: Resolve report source metadata
+        id: metadata
+        run: |
+          ci_run_id="${{ inputs.ci_run_id || '' }}"
+          head_sha="${{ inputs.ref || '' }}"
+          staging_run_id="${{ github.event_name == 'workflow_dispatch' && inputs.staging_run_id || github.event.workflow_run.id }}"
+
+          echo "staging_run_id=$staging_run_id" >> "$GITHUB_OUTPUT"
+          echo "ci_run_id=$ci_run_id" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.metadata.outputs.head_sha != '' && steps.metadata.outputs.head_sha || github.sha }}
+
+      - name: Download staging test artifacts
         uses: dawidd6/action-download-artifact@v3
         with:
-          run_id: ${{ github.event_name == 'workflow_dispatch' && inputs.staging_run_id || github.event.workflow_run.id }}
+          run_id: ${{ steps.metadata.outputs.staging_run_id }}
           name: staging-test-results
           path: reporting/staging
 
       - name: Read CI run id from staging metadata
-        id: metadata
+        id: staging-metadata
         run: |
           metadata_ci_run_id=$(awk -F= '/^ci_run_id=/{print $2}' reporting/staging/staging-report-metadata.txt)
           metadata_head_sha=$(awk -F= '/^head_sha=/{print $2}' reporting/staging/staging-report-metadata.txt)
-          ci_run_id="${{ inputs.ci_run_id || '' }}"
-          head_sha="${{ inputs.ref || '' }}"
+          ci_run_id="${{ steps.metadata.outputs.ci_run_id }}"
+          head_sha="${{ steps.metadata.outputs.head_sha }}"
 
           if [ -z "$ci_run_id" ]; then
             ci_run_id="$metadata_ci_run_id"
@@ -83,22 +99,17 @@ jobs:
           echo "ci_run_id=$ci_run_id" >> "$GITHUB_OUTPUT"
           echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.metadata.outputs.head_sha }}
-
       - name: Download CI coverage data
         uses: dawidd6/action-download-artifact@v3
         with:
-          run_id: ${{ steps.metadata.outputs.ci_run_id }}
+          run_id: ${{ steps.staging-metadata.outputs.ci_run_id }}
           name: ci-coverage-data
           path: reporting/ci
 
       - name: Download CI test results
         uses: dawidd6/action-download-artifact@v3
         with:
-          run_id: ${{ steps.metadata.outputs.ci_run_id }}
+          run_id: ${{ steps.staging-metadata.outputs.ci_run_id }}
           name: ci-test-results
           path: reporting/ci
 
