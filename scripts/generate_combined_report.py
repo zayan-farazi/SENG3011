@@ -6,7 +6,7 @@ import html
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from xhtml2pdf import pisa  # type: ignore[import-untyped]
+from xhtml2pdf import pisa  # type: ignore[import-not-found,import-untyped]
 
 
 def parse_args() -> argparse.Namespace:
