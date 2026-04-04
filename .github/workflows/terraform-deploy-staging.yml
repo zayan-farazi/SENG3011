@@ -275,15 +275,16 @@ jobs:
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Generate staging PDF reports
+      - name: Install wkhtmltopdf
         if: ${{ always() }}
         run: |
-          mkdir -p reporting/staging
-          python scripts/generate_junit_pdf.py \
-            --input reporting/staging/staging-junit.xml \
-            --input reporting/staging/staging-e2e-junit.xml \
-            --output reporting/staging/staging-test-report.pdf \
-            --title "Staging Test Report"
+          sudo apt-get update
+          sudo apt-get install -y wkhtmltopdf
+
+      - name: Convert staging HTML report to PDF
+        if: ${{ always() }}
+        run: |
+          wkhtmltopdf reporting/staging/staging-test-report.html reporting/staging/staging-test-report.pdf
 
       - name: Upload staging test results
         if: ${{ always() }}
@@ -297,7 +298,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: staging-report-pdfs
-          path: reporting/staging/
+          path: reporting/staging/staging-test-report.pdf
 
       - name: Fail if staging tests failed
         if: ${{ steps.staging-pytest.outputs.exit_code != '0' || steps.staging-e2e.outputs.exit_code != '0' }}

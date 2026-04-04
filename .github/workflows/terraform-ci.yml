@@ -222,18 +222,17 @@ jobs:
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Generate CI PDF reports
+      - name: Install wkhtmltopdf
         if: ${{ always() }}
         run: |
-          mkdir -p reporting/ci
-          python scripts/generate_junit_pdf.py \
-            --input reporting/ci/unit-integration-junit.xml \
-            --output reporting/ci/ci-test-report.pdf \
-            --title "CI Test Report"
-          python scripts/generate_coverage_pdf.py \
-            --xml reporting/ci/coverage.xml \
-            --output reporting/ci/ci-coverage-report.pdf \
-            --title "CI Coverage Report"
+          sudo apt-get update
+          sudo apt-get install -y wkhtmltopdf
+
+      - name: Convert CI HTML reports to PDF
+        if: ${{ always() }}
+        run: |
+          wkhtmltopdf reporting/ci/unit-integration-report.html reporting/ci/ci-test-report.pdf
+          wkhtmltopdf --enable-local-file-access reporting/ci/htmlcov/index.html reporting/ci/ci-coverage-report.pdf
 
       - name: Upload unit/integration report
         if: ${{ always() }}
@@ -254,7 +253,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ci-report-pdfs
-          path: reporting/ci/
+          path: reporting/ci/*-report.pdf
 
       - name: Build Lambda artifacts
         run: bash ./scripts/build_lambda_artifacts.sh

@@ -1,10 +1,11 @@
 # CI/CD Setup
 
-This repository uses four GitHub Actions workflows:
+This repository uses five GitHub Actions workflows:
 
 - `terraform-ci.yml`: runs on pull requests and non-`main` pushes for Terraform formatting, backend-free validation, OpenAPI YAML parsing, and Python quality checks
 - `terraform-deploy-dev.yml`: runs on non-`main` pushes and applies Terraform to the `dev` environment
 - `terraform-deploy-staging.yml`: runs on pushes to `main` and applies Terraform to the `staging` environment
+- `combined-quality-report.yml`: runs after staging completes and generates the final HTML and PDF quality reports from CI and staging artifacts
 - `terraform-deploy-prod.yml`: runs manually and applies Terraform to the `prod` environment
 
 ## GitHub setup
@@ -68,6 +69,7 @@ Example trust policy:
 - Pull request or branch push touching `terraform/**`, `docs/openapi.yaml`, `scripts/**`, `models/**`, or `.github/workflows/**` runs static CI checks without requiring AWS credentials or remote backend access
 - If Python project files are present, the CI workflow also runs Python linting, type checking, tests, and coverage
 - CI also builds Linux Lambda zip artifacts to validate the deploy packaging path
+- CI uploads raw unit and integration test artifacts including JUnit XML, coverage XML, and HTML coverage output
 - Pushes to non-`main` branches touching those paths run the dev deploy workflow
 - Merge to `main` touching those paths runs the staging deploy workflow
 - Production deploys are manual through the prod workflow so release timing stays explicit
@@ -76,6 +78,8 @@ Example trust policy:
 - Terraform also creates a daily EventBridge rule at `02:00 UTC` that invokes the ingestion Lambda with an empty payload so it ingests all hubs automatically
 - `risk/region` stays documented only until a handler is implemented
 - Generic CI stays AWS-free; environment-specific system tests now run from the deploy workflows after each successful apply
+- The staging workflow uploads raw staging test artifacts including JUnit XML and metadata about the matching CI run and commit SHA
+- The combined quality report workflow downloads those CI and staging artifacts, generates the final HTML summaries, converts them to PDF, and uploads the final report bundle
 
 Recommended environment values:
 
@@ -96,6 +100,13 @@ When detected, it runs:
 
 - `ruff check .`
 - `mypy .`
-- `pytest --cov=. --cov-report=term-missing --cov-report=xml`
+- `pytest --cov=. --cov-report=term-missing --cov-report=xml --cov-report=html`
 
 If no Python project exists yet, the Python quality job is skipped rather than failing the workflow.
+
+## Reporting flow
+
+- `terraform-ci.yml` is responsible for producing raw CI artifacts only
+- `terraform-deploy-staging.yml` is responsible for producing raw staging artifacts only
+- `combined-quality-report.yml` is the only workflow that generates final HTML and PDF reports
+- Final reports are generated from downloaded CI and staging artifacts so report rendering happens in one place
