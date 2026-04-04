@@ -6,6 +6,18 @@ on:
       - Terraform Deploy Staging
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      staging_run_id:
+        description: Staging workflow run ID to source staging test artifacts from
+        required: true
+      ci_run_id:
+        description: Optional CI workflow run ID to source CI artifacts from
+        required: false
+      ref:
+        description: Branch, tag, or SHA to check out for report generation
+        required: false
+        default: ""
 
 permissions:
   actions: read
@@ -14,7 +26,7 @@ permissions:
 jobs:
   combine:
     name: Build final test and coverage reports
-    if: ${{ github.event.workflow_run.head_repository.full_name == github.repository }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-latest
 
     defaults:
@@ -31,20 +43,31 @@ jobs:
         run: |
           python -m pip install --upgrade pip wheel
           python -m pip install coverage reportlab
-          mkdir -p reporting/report
+          mkdir -p reporting/final
 
       - name: Download staging metadata
         uses: dawidd6/action-download-artifact@v3
         with:
-          run_id: ${{ github.event.workflow_run.id }}
+          run_id: ${{ github.event_name == 'workflow_dispatch' && inputs.staging_run_id || github.event.workflow_run.id }}
           name: staging-test-results
           path: reporting/staging
 
       - name: Read CI run id from staging metadata
         id: metadata
         run: |
-          ci_run_id=$(awk -F= '/^ci_run_id=/{print $2}' reporting/staging/staging-report-metadata.txt)
-          head_sha=$(awk -F= '/^head_sha=/{print $2}' reporting/staging/staging-report-metadata.txt)
+          metadata_ci_run_id=$(awk -F= '/^ci_run_id=/{print $2}' reporting/staging/staging-report-metadata.txt)
+          metadata_head_sha=$(awk -F= '/^head_sha=/{print $2}' reporting/staging/staging-report-metadata.txt)
+          ci_run_id="${{ inputs.ci_run_id || '' }}"
+          head_sha="${{ inputs.ref || '' }}"
+
+          if [ -z "$ci_run_id" ]; then
+            ci_run_id="$metadata_ci_run_id"
+          fi
+
+          if [ -z "$head_sha" ]; then
+            head_sha="$metadata_head_sha"
+          fi
+
           if [ -z "$ci_run_id" ]; then
             echo "Missing ci_run_id in staging metadata"
             exit 1
@@ -77,31 +100,30 @@ jobs:
 
       - name: Reuse CI coverage data
         run: |
-          cp reporting/ci/.coverage reporting/report/.coverage
-          cp reporting/ci/coverage.xml reporting/report/coverage.xml
-          cp -R reporting/ci/htmlcov reporting/report/htmlcov
+          cp reporting/ci/coverage.xml reporting/final/coverage.xml
+          cp -R reporting/ci/htmlcov reporting/final/htmlcov
 
       - name: Generate final PDF reports
         run: |
           python scripts/generate_coverage_pdf.py \
-            --xml reporting/report/coverage.xml \
-            --output reporting/report/coverage-report.pdf \
+            --xml reporting/final/coverage.xml \
+            --output reporting/final/coverage-report.pdf \
             --title "CI Coverage Report"
           python scripts/generate_junit_pdf.py \
             --input reporting/ci/unit-integration-junit.xml \
             --input reporting/staging/staging-junit.xml \
             --input reporting/staging/staging-e2e-junit.xml \
-            --output reporting/report/test-report.pdf \
+            --output reporting/final/test-report.pdf \
             --title "Combined Test Report"
 
       - name: Upload final PDF reports
         uses: actions/upload-artifact@v4
         with:
           name: final-report-pdfs
-          path: reporting/report/
+          path: reporting/final/
 
       - name: Upload final raw reports
         uses: actions/upload-artifact@v4
         with:
           name: final-report-data
-          path: reporting/report/
+          path: reporting/final/
