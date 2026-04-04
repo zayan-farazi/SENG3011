@@ -222,19 +222,6 @@ jobs:
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Generate CI PDF reports
-        if: ${{ always() }}
-        run: |
-          mkdir -p reporting/ci
-          python scripts/generate_junit_pdf.py \
-            --input reporting/ci/unit-integration-junit.xml \
-            --output reporting/ci/ci-test-report.pdf \
-            --title "CI Test Report"
-          python scripts/generate_coverage_pdf.py \
-            --xml reporting/ci/coverage.xml \
-            --output reporting/ci/ci-coverage-report.pdf \
-            --title "CI Coverage Report"
-
       - name: Upload unit/integration report
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -247,13 +234,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ci-coverage-data
-          path: reporting/ci/
-
-      - name: Upload CI PDF reports
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-report-pdfs
           path: reporting/ci/
 
       - name: Build Lambda artifacts

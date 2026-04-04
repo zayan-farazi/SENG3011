@@ -42,7 +42,7 @@ jobs:
       - name: Install reporting dependencies
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install coverage reportlab
+          python -m pip install xhtml2pdf
           mkdir -p reporting/final
 
       - name: Download staging metadata
@@ -103,18 +103,12 @@ jobs:
           cp reporting/ci/coverage.xml reporting/final/coverage.xml
           cp -R reporting/ci/htmlcov reporting/final/htmlcov
 
-      - name: Generate final PDF reports
+      - name: Generate final HTML and PDF reports
         run: |
-          python scripts/generate_coverage_pdf.py \
-            --xml reporting/final/coverage.xml \
-            --output reporting/final/coverage-report.pdf \
-            --title "CI Coverage Report"
-          python scripts/generate_junit_pdf.py \
-            --input reporting/ci/unit-integration-junit.xml \
-            --input reporting/staging/staging-junit.xml \
-            --input reporting/staging/staging-e2e-junit.xml \
-            --output reporting/final/test-report.pdf \
-            --title "Combined Test Report"
+          python scripts/generate_combined_report.py \
+            --ci-dir reporting/ci \
+            --staging-dir reporting/staging \
+            --output-dir reporting/final
 
       - name: Upload final PDF reports
         uses: actions/upload-artifact@v4
