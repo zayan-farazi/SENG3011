@@ -331,14 +331,9 @@ resource "aws_dynamodb_table_item" "hub_seed" {
       S = "scheduled"
     }
     created_at = {
-      S = timestamp()
+      S = "2026-04-11T00:00:00Z"
     }
   })
-
-  # Ignore changes to avoid errors if the item already exists
-  lifecycle {
-    ignore_changes = [item]
-  }
 }
 
 resource "aws_s3_object" "hubs_file" {

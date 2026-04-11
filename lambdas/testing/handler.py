@@ -12,7 +12,7 @@ def lambda_handler(event, context):
         test_e2e_full_pipeline()
         results[test_e2e_full_pipeline.__name__] = "PASS"
     except AssertionError as e:
-        results[test_e2e_full_pipeline.__name__] = f"FAIL: {e}"
+        results[test_e2e_full_pipeline.__name__] = f"FAIL: {str(e)}"
         overall_status = "fail"
     except Exception as e:
         results[test_e2e_full_pipeline.__name__] = f"ERROR: {type(e).__name__}: {str(e)}"
@@ -22,7 +22,7 @@ def lambda_handler(event, context):
         test_e2e_dynamic_hub_pipeline()
         results[test_e2e_dynamic_hub_pipeline.__name__] = "PASS"
     except AssertionError as e:
-        results[test_e2e_dynamic_hub_pipeline.__name__] = f"FAIL: {e}"
+        results[test_e2e_dynamic_hub_pipeline.__name__] = f"FAIL: {str(e)}"
         overall_status = "fail"
     except Exception as e:
         results[test_e2e_dynamic_hub_pipeline.__name__] = f"ERROR: {type(e).__name__}: {str(e)}"
@@ -32,7 +32,7 @@ def lambda_handler(event, context):
         test_e2e_wrong_date()
         results[test_e2e_wrong_date.__name__] = "PASS"
     except AssertionError as e:
-        results[test_e2e_wrong_date.__name__] = f"FAIL: {e}"
+        results[test_e2e_wrong_date.__name__] = f"FAIL: {str(e)}"
         overall_status = "fail"
     except Exception as e:
         results[test_e2e_wrong_date.__name__] = f"ERROR: {type(e).__name__}: {str(e)}"

@@ -20,7 +20,7 @@ def _unique_location_payload():
     }
 
 
-def _wait_for_processed_data(hub_id, date, timeout_seconds=30, interval_seconds=3):
+def _wait_for_processed_data(hub_id, date, timeout_seconds=15, interval_seconds=2):
     url_processed = f"{BASE_URL}/{RETRIEVE_PROCESSED_WEATHER_PATH}/{hub_id}"
     deadline = time.time() + timeout_seconds
 
@@ -32,7 +32,7 @@ def _wait_for_processed_data(hub_id, date, timeout_seconds=30, interval_seconds=
 
     return response
 
-def _wait_for_analytics_data(hub_id, date, timeout_seconds=30, interval_seconds=3):
+def _wait_for_analytics_data(hub_id, date, timeout_seconds=15, interval_seconds=2):
     url_analytics = f"{BASE_URL}/{RISK_LOCATION_PATH}/{hub_id}"
     deadline = time.time() + timeout_seconds
 
