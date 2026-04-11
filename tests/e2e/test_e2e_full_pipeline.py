@@ -3,8 +3,46 @@ import os
 import json
 from tests.test_constants import HUB_ID_1
 from datetime import datetime, timezone, timedelta
-from constants import STATUS_OK, DATE_FORMAT, RISK_LOCATION_PATH, INGEST_WEATHER_PATH, RETRIEVE_PROCESSED_WEATHER_PATH, RETRIEVE_RAW_WEATHER_PATH, PROCESS_WEATHER_PATH
+import uuid
+import time
+from constants import STATUS_OK, DATE_FORMAT, RISK_LOCATION_PATH, INGEST_WEATHER_PATH, RETRIEVE_PROCESSED_WEATHER_PATH, RETRIEVE_RAW_WEATHER_PATH, PROCESS_WEATHER_PATH, LOCATION_PATH
 BASE_URL = os.environ["DEV_BASE_URL"]
+
+
+def _unique_location_payload():
+    unique_suffix = uuid.uuid4().hex[:8]
+    lat = 10.0 + (int(unique_suffix, 16) % 500) / 1000.0
+    lon = 50.0 + (int(unique_suffix, 16) % 500) / 1000.0
+    return {
+        "lat": lat,
+        "lon": lon,
+        "name": f"E2E Location {unique_suffix}",
+    }
+
+
+def _wait_for_processed_data(hub_id, date, timeout_seconds=30, interval_seconds=3):
+    url_processed = f"{BASE_URL}/{RETRIEVE_PROCESSED_WEATHER_PATH}/{hub_id}"
+    deadline = time.time() + timeout_seconds
+
+    while time.time() < deadline:
+        response = requests.get(url_processed, params={"date": date})
+        if response.status_code == STATUS_OK:
+            return response
+        time.sleep(interval_seconds)
+
+    return response
+
+def _wait_for_analytics_data(hub_id, date, timeout_seconds=30, interval_seconds=3):
+    url_analytics = f"{BASE_URL}/{RISK_LOCATION_PATH}/{hub_id}"
+    deadline = time.time() + timeout_seconds
+
+    while time.time() < deadline:
+        response = requests.get(url_analytics, params={"date": date})
+        if response.status_code == STATUS_OK:
+            return response
+        time.sleep(interval_seconds)
+
+    return response
 
 def test_e2e_full_pipeline():
     #  Ingest data (calls PirateWeather + stores raw in S3)
@@ -83,3 +121,30 @@ def test_e2e_wrong_date():
         if "date" in event["attribute"]:
             # No tommorrow date is recorded
             assert event["attribute"]["date"] != tomorrow
+
+
+def test_e2e_dynamic_hub_pipeline():
+    create_url = f"{BASE_URL}/{LOCATION_PATH}"
+    payload = _unique_location_payload()
+    create_response = requests.post(create_url, json=payload)
+    assert create_response.status_code == STATUS_OK
+    hub_id = create_response.json()["hub_id"]
+    assert hub_id.startswith("LOC_")
+
+    date = datetime.now(timezone.utc).strftime(DATE_FORMAT)
+
+    url_ingest = f"{BASE_URL}/{INGEST_WEATHER_PATH}/{hub_id}"
+    resp_ingest = requests.post(url_ingest)
+    assert resp_ingest.status_code == STATUS_OK
+
+    # validate s3 triggers aswell
+    resp_processed = _wait_for_processed_data(hub_id, date)
+    assert resp_processed.status_code == STATUS_OK
+
+    resp_analytics = _wait_for_analytics_data(hub_id, date)
+    assert resp_analytics.status_code == STATUS_OK
+
+    analytics = resp_analytics.json()
+    assert "events" in analytics
+    assert len(analytics["events"]) > 0
+    assert analytics["events"][0]["attribute"]["hub_id"] == hub_id
