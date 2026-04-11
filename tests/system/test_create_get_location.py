@@ -4,7 +4,7 @@ import requests
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, LOCATION_PATH
 from tests.test_constants import HUB_INVALID, HUB_ID_1
 
-BASE_URL = os.environ["DEV_BASE_URL"]
+BASE_URL = os.environ["STAGING_BASE_URL"]
 
 def _unique_location_payload():
     unique_suffix = uuid.uuid4().hex[:8]

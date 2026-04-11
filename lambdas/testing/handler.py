@@ -14,12 +14,18 @@ def lambda_handler(event, context):
     except AssertionError as e:
         results[test_e2e_full_pipeline.__name__] = f"FAIL: {str(e)}"
         overall_status = "fail"
+    except Exception as e:
+        results[test_e2e_full_pipeline.__name__] = f"ERROR: {type(e).__name__}: {str(e)}"
+        overall_status = "fail"
 
     try:
         test_e2e_wrong_date()
         results[test_e2e_wrong_date.__name__] = "PASS"
     except AssertionError as e:
         results[test_e2e_wrong_date.__name__] = f"FAIL: {str(e)}"
+        overall_status = "fail"
+    except Exception as e:
+        results[test_e2e_wrong_date.__name__] = f"ERROR: {type(e).__name__}: {str(e)}"
         overall_status = "fail"
 
     return {

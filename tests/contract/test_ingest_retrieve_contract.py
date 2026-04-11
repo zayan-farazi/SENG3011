@@ -6,7 +6,7 @@ from tests.test_constants import HUB_ID_1
 from constants import STATUS_OK, INGEST_WEATHER_PATH, DATE_FORMAT, RETRIEVE_RAW_WEATHER_PATH
 from .schemas.raw_weather_schema import RAW_WEATHER_SCHEMA, INGESTION_API_SCHEMA
 
-BASE_URL = os.environ["DEV_BASE_URL"]
+BASE_URL = os.environ["STAGING_BASE_URL"]
 
 
 def test_valid_ingestion_retrieval_contract():

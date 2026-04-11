@@ -5,7 +5,7 @@ from tests.test_constants import HUB_ID_1, DATE_3, RAW_WEATHER_DATA_H1
 from datetime import datetime
 from constants import STATUS_OK, STATUS_BAD_REQUEST, RETRIEVE_PROCESSED_WEATHER_PATH, PROCESS_WEATHER_PATH
 
-BASE_URL = os.environ["DEV_BASE_URL"]
+BASE_URL = os.environ["STAGING_BASE_URL"]
 
 
 def is_iso_datetime(value):

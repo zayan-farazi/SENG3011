@@ -548,7 +548,7 @@ resource "aws_lambda_function" "testing" {
 
   environment {
     variables = {
-      DEV_BASE_URL = local.api_base_url
+      STAGING_BASE_URL = local.api_base_url
     }
   }
 
