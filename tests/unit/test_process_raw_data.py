@@ -20,7 +20,7 @@ def _create_location_item(lat, lon):
     table.put_item(Item={
         "hub_id": HUB_ID_1,
         "name": "Port of Singapore",
-        "lat_lon": f"{lat}:{lon}"
+        "lat_lon": f"{lat:.3f}:{lon:.3f}"
     })
 
 def test_post_process_valid(setup_s3_dynamodb):

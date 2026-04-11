@@ -100,7 +100,7 @@ def test_location_list_all_hubs(setup_dynamodb):
 
 
 def test_location_list_no_hubs(setup_dynamodb):
-    table = boto3.resource("dynamodb", region_name="us-east-1").Table("locations")
+    boto3.resource("dynamodb", region_name="us-east-1").Table("locations")
 
     event = {
         "httpMethod": "GET",
