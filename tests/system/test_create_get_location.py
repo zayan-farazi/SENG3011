@@ -78,3 +78,63 @@ def test_location_get_invalid_hub():
 
     assert response.status_code == STATUS_NOT_FOUND
     assert response.json() == {"error": "Invalid hub_id"}
+
+
+def test_location_list_all():
+    create_url = f"{BASE_URL}/{LOCATION_PATH}"
+    payload = _unique_location_payload()
+    create_response = requests.post(create_url, json=payload)
+    assert create_response.status_code == STATUS_OK
+    created_hub_id = create_response.json()["hub_id"]
+
+    list_url = f"{BASE_URL}/{LOCATION_PATH}/list"
+    response = requests.get(list_url)
+
+    assert response.status_code == STATUS_OK
+    body = response.json()
+    assert "hubs" in body
+    assert isinstance(body["hubs"], list)
+    assert any(hub["hub_id"] == HUB_ID_1 for hub in body["hubs"])
+    assert any(hub["hub_id"] == created_hub_id for hub in body["hubs"])
+    for hub in body["hubs"]:
+        assert set(hub.keys()) == {"hub_id", "name", "lat", "lon"}
+
+
+def test_location_list_dynamic():
+    create_url = f"{BASE_URL}/{LOCATION_PATH}"
+    payload = _unique_location_payload()
+    create_response = requests.post(create_url, json=payload)
+    assert create_response.status_code == STATUS_OK
+    created_hub_id = create_response.json()["hub_id"]
+
+    list_url = f"{BASE_URL}/{LOCATION_PATH}/list"
+    response = requests.get(list_url, params={"type": "dynamic"})
+
+    assert response.status_code == STATUS_OK
+    hubs = response.json()["hubs"]
+    assert any(hub["hub_id"] == created_hub_id for hub in hubs)
+    for hub in hubs:
+        assert set(hub.keys()) == {"hub_id", "name", "lat", "lon"}
+        assert hub["hub_id"].startswith("LOC_")
+
+
+def test_location_list_scheduled():
+    list_url = f"{BASE_URL}/{LOCATION_PATH}/list"
+    response = requests.get(list_url, params={"type": "scheduled"})
+
+    assert response.status_code == STATUS_OK
+    hubs = response.json()["hubs"]
+    assert any(hub["hub_id"] == HUB_ID_1 for hub in hubs)
+    for hub in hubs:
+        assert set(hub.keys()) == {"hub_id", "name", "lat", "lon"}
+        assert hub["hub_id"].startswith("H")
+
+
+def test_location_list_invalid_type():
+    list_url = f"{BASE_URL}/{LOCATION_PATH}/list"
+    response = requests.get(list_url, params={"type": "invalid"})
+
+    assert response.status_code == STATUS_BAD_REQUEST
+    assert response.json() == {
+        "error": "Query parameter 'type' must be one of: dynamic or scheduled"
+    }
