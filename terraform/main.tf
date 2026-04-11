@@ -571,6 +571,12 @@ resource "aws_apigatewayv2_api" "weather_api" {
   description   = "Weather and supply-chain risk HTTP API"
   protocol_type = "HTTP"
 
+  cors_configuration {
+    allow_origins = ["https://ayrasaqib.github.io"]
+    allow_methods = ["GET", "POST", "DELETE", "OPTIONS"]
+    allow_headers = ["content-type"]
+  }
+
   tags = {
     Environment = var.environment_name
     Project     = "seng3011"
