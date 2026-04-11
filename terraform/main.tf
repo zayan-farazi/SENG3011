@@ -316,7 +316,7 @@ resource "aws_dynamodb_table_item" "hub_seed" {
       S = each.key
     }
     lat_lon = {
-      S = "${each.value.lat}:${each.value.lon}"
+      S = "${format("%.3f", each.value.lat)}:${format("%.3f", each.value.lon)}"
     }
     name = {
       S = each.value.name
