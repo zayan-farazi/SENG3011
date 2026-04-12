@@ -12,6 +12,10 @@ FUTURE_DATE = "19-12-2030"
 DATE_INVALID = "invalid-date"
 DATE_H1 = "09-11-2025"
 
+HUB_NAME = "Port 1"
+LAT = 1.234
+LON = 5.678
+
 RAW_WEATHER_DATA_FILE = "tests/data/pirate_weather_raw_sample.json"
 PROCESSED_WEATHER_DATA_FILE = "tests/data/processed_sample.json"
 

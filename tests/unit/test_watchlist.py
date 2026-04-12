@@ -1,5 +1,6 @@
 import json
 import boto3
+import constants
 from lambdas.watchlist.handler import lambda_handler
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND
 from unittest.mock import patch, Mock
@@ -10,7 +11,7 @@ TABLE_NAME = "watchlist"
 @patch("lambdas.watchlist.handler.requests.get")
 def test_post_add_email_success(mock_get, setup_dynamodb):
     mock_get.return_value = Mock(status_code=STATUS_OK)
-    table = boto3.resource("dynamodb", region_name="us-east-1").Table(TABLE_NAME)
+    table = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION).Table(TABLE_NAME)
 
     event = {
         "httpMethod": "POST",
@@ -34,7 +35,7 @@ def test_post_add_email_success(mock_get, setup_dynamodb):
 @patch("lambdas.watchlist.handler.requests.get")
 def test_delete_email_success(mock_get, setup_dynamodb):
     mock_get.return_value = Mock(status_code=STATUS_OK)
-    table = boto3.resource("dynamodb", region_name="us-east-1").Table(TABLE_NAME)
+    table = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION).Table(TABLE_NAME)
 
     table.put_item(Item={
         "hub_id": "H001",

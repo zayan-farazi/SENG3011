@@ -46,7 +46,7 @@ def test_ingest_retrieve_process_contract():
     assert response_ingest.status_code == STATUS_OK
 
     # Retrieve raw data and validate raw schema
-    date_str = datetime.now(timezone.utc).strftime("%d-%m-%Y")  # use current date
+    date_str = datetime.now(timezone.utc).strftime("%d-%m-%Y")
     retrieve_raw_url = f"{BASE_URL}/{RETRIEVE_RAW_WEATHER_PATH}/{HUB_ID_1}"
     response_raw = requests.get(retrieve_raw_url, params={"date": date_str})
     assert response_raw.status_code == STATUS_OK
@@ -69,7 +69,7 @@ def test_ingest_retrieve_process_contract():
 
     # Retrieve processed data and validate schema
     retrieve_processed_url = f"{BASE_URL}/{RETRIEVE_PROCESSED_WEATHER_PATH}/{HUB_ID_1}"
-    response_processed = requests.get(retrieve_processed_url, params={"date": DATE_3})
+    response_processed = requests.get(retrieve_processed_url, params={"date": date_str})
     assert response_processed.status_code == STATUS_OK
     stored_processed = response_processed.json()
     validate(instance=stored_processed, schema=PROCESSED_DATA_SCHEMA)

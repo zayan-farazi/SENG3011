@@ -227,7 +227,7 @@ jobs:
         run: |
           set +e
           test -n "$STAGING_BASE_URL"
-          response=$(curl -s --max-time 30 -X POST "$STAGING_BASE_URL/ese/v1/testing/run")
+          response=$(curl -s --max-time 40 -X POST "$STAGING_BASE_URL/ese/v1/testing/run")
           curl_exit=$?
 
           status="fail"

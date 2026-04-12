@@ -17,6 +17,8 @@ PROCESS_WEATHER_PATH = "ese/v1/process/weather"
 LOCATION_PATH = "ese/v1/location"
 MODEL_S3_KEY = "models/risk_model.joblib"
 
+DEFAULT_REGION = "ap-southeast-2"
+
 ## custom metrics constants
 API_SERVICE = "ApiService"
 WEATHER_SERVICE = "WeatherService"

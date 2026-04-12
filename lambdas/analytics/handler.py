@@ -73,7 +73,7 @@ def _build_vector(features):
 
 def notify_watchlist(hub_id):
     try:
-        region = os.environ.get("AWS_REGION", "us-east-1")
+        region = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
         ses = boto3.client("ses", region_name=region)
         dynamodb = boto3.resource("dynamodb", region_name=region)
         table = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))

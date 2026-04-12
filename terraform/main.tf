@@ -86,6 +86,10 @@ locals {
   api_base_url = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
 
   location_routes = {
+    list_locations = {
+      route_key    = "GET /ese/v1/location/list"
+      path_pattern = "GET/ese/v1/location/list"
+    }
     get_location = {
       route_key    = "GET /ese/v1/location/{hub_id}"
       path_pattern = "GET/ese/v1/location/*"
@@ -190,6 +194,7 @@ data "aws_iam_policy_document" "lambda_access" {
       "dynamodb:GetItem",
       "dynamodb:PutItem",
       "dynamodb:Query",
+      "dynamodb:Scan",
       "dynamodb:UpdateItem",
       "dynamodb:DescribeTable",
     ]
@@ -311,7 +316,7 @@ resource "aws_dynamodb_table_item" "hub_seed" {
       S = each.key
     }
     lat_lon = {
-      S = "${each.value.lat}:${each.value.lon}"
+      S = "${format("%.3f", each.value.lat)}:${format("%.3f", each.value.lon)}"
     }
     name = {
       S = each.value.name
@@ -326,14 +331,9 @@ resource "aws_dynamodb_table_item" "hub_seed" {
       S = "scheduled"
     }
     created_at = {
-      S = timestamp()
+      S = "2026-04-11T00:00:00Z"
     }
   })
-
-  # Ignore changes to avoid errors if the item already exists
-  lifecycle {
-    ignore_changes = [item]
-  }
 }
 
 resource "aws_s3_object" "hubs_file" {
@@ -565,6 +565,12 @@ resource "aws_apigatewayv2_api" "weather_api" {
   name          = local.api_name
   description   = "Weather and supply-chain risk HTTP API"
   protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins = ["https://ayrasaqib.github.io"]
+    allow_methods = ["GET", "POST", "DELETE", "OPTIONS"]
+    allow_headers = ["content-type"]
+  }
 
   tags = {
     Environment = var.environment_name
