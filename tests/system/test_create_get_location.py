@@ -72,6 +72,19 @@ def test_location_create_invalid_name():
     assert response.status_code == STATUS_BAD_REQUEST
     assert "Name can contain only letters" in response.json()["error"]
 
+def test_location_create_invalid_lon():
+    url = f"{BASE_URL}/{LOCATION_PATH}"
+    payload = {
+        "lat": 12.345,
+        "lon": 200,
+        "name": "Port 1"
+    }
+
+    response = requests.post(url, json=payload)
+
+    assert response.status_code == STATUS_BAD_REQUEST
+    assert response.json()["error"] == "Longitude must be between -180 and 180."
+
 def test_location_get_invalid_hub():
     url = f"{BASE_URL}/{LOCATION_PATH}/{HUB_INVALID}"
     response = requests.get(url)

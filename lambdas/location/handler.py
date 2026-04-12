@@ -24,8 +24,8 @@ def response(status, body):
 
 def create_dynamic_hub(table, lat, lon, name):
     # normalise lat/lon to always be 3dp (to help check uniqueness)
-    lat = round(float(lat), 3)
-    lon = round(float(lon), 3)
+    lat = round(lat, 3)
+    lon = round(lon, 3)
     lat_lon = f"{lat:.3f}:{lon:.3f}"
 
     # Check if hub exists
@@ -102,7 +102,7 @@ def get_request_path(event):
     return event.get("path", "")
 
 def lambda_handler(event, context):
-    region = os.environ.get("AWS_REGION", "us-east-1")
+    region = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
     dynamodb = boto3.resource("dynamodb", region_name=region)
     table = dynamodb.Table(os.environ.get("LOCATION_TABLE_NAME", "locations"))
 
@@ -136,6 +136,20 @@ def lambda_handler(event, context):
                 {
                     "error": "Name can contain only letters, numbers, apostrophe, comma, dash, and spaces."
                 }
+            )
+        
+        lat = float(lat)
+        lon = float(lon)
+        if lat < -90 or lat > 90:
+            logger.error(f"POST /location failed: lat {lat} must be between -90 and 90")
+            return response(
+                constants.STATUS_BAD_REQUEST, { "error": "Latitude must be between -90 and 90." }
+            )
+        
+        if lon < -180 or lon > 180:
+            logger.error(f"POST /location failed: lon {lon} must be between -180 and 180")
+            return response(
+                constants.STATUS_BAD_REQUEST, { "error": "Longitude must be between -180 and 180." }
             )
 
         hub = create_dynamic_hub(table, lat, lon, name)
