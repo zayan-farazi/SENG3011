@@ -1,5 +1,6 @@
 import json
 import boto3
+import constants
 from lambdas.processing.handler import lambda_handler
 from tests.test_constants import TEST_BUCKET_NAME, HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, STATUS_INTERNAL_SERVER_ERROR
@@ -15,7 +16,7 @@ def _mock_retrieval_response():
     return mock_resp
 
 def _create_location_item(lat, lon):
-    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
     table = dynamodb.Table("locations")
     table.put_item(Item={
         "hub_id": HUB_ID_1,

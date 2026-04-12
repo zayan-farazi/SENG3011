@@ -58,7 +58,7 @@ def check_raw_format(body):
 
 def get_hub_info_from_pos(lat, lon):
     logger.info(f"Lookup hub by coordinates lat={lat}, lon={lon}")
-    region = os.environ.get("AWS_REGION", "us-east-1")
+    region = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
     dynamodb = boto3.resource("dynamodb", region_name=region)
     table = dynamodb.Table(os.environ.get("LOCATION_TABLE_NAME", "locations"))
 
