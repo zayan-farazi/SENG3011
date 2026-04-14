@@ -8,6 +8,7 @@ from decimal import Decimal
 import uuid
 import constants
 import logging
+from hub_catalog import load_hubs
 from lambdas.metrics import log_metric
 
 logger = logging.getLogger()
@@ -59,10 +60,27 @@ def get_hub(table, hub_id):
     response = table.get_item(Key={"hub_id": hub_id})
     return response.get("Item")
 
-def list_hubs(table, hub_type=None):
-    scan_kwargs = {}
-    if hub_type:
-        scan_kwargs["FilterExpression"] = Attr("type").eq(hub_type)
+def get_scheduled_hub(bucket_name, hub_id):
+    if not bucket_name:
+        return None
+
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", constants.DEFAULT_REGION))
+    hubs = load_hubs(s3, bucket_name)
+    hub = hubs.get(hub_id)
+    if not hub:
+        return None
+
+    return {
+        "hub_id": hub_id,
+        "name": hub["name"],
+        "lat": hub["lat"],
+        "lon": hub["lon"],
+        "type": "scheduled",
+    }
+
+
+def list_hubs(table, bucket_name, hub_type=None):
+    scan_kwargs = {"FilterExpression": Attr("type").eq("dynamic")}
 
     items = []
     response = table.scan(**scan_kwargs)
@@ -72,7 +90,7 @@ def list_hubs(table, hub_type=None):
         response = table.scan(ExclusiveStartKey=response["LastEvaluatedKey"], **scan_kwargs)
         items.extend(response.get("Items", []))
 
-    hubs = [
+    dynamic_hubs = [
         {
             "hub_id": item["hub_id"],
             "name": item["name"],
@@ -81,7 +99,27 @@ def list_hubs(table, hub_type=None):
         }
         for item in items
     ]
-    return sorted(hubs, key=lambda hub: hub["hub_id"])
+
+    if hub_type == "dynamic":
+        return sorted(dynamic_hubs, key=lambda hub: hub["hub_id"])
+
+    scheduled_hubs = []
+    if bucket_name:
+        s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", constants.DEFAULT_REGION))
+        scheduled_hubs = [
+            {
+                "hub_id": hub_id,
+                "name": hub["name"],
+                "lat": hub["lat"],
+                "lon": hub["lon"],
+            }
+            for hub_id, hub in load_hubs(s3, bucket_name).items()
+        ]
+
+    if hub_type == "scheduled":
+        return sorted(scheduled_hubs, key=lambda hub: hub["hub_id"])
+
+    return sorted([*scheduled_hubs, *dynamic_hubs], key=lambda hub: hub["hub_id"])
 
 
 def get_http_method(event):
@@ -108,6 +146,7 @@ def lambda_handler(event, context):
 
     http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
+    bucket_name = os.environ.get("DATA_BUCKET")
     
     # POST /ese/v1/location
     if http_method == "POST":
@@ -163,6 +202,8 @@ def lambda_handler(event, context):
         if hub_id:
             logger.info(f"Incoming request to fetch hub details for hub_id={hub_id}")
             hub = get_hub(table, hub_id)
+            if not hub:
+                hub = get_scheduled_hub(bucket_name, hub_id)
             if hub:
                 logger.info(f"Hub details found for hub_id={hub_id}")
                 return response(constants.STATUS_OK, hub)
@@ -188,7 +229,7 @@ def lambda_handler(event, context):
             )
 
         logger.info(f"Listing hubs with type filter={hub_type or 'all'}")
-        hubs = list_hubs(table, hub_type)
+        hubs = list_hubs(table, bucket_name, hub_type)
         return response(constants.STATUS_OK, {"hubs": hubs})
 
     logger.error("Unhandled error")

@@ -49,7 +49,7 @@ def test_missing_hub_id(setup_dynamodb):
     assert json.loads(response["body"]) == {"error": "Missing hub_id"}
 
 
-def test_invalid_hub_id(setup_dynamodb):
+def test_invalid_hub_id(setup_s3_dynamodb):
     event = {
         "httpMethod": "GET",
         "pathParameters": {"hub_id": "LOC_UNKNOWN"},
@@ -60,7 +60,7 @@ def test_invalid_hub_id(setup_dynamodb):
     assert json.loads(response["body"]) == {"error": "Invalid hub_id"}
 
 
-def test_location_list_all_hubs(setup_dynamodb):
+def test_location_list_all_hubs(setup_s3_dynamodb):
     table = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION).Table("locations")
     table.put_item(
         Item={
@@ -73,18 +73,6 @@ def test_location_list_all_hubs(setup_dynamodb):
             "created_at": "2026-03-29T00:00:00",
         }
     )
-    table.put_item(
-        Item={
-            "hub_id": "H001",
-            "lat_lon": "2.345:6.789",
-            "name": "Port 2",
-            "lat": Decimal("2.345"),
-            "lon": Decimal("6.789"),
-            "type": "scheduled",
-            "created_at": "2026-03-29T00:00:00",
-        }
-    )
-
     event = {
         "httpMethod": "GET",
         "rawPath": "/ese/v1/location/list",
@@ -93,15 +81,12 @@ def test_location_list_all_hubs(setup_dynamodb):
 
     response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_OK
-    assert json.loads(response["body"]) == {
-        "hubs": [
-            {"hub_id": "H001", "name": "Port 2", "lat": 2.345, "lon": 6.789},
-            {"hub_id": "LOC_123", "name": HUB_NAME, "lat": LAT, "lon": LON},
-        ]
-    }
+    hubs = json.loads(response["body"])["hubs"]
+    assert any(hub["hub_id"] == "H001" for hub in hubs)
+    assert any(hub["hub_id"] == "LOC_123" for hub in hubs)
 
 
-def test_location_list_no_hubs(setup_dynamodb):
+def test_location_list_no_hubs(setup_s3_dynamodb):
     boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION).Table("locations")
 
     event = {
@@ -112,10 +97,10 @@ def test_location_list_no_hubs(setup_dynamodb):
 
     response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_OK
-    assert json.loads(response["body"]) == { "hubs": [] }
+    assert any(hub["hub_id"] == "H001" for hub in json.loads(response["body"])["hubs"])
 
 
-def test_location_list_filtered_by_type(setup_dynamodb):
+def test_location_list_filtered_by_type(setup_s3_dynamodb):
     table = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION).Table("locations")
     table.put_item(
         Item={
@@ -128,18 +113,6 @@ def test_location_list_filtered_by_type(setup_dynamodb):
             "created_at": "2026-03-29T00:00:00",
         }
     )
-    table.put_item(
-        Item={
-            "hub_id": "H001",
-            "lat_lon": "2.345:6.789",
-            "name": "Port 2",
-            "lat": Decimal("2.345"),
-            "lon": Decimal("6.789"),
-            "type": "scheduled",
-            "created_at": "2026-03-29T00:00:00",
-        }
-    )
-
     event = {
         "httpMethod": "GET",
         "rawPath": "/ese/v1/location/list",
@@ -154,6 +127,40 @@ def test_location_list_filtered_by_type(setup_dynamodb):
             {"hub_id": "LOC_123", "name": HUB_NAME, "lat": LAT, "lon": LON},
         ]
     }
+
+
+def test_location_get_scheduled_hub_from_catalog(setup_s3_dynamodb):
+    event = {
+        "httpMethod": "GET",
+        "pathParameters": {"hub_id": "H001"},
+    }
+
+    response = lambda_handler(event, None)
+
+    assert response["statusCode"] == STATUS_OK
+    assert json.loads(response["body"]) == {
+        "hub_id": "H001",
+        "name": "Port of Singapore",
+        "lat": 1.264,
+        "lon": 103.82,
+        "type": "scheduled",
+    }
+
+
+def test_location_list_scheduled_from_catalog(setup_s3_dynamodb):
+    event = {
+        "httpMethod": "GET",
+        "rawPath": "/ese/v1/location/list",
+        "pathParameters": {},
+        "queryStringParameters": {"type": "scheduled"},
+    }
+
+    response = lambda_handler(event, None)
+
+    assert response["statusCode"] == STATUS_OK
+    hubs = json.loads(response["body"])["hubs"]
+    assert any(hub["hub_id"] == "H001" for hub in hubs)
+    assert all(not hub["hub_id"].startswith("LOC_") for hub in hubs)
 
 
 def test_location_list_invalid_type(setup_dynamodb):
