@@ -101,8 +101,8 @@ locals {
   hubs_seed_key       = "hubs.json"
   hubs_runtime_key    = "runtime/hubs.json"
   hubs_history_prefix = "history/hubs"
-  model_s3_key = "models/risk_model.joblib"
-  api_base_url = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
+  model_s3_key        = "models/risk_model.joblib"
+  api_base_url        = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
 
   location_routes = {
     list_locations = {
@@ -596,11 +596,11 @@ resource "aws_lambda_function" "hub_sync" {
 
   environment {
     variables = {
-      DATA_BUCKET        = aws_s3_bucket.seng_3011_bkt.bucket
-      PORTWATCH_HUBS_URL = var.portwatch_hubs_url
-      PORTWATCH_API_KEY  = var.portwatch_api_key
-      HUBS_RUNTIME_KEY   = local.hubs_runtime_key
-      HUBS_SEED_KEY      = local.hubs_seed_key
+      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
+      PORTWATCH_HUBS_URL  = var.portwatch_hubs_url
+      PORTWATCH_API_KEY   = var.portwatch_api_key
+      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
+      HUBS_SEED_KEY       = local.hubs_seed_key
       HUBS_HISTORY_PREFIX = local.hubs_history_prefix
     }
   }
