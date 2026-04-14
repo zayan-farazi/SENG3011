@@ -3,7 +3,7 @@ import json
 from unittest.mock import patch
 from datetime import datetime, timezone
 from tests.test_constants import TEST_BUCKET_NAME, HUB_ID_1
-from constants import DATE_FORMAT, STATUS_OK, STATUS_BAD_REQUEST, STATUS_INTERNAL_SERVER_ERROR, STATUS_NOT_FOUND
+from constants import DATE_FORMAT, STATUS_OK, STATUS_BAD_REQUEST, STATUS_INTERNAL_SERVER_ERROR
 
 os.environ["API_KEY"] = "test"
 from lambdas.ingestion.handler import lambda_handler
