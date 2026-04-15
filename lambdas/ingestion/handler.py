@@ -5,7 +5,8 @@ import os
 from datetime import datetime, timezone
 import constants
 import logging
-from hub_catalog import load_hubs, load_seed_hubs
+from hub_catalog import load_seed_hubs
+from hub_lookup import resolve_hub
 from lambdas.metrics import log_metric
 
 logger = logging.getLogger()
@@ -54,11 +55,9 @@ def lambda_handler(event, context):
     hub_id = event.get("pathParameters") or {}
     hub_id = hub_id.get("hub_id")
 
-    hubs = load_hubs(s3, bucket_name)
-
     if hub_id:
         logger.info(f"Ingestion for hub {hub_id} requested")
-        hub_info = hubs.get(hub_id)
+        hub_info = resolve_hub(hub_id, bucket_name, s3=s3)
         if not hub_info:
             logger.error(f"Invalid hub_id requested: {hub_id}")
             return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})

@@ -78,7 +78,7 @@ def get_hub_info_from_pos(lat, lon):
         for hub_id, hub_info in hubs.items():
             candidate_key = (round(float(hub_info["lat"]), 3), round(float(hub_info["lon"]), 3))
             if candidate_key == rounded_key:
-                logger.info(f"Found scheduled hub_id={hub_id} for lat={lat}, lon={lon} from hub catalog")
+                logger.info(f"Found monitored hub_id={hub_id} for lat={lat}, lon={lon} from hub catalog")
                 return {"hub_id": hub_id, "hub_name": hub_info.get("name")}
 
         raise ValueError(f"No hub found for lat={lat}, lon={lon}")

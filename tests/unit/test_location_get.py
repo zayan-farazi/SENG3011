@@ -129,7 +129,7 @@ def test_location_list_filtered_by_type(setup_s3_dynamodb):
     }
 
 
-def test_location_get_scheduled_hub_from_catalog(setup_s3_dynamodb):
+def test_location_get_monitored_hub_from_catalog(setup_s3_dynamodb):
     event = {
         "httpMethod": "GET",
         "pathParameters": {"hub_id": "H001"},
@@ -143,16 +143,16 @@ def test_location_get_scheduled_hub_from_catalog(setup_s3_dynamodb):
         "name": "Port of Singapore",
         "lat": 1.264,
         "lon": 103.82,
-        "type": "scheduled",
+        "type": "monitored",
     }
 
 
-def test_location_list_scheduled_from_catalog(setup_s3_dynamodb):
+def test_location_list_monitored_from_catalog(setup_s3_dynamodb):
     event = {
         "httpMethod": "GET",
         "rawPath": "/ese/v1/location/list",
         "pathParameters": {},
-        "queryStringParameters": {"type": "scheduled"},
+        "queryStringParameters": {"type": "monitored"},
     }
 
     response = lambda_handler(event, None)
@@ -174,5 +174,5 @@ def test_location_list_invalid_type(setup_dynamodb):
     response = lambda_handler(event, None)
     assert response["statusCode"] == STATUS_BAD_REQUEST
     assert json.loads(response["body"]) == {
-        "error": "Query parameter 'type' must be one of: dynamic or scheduled"
+        "error": "Query parameter 'type' must be one of: dynamic or monitored"
     }

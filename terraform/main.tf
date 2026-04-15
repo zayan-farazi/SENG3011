@@ -347,7 +347,7 @@ resource "aws_dynamodb_table_item" "hub_seed" {
       N = tostring(each.value.lon)
     }
     type = {
-      S = "scheduled"
+      S = "monitored"
     }
     created_at = {
       S = "2026-04-11T00:00:00Z"

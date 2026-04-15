@@ -47,7 +47,7 @@ def test_location_get_valid_dynamic():
     assert float(hub["lon"]) == round(payload["lon"], 3)
     assert hub["type"] == "dynamic"
 
-def test_location_get_valid_scheduled():
+def test_location_get_valid_monitored():
     url = f"{BASE_URL}/{LOCATION_PATH}/{HUB_ID_1}"
     response = requests.get(url)
 
@@ -57,7 +57,7 @@ def test_location_get_valid_scheduled():
     assert hub["name"] == "Port of Singapore"
     assert float(hub["lat"]) == 1.264
     assert float(hub["lon"]) == 103.820
-    assert hub["type"] == "scheduled"
+    assert hub["type"] == "monitored"
 
 def test_location_create_invalid_name():
     url = f"{BASE_URL}/{LOCATION_PATH}"
@@ -131,9 +131,9 @@ def test_location_list_dynamic():
         assert hub["hub_id"].startswith("LOC_")
 
 
-def test_location_list_scheduled():
+def test_location_list_monitored():
     list_url = f"{BASE_URL}/{LOCATION_PATH}/list"
-    response = requests.get(list_url, params={"type": "scheduled"})
+    response = requests.get(list_url, params={"type": "monitored"})
 
     assert response.status_code == STATUS_OK
     hubs = response.json()["hubs"]
@@ -149,5 +149,5 @@ def test_location_list_invalid_type():
 
     assert response.status_code == STATUS_BAD_REQUEST
     assert response.json() == {
-        "error": "Query parameter 'type' must be one of: dynamic or scheduled"
+        "error": "Query parameter 'type' must be one of: dynamic or monitored"
     }

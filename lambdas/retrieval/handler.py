@@ -4,7 +4,7 @@ import os
 import logging
 from datetime import datetime
 import constants
-from hub_catalog import load_hubs
+from hub_lookup import resolve_hub
 from lambdas.metrics import log_metric
 
 logger = logging.getLogger()
@@ -37,8 +37,8 @@ def lambda_handler(event, context):
     try:
         datetime.strptime(date, constants.DATE_FORMAT)
 
-        hubs = load_hubs(s3, bucket_name)
-        if hub_id not in hubs:
+        hub = resolve_hub(hub_id, bucket_name, s3=s3)
+        if not hub:
             logger.error(f"Invalid hub_id requested: {hub_id}")
             return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
 
