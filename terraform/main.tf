@@ -214,6 +214,18 @@ data "aws_iam_policy_document" "lambda_access" {
     ]
     resources = ["*"]
   }
+
+  statement {
+    sid    = "AccessSSMParameters"
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:PutParameter",
+    ]
+    resources = [
+      "arn:aws:ssm:*:*:parameter/seng3011/news-api-key"
+    ]
+  }
 }
 
 resource "aws_iam_role" "lambda_execution" {
