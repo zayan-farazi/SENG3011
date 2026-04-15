@@ -8,6 +8,8 @@ from decimal import Decimal
 import uuid
 import constants
 import logging
+from hub_catalog import load_hubs
+from hub_lookup import get_dynamic_hub
 from lambdas.metrics import log_metric
 
 logger = logging.getLogger()
@@ -56,13 +58,34 @@ def create_dynamic_hub(table, lat, lon, name):
     return item
 
 def get_hub(table, hub_id):
+    hub = get_dynamic_hub(hub_id)
+    if not hub:
+        return None
+
     response = table.get_item(Key={"hub_id": hub_id})
     return response.get("Item")
 
-def list_hubs(table, hub_type=None):
-    scan_kwargs = {}
-    if hub_type:
-        scan_kwargs["FilterExpression"] = Attr("type").eq(hub_type)
+def get_monitored_hub(bucket_name, hub_id):
+    if not bucket_name:
+        return None
+
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", constants.DEFAULT_REGION))
+    hubs = load_hubs(s3, bucket_name)
+    hub = hubs.get(hub_id)
+    if not hub:
+        return None
+
+    return {
+        "hub_id": hub_id,
+        "name": hub["name"],
+        "lat": hub["lat"],
+        "lon": hub["lon"],
+        "type": "monitored",
+    }
+
+
+def list_hubs(table, bucket_name, hub_type=None):
+    scan_kwargs = {"FilterExpression": Attr("type").eq("dynamic")}
 
     items = []
     response = table.scan(**scan_kwargs)
@@ -72,7 +95,7 @@ def list_hubs(table, hub_type=None):
         response = table.scan(ExclusiveStartKey=response["LastEvaluatedKey"], **scan_kwargs)
         items.extend(response.get("Items", []))
 
-    hubs = [
+    dynamic_hubs = [
         {
             "hub_id": item["hub_id"],
             "name": item["name"],
@@ -81,7 +104,42 @@ def list_hubs(table, hub_type=None):
         }
         for item in items
     ]
-    return sorted(hubs, key=lambda hub: hub["hub_id"])
+
+    if hub_type == "dynamic":
+        return sorted(dynamic_hubs, key=lambda hub: hub["hub_id"])
+
+    monitored_hubs = []
+    if bucket_name:
+        s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", constants.DEFAULT_REGION))
+        monitored_hubs = [
+            {
+                "hub_id": hub_id,
+                "name": hub["name"],
+                "lat": hub["lat"],
+                "lon": hub["lon"],
+            }
+            for hub_id, hub in load_hubs(s3, bucket_name).items()
+        ]
+
+    if hub_type == "monitored":
+        return sorted(monitored_hubs, key=lambda hub: hub["hub_id"])
+
+    return sorted([*monitored_hubs, *dynamic_hubs], key=lambda hub: hub["hub_id"])
+
+
+def parse_limit(raw_limit):
+    if raw_limit is None:
+        return None
+
+    try:
+        limit = int(raw_limit)
+    except (TypeError, ValueError):
+        return None
+
+    if limit <= 0:
+        return None
+
+    return limit
 
 
 def get_http_method(event):
@@ -108,6 +166,7 @@ def lambda_handler(event, context):
 
     http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
+    bucket_name = os.environ.get("DATA_BUCKET")
     
     # POST /ese/v1/location
     if http_method == "POST":
@@ -163,6 +222,8 @@ def lambda_handler(event, context):
         if hub_id:
             logger.info(f"Incoming request to fetch hub details for hub_id={hub_id}")
             hub = get_hub(table, hub_id)
+            if not hub:
+                hub = get_monitored_hub(bucket_name, hub_id)
             if hub:
                 logger.info(f"Hub details found for hub_id={hub_id}")
                 return response(constants.STATUS_OK, hub)
@@ -177,18 +238,33 @@ def lambda_handler(event, context):
         # GET /ese/v1/location/list
         query_params = event.get("queryStringParameters") or {}
         hub_type = query_params.get("type")
+        raw_limit = query_params.get("limit")
         # No type: return all hubs
         # type=dynamic: return dynamic hubs
-        # type=scheduled: return scheduled hubs
-        if hub_type not in (None, "dynamic", "scheduled"):
+        # type=monitored: return monitored hubs
+        if hub_type not in (None, "dynamic", "monitored"):
             logger.error(f"GET /location/list failed: invalid type filter {hub_type}")
             return response(
                 constants.STATUS_BAD_REQUEST,
-                {"error": "Query parameter 'type' must be one of: dynamic or scheduled"}
+                {"error": "Query parameter 'type' must be one of: dynamic or monitored"}
             )
 
-        logger.info(f"Listing hubs with type filter={hub_type or 'all'}")
-        hubs = list_hubs(table, hub_type)
+        limit = parse_limit(raw_limit)
+        if raw_limit is not None and limit is None:
+            logger.error(f"GET /location/list failed: invalid limit {raw_limit}")
+            return response(
+                constants.STATUS_BAD_REQUEST,
+                {"error": "Query parameter 'limit' must be a positive integer"}
+            )
+
+        logger.info(
+            "Listing hubs with type filter=%s limit=%s",
+            hub_type or "all",
+            limit if limit is not None else "all",
+        )
+        hubs = list_hubs(table, bucket_name, hub_type)
+        if limit is not None:
+            hubs = hubs[:limit]
         return response(constants.STATUS_OK, {"hubs": hubs})
 
     logger.error("Unhandled error")

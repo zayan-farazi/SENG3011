@@ -51,6 +51,8 @@ def test_missing_body_and_records():
 def test_hub_not_found(setup_s3_dynamodb):
     with open(RAW_WEATHER_DATA_H1, "r") as f:
         pirate_raw = json.load(f)
+    pirate_raw["latitude"] = -99.0
+    pirate_raw["longitude"] = -99.0
 
     event = {
         "body": json.dumps(pirate_raw)

@@ -42,6 +42,19 @@ variable "risk_model_source_path" {
   default     = "../models/risk_model.joblib"
 }
 
+variable "portwatch_hubs_url" {
+  type        = string
+  description = "PortWatch hubs endpoint queried by the sync Lambda"
+  default     = "https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/PortWatch_ports_database/FeatureServer/0/query"
+}
+
+variable "portwatch_api_key" {
+  type        = string
+  description = "Optional API key for the PortWatch hubs endpoint"
+  default     = ""
+  sensitive   = true
+}
+
 variable "lambda_execution_role_name" {
   type        = string
   description = "Name for the shared Lambda execution role managed by Terraform"
@@ -57,6 +70,7 @@ locals {
   seeded_date                = "17-03-2026"
   resource_suffix            = var.environment_name == "dev" ? "" : "-${var.environment_name}"
   api_name                   = "weather-supply-chain-api${local.resource_suffix}"
+  daily_hub_sync_rule_name   = "weather-portwatch-hub-sync${local.resource_suffix}"
   daily_ingestion_rule_name  = "weather-ingestion-daily-all-hubs${local.resource_suffix}"
   location_table_name        = "locations${local.resource_suffix}"
   watchlist_table_name       = "watchlist${local.resource_suffix}"
@@ -71,6 +85,7 @@ locals {
   analytics_lambda_name  = "weather-analytics-handler${local.resource_suffix}"
   watchlist_lambda_name  = "weather-watchlist-handler${local.resource_suffix}"
   testing_lambda_name    = "weather-testing-handler${local.resource_suffix}"
+  hub_sync_lambda_name   = "weather-portwatch-hub-sync${local.resource_suffix}"
 
   lambda_artifact_dir = "${path.module}/../build/lambdas"
   location_zip_path   = "${local.lambda_artifact_dir}/location.zip"
@@ -80,10 +95,14 @@ locals {
   analytics_zip_path  = "${local.lambda_artifact_dir}/analytics.zip"
   watchlist_zip_path  = "${local.lambda_artifact_dir}/watchlist.zip"
   testing_zip_path    = "${local.lambda_artifact_dir}/testing.zip"
+  hub_sync_zip_path   = "${local.lambda_artifact_dir}/hub_sync.zip"
   analytics_zip_key   = "artifacts/lambdas/analytics.zip"
 
-  model_s3_key = "models/risk_model.joblib"
-  api_base_url = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
+  hubs_seed_key       = "hubs.json"
+  hubs_runtime_key    = "runtime/hubs.json"
+  hubs_history_prefix = "history/hubs"
+  model_s3_key        = "models/risk_model.joblib"
+  api_base_url        = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
 
   location_routes = {
     list_locations = {
@@ -340,7 +359,7 @@ resource "aws_dynamodb_table_item" "hub_seed" {
       N = tostring(each.value.lon)
     }
     type = {
-      S = "scheduled"
+      S = "monitored"
     }
     created_at = {
       S = "2026-04-11T00:00:00Z"
@@ -350,7 +369,7 @@ resource "aws_dynamodb_table_item" "hub_seed" {
 
 resource "aws_s3_object" "hubs_file" {
   bucket = aws_s3_bucket.seng_3011_bkt.id
-  key    = "hubs.json"
+  key    = local.hubs_seed_key
   source = "${path.module}/../hubs.json"
   etag   = filemd5("${path.module}/../hubs.json")
 }
@@ -398,7 +417,10 @@ resource "aws_lambda_function" "location" {
 
   environment {
     variables = {
+      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
       LOCATION_TABLE_NAME = aws_dynamodb_table.locations.name
+      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
+      HUBS_SEED_KEY       = local.hubs_seed_key
     }
   }
 
@@ -423,8 +445,11 @@ resource "aws_lambda_function" "retrieval" {
 
   environment {
     variables = {
-      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
-      API_BASE_URL = local.api_base_url
+      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL        = local.api_base_url
+      LOCATION_TABLE_NAME = aws_dynamodb_table.locations.name
+      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
+      HUBS_SEED_KEY       = local.hubs_seed_key
     }
   }
 
@@ -449,9 +474,12 @@ resource "aws_lambda_function" "ingestion" {
 
   environment {
     variables = {
-      DATA_BUCKET  = aws_s3_bucket.seng_3011_bkt.bucket
-      API_KEY      = var.pirate_weather_api_key
-      API_BASE_URL = local.api_base_url
+      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
+      API_KEY             = var.pirate_weather_api_key
+      API_BASE_URL        = local.api_base_url
+      LOCATION_TABLE_NAME = aws_dynamodb_table.locations.name
+      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
+      HUBS_SEED_KEY       = local.hubs_seed_key
     }
   }
 
@@ -479,6 +507,8 @@ resource "aws_lambda_function" "processing" {
       DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
       API_BASE_URL        = local.api_base_url
       LOCATION_TABLE_NAME = aws_dynamodb_table.locations.name
+      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
+      HUBS_SEED_KEY       = local.hubs_seed_key
     }
   }
 
@@ -556,6 +586,36 @@ resource "aws_lambda_function" "testing" {
   environment {
     variables = {
       STAGING_BASE_URL = local.api_base_url
+    }
+  }
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  tags = {
+    Environment = var.environment_name
+    Project     = "seng3011"
+  }
+}
+
+resource "aws_lambda_function" "hub_sync" {
+  function_name    = local.hub_sync_lambda_name
+  role             = aws_iam_role.lambda_execution.arn
+  runtime          = "python3.12"
+  handler          = "lambdas.hub_sync.handler.lambda_handler"
+  filename         = local.hub_sync_zip_path
+  source_code_hash = filebase64sha256(local.hub_sync_zip_path)
+  timeout          = 120
+
+  environment {
+    variables = {
+      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
+      PORTWATCH_HUBS_URL  = var.portwatch_hubs_url
+      PORTWATCH_API_KEY   = var.portwatch_api_key
+      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
+      HUBS_SEED_KEY       = local.hubs_seed_key
+      HUBS_HISTORY_PREFIX = local.hubs_history_prefix
     }
   }
 
@@ -783,6 +843,32 @@ resource "aws_cloudwatch_event_rule" "daily_all_hubs_ingestion" {
   }
 }
 
+resource "aws_cloudwatch_event_rule" "daily_hub_sync" {
+  name                = local.daily_hub_sync_rule_name
+  description         = "Refreshes the PortWatch hub catalog before the daily ingestion run"
+  schedule_expression = "cron(0 1 * * ? *)"
+
+  tags = {
+    Environment = var.environment_name
+    Project     = "seng3011"
+  }
+}
+
+resource "aws_cloudwatch_event_target" "daily_hub_sync" {
+  rule      = aws_cloudwatch_event_rule.daily_hub_sync.name
+  target_id = local.hub_sync_lambda_name
+  arn       = aws_lambda_function.hub_sync.arn
+  input     = jsonencode({})
+}
+
+resource "aws_lambda_permission" "allow_eventbridge_hub_sync" {
+  statement_id  = "AllowEventBridgeInvoke-hub-sync"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.hub_sync.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.daily_hub_sync.arn
+}
+
 resource "aws_cloudwatch_event_target" "daily_all_hubs_ingestion" {
   rule      = aws_cloudwatch_event_rule.daily_all_hubs_ingestion.name
   target_id = local.ingestion_lambda_name
@@ -874,6 +960,10 @@ output "location_get_url_example" {
 
 output "daily_all_hubs_ingestion_rule_name" {
   value = aws_cloudwatch_event_rule.daily_all_hubs_ingestion.name
+}
+
+output "daily_hub_sync_rule_name" {
+  value = aws_cloudwatch_event_rule.daily_hub_sync.name
 }
 
 output "weather_retrieve_raw_url_example" {
