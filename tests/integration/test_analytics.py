@@ -478,22 +478,17 @@ def _mock_requests(mock_get, payload, status=STATUS_OK):
     mock_get.return_value = mock_resp
 
 @patch("lambdas.analytics.handler.requests.get")
-@patch("lambdas.retrieval.handler.validate_hub_id", return_value=True)
 @patch("lambdas.processing.handler.get_hub_info_from_pos")
-@patch("lambdas.ingestion.handler.fetch_hub_info")
 @patch("lambdas.ingestion.handler.fetch_weather")
 def test_ingestion_processing_analytics(
     mock_fetch_weather,
-    mock_fetch_hub_info,
     mock_get_hub_info_from_pos,
-    mock_validate_hub_id,
     mock_get_requests,
     setup_s3,
 ):
     s3 = setup_s3["s3"]
     bucket = setup_s3["bucket"]
 
-    mock_fetch_hub_info.return_value = _mock_hub_info()
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Test Hub"}
 
     with open(RAW_WEATHER_DATA_H1, "r") as f:
@@ -542,22 +537,17 @@ def test_ingestion_processing_analytics(
     assert len(daily_events) >= 1
 
 @patch("lambdas.analytics.handler.requests.get")
-@patch("lambdas.retrieval.handler.validate_hub_id", return_value=True)
 @patch("lambdas.processing.handler.get_hub_info_from_pos")
-@patch("lambdas.ingestion.handler.fetch_hub_info")
 @patch("lambdas.ingestion.handler.fetch_weather")
 def test_processing_to_analytics_schema_break(
     mock_fetch_weather,
-    mock_fetch_hub_info,
     mock_get_hub_info_from_pos,
-    mock_validate_hub_id,
     mock_get,
     setup_s3,
 ):
     s3 = setup_s3["s3"]
     bucket = setup_s3["bucket"]
 
-    mock_fetch_hub_info.return_value = _mock_hub_info()
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Test Hub"}
 
     # ingestion normal
