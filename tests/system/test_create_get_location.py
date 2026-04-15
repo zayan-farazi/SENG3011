@@ -145,6 +145,25 @@ def test_location_list_monitored():
         assert hub["hub_id"].startswith("H")
 
 
+def test_location_list_limit():
+    list_url = f"{BASE_URL}/{LOCATION_PATH}/list"
+    response = requests.get(list_url, params={"limit": 5})
+
+    assert response.status_code == STATUS_OK
+    hubs = response.json()["hubs"]
+    assert len(hubs) == 5
+
+
+def test_location_list_invalid_limit():
+    list_url = f"{BASE_URL}/{LOCATION_PATH}/list"
+    response = requests.get(list_url, params={"limit": 0})
+
+    assert response.status_code == STATUS_BAD_REQUEST
+    assert response.json() == {
+        "error": "Query parameter 'limit' must be a positive integer"
+    }
+
+
 def test_location_list_invalid_type():
     list_url = f"{BASE_URL}/{LOCATION_PATH}/list"
     response = requests.get(list_url, params={"type": "invalid"})

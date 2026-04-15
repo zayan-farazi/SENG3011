@@ -127,6 +127,21 @@ def list_hubs(table, bucket_name, hub_type=None):
     return sorted([*monitored_hubs, *dynamic_hubs], key=lambda hub: hub["hub_id"])
 
 
+def parse_limit(raw_limit):
+    if raw_limit is None:
+        return None
+
+    try:
+        limit = int(raw_limit)
+    except (TypeError, ValueError):
+        return None
+
+    if limit <= 0:
+        return None
+
+    return limit
+
+
 def get_http_method(event):
     request_context = event.get("requestContext") or {}
     http_context = request_context.get("http") or {}
@@ -223,6 +238,7 @@ def lambda_handler(event, context):
         # GET /ese/v1/location/list
         query_params = event.get("queryStringParameters") or {}
         hub_type = query_params.get("type")
+        raw_limit = query_params.get("limit")
         # No type: return all hubs
         # type=dynamic: return dynamic hubs
         # type=monitored: return monitored hubs
@@ -233,8 +249,22 @@ def lambda_handler(event, context):
                 {"error": "Query parameter 'type' must be one of: dynamic or monitored"}
             )
 
-        logger.info(f"Listing hubs with type filter={hub_type or 'all'}")
+        limit = parse_limit(raw_limit)
+        if raw_limit is not None and limit is None:
+            logger.error(f"GET /location/list failed: invalid limit {raw_limit}")
+            return response(
+                constants.STATUS_BAD_REQUEST,
+                {"error": "Query parameter 'limit' must be a positive integer"}
+            )
+
+        logger.info(
+            "Listing hubs with type filter=%s limit=%s",
+            hub_type or "all",
+            limit if limit is not None else "all",
+        )
         hubs = list_hubs(table, bucket_name, hub_type)
+        if limit is not None:
+            hubs = hubs[:limit]
         return response(constants.STATUS_OK, {"hubs": hubs})
 
     logger.error("Unhandled error")
