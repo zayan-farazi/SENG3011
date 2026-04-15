@@ -433,10 +433,11 @@ resource "aws_lambda_function" "retrieval" {
 
   environment {
     variables = {
-      DATA_BUCKET      = aws_s3_bucket.seng_3011_bkt.bucket
-      API_BASE_URL     = local.api_base_url
-      HUBS_RUNTIME_KEY = local.hubs_runtime_key
-      HUBS_SEED_KEY    = local.hubs_seed_key
+      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
+      API_BASE_URL        = local.api_base_url
+      LOCATION_TABLE_NAME = aws_dynamodb_table.locations.name
+      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
+      HUBS_SEED_KEY       = local.hubs_seed_key
     }
   }
 
@@ -461,11 +462,12 @@ resource "aws_lambda_function" "ingestion" {
 
   environment {
     variables = {
-      DATA_BUCKET      = aws_s3_bucket.seng_3011_bkt.bucket
-      API_KEY          = var.pirate_weather_api_key
-      API_BASE_URL     = local.api_base_url
-      HUBS_RUNTIME_KEY = local.hubs_runtime_key
-      HUBS_SEED_KEY    = local.hubs_seed_key
+      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
+      API_KEY             = var.pirate_weather_api_key
+      API_BASE_URL        = local.api_base_url
+      LOCATION_TABLE_NAME = aws_dynamodb_table.locations.name
+      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
+      HUBS_SEED_KEY       = local.hubs_seed_key
     }
   }
 

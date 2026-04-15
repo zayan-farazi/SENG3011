@@ -7,13 +7,15 @@ from tests.test_constants import HUB_INVALID, HUB_ID_1
 BASE_URL = os.environ["STAGING_BASE_URL"]
 
 def _unique_location_payload():
-    unique_suffix = uuid.uuid4().hex[:8]
-    lat = 10.0 + (int(unique_suffix, 16) % 500) / 1000.0
-    lon = 50.0 + (int(unique_suffix, 16) % 500) / 1000.0
+    unique_suffix = uuid.uuid4().hex
+    lat_millis = 10000 + (int(unique_suffix[:8], 16) % 70000)
+    lon_millis = 20000 + (int(unique_suffix[8:16], 16) % 140000)
+    lat = lat_millis / 1000.0
+    lon = lon_millis / 1000.0
     return {
         "lat": lat,
         "lon": lon,
-        "name": f"Test Location {unique_suffix}"
+        "name": f"Test Location {unique_suffix[:12]}"
     }
 
 def test_location_create_valid():
