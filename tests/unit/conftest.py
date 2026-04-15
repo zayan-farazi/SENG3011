@@ -30,14 +30,7 @@ def setup_s3():
         )
         os.environ["API_BASE_URL"] = "http://test-api"
 
-        # upload hubs.json to test bucket
-        with open(constants.HUBS_FILE_KEY, "r") as f:
-            hubs = json.load(f)
-        s3.put_object(
-            Bucket=TEST_BUCKET_NAME,
-            Key=constants.HUBS_FILE_KEY,
-            Body=json.dumps(hubs)
-        )
+        _seed_hubs_file(s3)
 
         yield s3 
 
@@ -59,11 +52,21 @@ def setup_s3_dynamodb():
             CreateBucketConfiguration={"LocationConstraint": constants.DEFAULT_REGION},
         )
         os.environ["API_BASE_URL"] = "http://test-api"
+        _seed_hubs_file(s3)
 
         dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
         _create_location_table(dynamodb)
 
         yield s3 
+
+def _seed_hubs_file(s3):
+    with open(constants.HUBS_FILE_KEY, "r") as f:
+        hubs = json.load(f)
+    s3.put_object(
+        Bucket=TEST_BUCKET_NAME,
+        Key=constants.HUBS_FILE_KEY,
+        Body=json.dumps(hubs)
+    )
 
 def _create_location_table(dynamodb):
     table = dynamodb.create_table(

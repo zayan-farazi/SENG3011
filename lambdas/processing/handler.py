@@ -6,6 +6,7 @@ import requests
 import os
 import constants
 from boto3.dynamodb.conditions import Key
+from hub_catalog import load_hubs
 from lambdas.metrics import log_metric
 
 PROCESSED_KEY = "processed/weather"
@@ -67,6 +68,19 @@ def get_hub_info_from_pos(lat, lon):
         KeyConditionExpression=Key("lat_lon").eq(f"{lat:.3f}:{lon:.3f}")
     )
     if not query_result["Items"]:
+        bucket_name = os.environ.get("DATA_BUCKET")
+        if not bucket_name:
+            raise ValueError(f"No hub found for lat={lat}, lon={lon}")
+
+        s3 = boto3.client("s3", region_name=region)
+        hubs = load_hubs(s3, bucket_name)
+        rounded_key = (round(float(lat), 3), round(float(lon), 3))
+        for hub_id, hub_info in hubs.items():
+            candidate_key = (round(float(hub_info["lat"]), 3), round(float(hub_info["lon"]), 3))
+            if candidate_key == rounded_key:
+                logger.info(f"Found monitored hub_id={hub_id} for lat={lat}, lon={lon} from hub catalog")
+                return {"hub_id": hub_id, "hub_name": hub_info.get("name")}
+
         raise ValueError(f"No hub found for lat={lat}, lon={lon}")
 
     hub_item = query_result["Items"][0]
