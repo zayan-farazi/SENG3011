@@ -1,4 +1,4 @@
-import requests  # type: ignore
+import requests
 import os
 import json
 from tests.test_constants import HUB_ID_1
@@ -114,8 +114,8 @@ def test_e2e_wrong_date():
         f"{BASE_URL}/{RISK_LOCATION_PATH}/{HUB_ID_1}",
         params={"date": tomorrow}
     )
-    
-    assert resp_analytics_fail.status_code == STATUS_OK 
+
+    assert resp_analytics_fail.status_code == STATUS_OK
     analytics = resp_analytics_fail.json()
     for event in analytics.get("events", []):
         if "date" in event["attribute"]:

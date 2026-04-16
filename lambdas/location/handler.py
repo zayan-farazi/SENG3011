@@ -1,9 +1,9 @@
 import re
 import os
-import boto3  # type: ignore
+import boto3
 import json
 from datetime import datetime, timezone
-from boto3.dynamodb.conditions import Key, Attr  # type: ignore
+from boto3.dynamodb.conditions import Key, Attr
 from decimal import Decimal
 import uuid
 import constants
@@ -167,7 +167,7 @@ def lambda_handler(event, context):
     http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
     bucket_name = os.environ.get("DATA_BUCKET")
-    
+
     # POST /ese/v1/location
     if http_method == "POST":
         logger.info("Incoming request to create new location")
@@ -196,7 +196,7 @@ def lambda_handler(event, context):
                     "error": "Name can contain only letters, numbers, apostrophe, comma, dash, and spaces."
                 }
             )
-        
+
         lat = float(lat)
         lon = float(lon)
         if lat < -90 or lat > 90:
@@ -204,7 +204,7 @@ def lambda_handler(event, context):
             return response(
                 constants.STATUS_BAD_REQUEST, { "error": "Latitude must be between -90 and 90." }
             )
-        
+
         if lon < -180 or lon > 180:
             logger.error(f"POST /location failed: lon {lon} must be between -180 and 180")
             return response(

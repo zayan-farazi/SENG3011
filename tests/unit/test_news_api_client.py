@@ -265,7 +265,7 @@ class TestErrorHandling:
 
     @patch("lambdas.analytics.handler.requests.get")
     def test_timeout_returns_none(self, mock_get):
-        import requests  # type: ignore
+        import requests
         mock_get.side_effect = requests.exceptions.Timeout("Read timed out")
         result = handler._fetch_sentiment("X", "24h", "key")
         assert result is None

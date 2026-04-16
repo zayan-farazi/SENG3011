@@ -1,6 +1,6 @@
 import os
 import json
-import boto3  # type: ignore
+import boto3
 from decimal import Decimal
 from unittest.mock import patch
 from datetime import datetime, timezone
@@ -24,7 +24,7 @@ def test_lambda_handler_success_single_hub(mock_fetch, setup_s3):
     assert result["statusCode"] == STATUS_OK
 
     today = datetime.now(timezone.utc).strftime(DATE_FORMAT)
- 
+
     obj = setup_s3.get_object(
         Bucket=TEST_BUCKET_NAME,
         Key=f"raw/weather/{HUB_ID_1}/{today}.json"

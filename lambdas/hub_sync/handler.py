@@ -4,8 +4,8 @@ import os
 import re
 from datetime import datetime, timezone
 
-import boto3  # type: ignore
-import requests  # type: ignore
+import boto3
+import requests
 
 import constants
 

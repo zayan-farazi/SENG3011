@@ -1,5 +1,5 @@
 import json
-import boto3  # type: ignore
+import boto3
 from decimal import Decimal
 import constants
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND

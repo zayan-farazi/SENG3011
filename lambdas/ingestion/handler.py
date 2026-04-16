@@ -1,6 +1,6 @@
 import json
-import boto3  # type: ignore
-import requests  # type: ignore
+import boto3
+import requests
 import os
 from datetime import datetime, timezone
 import constants
@@ -84,5 +84,5 @@ def response(status, body):
         "statusCode": status,
         "body": json.dumps(body)
     }
-            
-    
+
+

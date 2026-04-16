@@ -6,11 +6,11 @@ import tempfile
 from datetime import datetime, timezone
 from typing import Optional
 
-import boto3  # type: ignore
-from boto3.dynamodb.conditions import Key  # type: ignore
+import boto3
+from boto3.dynamodb.conditions import Key
 import joblib  # type: ignore[import-untyped]
 import numpy as np
-import requests  # type: ignore
+import requests
 
 import constants
 from lambdas.metrics import log_metric
@@ -425,7 +425,7 @@ def _reverse_geocode_country(lat: float, lon: float) -> Optional[str]:
     try:
         resp = requests.get(
             "https://nominatim.openstreetmap.org/reverse",
-            params={
+            params={  # type: ignore[arg-type]
                 "lat": lat,
                 "lon": lon,
                 "format": "json",
@@ -617,7 +617,7 @@ def _build_adage_response(
                 "peak_risk_score": d["peak_risk_score"],
                 "mean_risk_score": d["mean_risk_score"],
                 "risk_level":      d["risk_level"],
-                
+
                 "combined_risk_score":      day_combined["combined_risk_score"],
                 "combined_risk_level":      day_combined["combined_risk_level"],
                 "weather_component":        day_combined["weather_component"],

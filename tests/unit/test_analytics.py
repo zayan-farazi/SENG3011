@@ -11,7 +11,7 @@ import joblib  # type: ignore[import-untyped]
 from unittest.mock import Mock
 from sklearn.ensemble import RandomForestRegressor  # type: ignore[import-untyped]
 from moto import mock_aws
-import boto3  # type: ignore
+import boto3
 
 from lambdas.analytics.handler import lambda_handler
 from tests.test_constants import (
@@ -451,7 +451,7 @@ def test_dynamic_hub_reverse_geocoding_sentiment(mock_val_hub, mock_get, mock_ap
             mock_resp.json.return_value = data
             mock_resp.text = json.dumps(data)
             return mock_resp
-        
+
         mock_resp = Mock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {}
@@ -473,13 +473,13 @@ def test_dynamic_hub_reverse_geocoding_sentiment(mock_val_hub, mock_get, mock_ap
             mock_resp.status_code = STATUS_OK
             return mock_resp
         return mock_get_side_effect(url, **kwargs)
-    
+
     mock_get.side_effect = mock_get_side_effect_with_validation
 
     result = lambda_handler(event, None)
     assert result["statusCode"] == STATUS_OK, result["body"]
     body = json.loads(result["body"])
-    
+
     geo_events = [e for e in body["events"] if e["event_type"] == "geopolitical_risk_assessment"]
     assert len(geo_events) == 1
     geo = geo_events[0]["attribute"]

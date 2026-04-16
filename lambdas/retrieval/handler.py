@@ -1,5 +1,5 @@
 import json
-import boto3  # type: ignore
+import boto3
 import os
 import logging
 from datetime import datetime
@@ -46,7 +46,7 @@ def lambda_handler(event, context):
             key = f"raw/weather/{hub_id}/{date}.json"
         elif "processed" in path:
             key = f"processed/weather/{hub_id}/{date}.json"
-        
+
         obj = s3.get_object(Bucket=bucket_name, Key=key)
         data = json.loads(obj["Body"].read())
         logger.info(f"Successfully retrieved object s3://{bucket_name}/{key}")
@@ -55,7 +55,7 @@ def lambda_handler(event, context):
     except ValueError:
         logger.exception(f"Invalid date format: {date}")
         return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid date format. Use DD-MM-YYYY"})
-    
+
     except s3.exceptions.NoSuchKey:
         logger.exception(f"No data found for key s3://{bucket_name}/{key}")
         return response(constants.STATUS_NOT_FOUND, {"error": "Data for hub_id and date not found"})

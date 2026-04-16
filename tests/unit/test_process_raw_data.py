@@ -1,5 +1,5 @@
 import json
-import boto3  # type: ignore
+import boto3
 import constants
 from lambdas.processing.handler import lambda_handler
 from tests.test_constants import TEST_BUCKET_NAME, HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1
@@ -29,7 +29,7 @@ def test_post_process_valid(setup_s3_dynamodb):
     with open(RAW_WEATHER_DATA_H1, "r") as f:
         pirate_raw = json.load(f)
     _create_location_item(pirate_raw["latitude"], pirate_raw["longitude"])
-    
+
     with open(PROCESSED_WEATHER_DATA_H1, "r") as f:
         expected = json.load(f)
     event = {
@@ -152,7 +152,7 @@ def test_event_process_valid(mock_get, setup_s3_dynamodb):
     with open(RAW_WEATHER_DATA_H1, "r") as f:
         pirate_raw = json.load(f)
     _create_location_item(pirate_raw["latitude"], pirate_raw["longitude"])
-    
+
     with open(PROCESSED_WEATHER_DATA_H1, "r") as f:
         expected = json.load(f)
     s3.put_object(
@@ -163,7 +163,7 @@ def test_event_process_valid(mock_get, setup_s3_dynamodb):
     event = {
         "Records": [
             {
-                "eventSource": "aws:s3", 
+                "eventSource": "aws:s3",
                 "s3": {
                     "object": {
                         "key":f"raw/weather/{HUB_ID_1}/{DATE_H1}.json",

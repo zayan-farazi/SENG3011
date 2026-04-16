@@ -1,6 +1,6 @@
 import json
-import boto3  # type: ignore
-from boto3.dynamodb.conditions import Key  # type: ignore
+import boto3
+from boto3.dynamodb.conditions import Key
 import constants
 from constants import STATUS_OK, STATUS_BAD_REQUEST
 from tests.test_constants import HUB_NAME, LAT, LON

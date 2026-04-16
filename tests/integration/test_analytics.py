@@ -10,7 +10,7 @@ from lambdas.retrieval.handler import lambda_handler as retrieval_handler
 from constants import RETRIEVE_PROCESSED_WEATHER_PATH
 import sys
 import time
-import requests  # type: ignore[import-untyped]  # noqa: E402
+import requests
 from lambdas.analytics import handler  # noqa: E402
 """
 Integration test for the analytics handler with geopolitical risk.
@@ -586,10 +586,10 @@ def test_processing_to_analytics_schema_break(
     s3.put_object(
         Bucket=bucket,
         Key=processed_key,
-        Body=json.dumps({"invalid": "schema"}) 
+        Body=json.dumps({"invalid": "schema"})
     )
 
-    # Use retrieval to get the corrupted processed data and mock the corrupted data in the analytics. 
+    # Use retrieval to get the corrupted processed data and mock the corrupted data in the analytics.
     # This parralels the real logic inside analytic lambda
     retrieval_event = {
         "rawPath": RETRIEVE_PROCESSED_WEATHER_PATH,
@@ -625,23 +625,23 @@ def test_16_hubs_data_flow():
     End-to-End flow verification script for 16 hubs (8 preset + 8 dynamic).
     Hits Nominatim and the News Sentiment API to verify the full resolution chain.
     """
-    
-    
-    
-    
+
+
+
+
     NEWS_API_BASE = "https://i9pdxmupj7.execute-api.ap-southeast-2.amazonaws.com"
-    
+
     # Setup New Key
     requests.delete(f"{NEWS_API_BASE}/api/auth/key", timeout=10)
     resp = requests.post(f"{NEWS_API_BASE}/api/auth/key", timeout=10)
     key = resp.json()["key"]
     print(f"Acquired Key: {key[:12]}...")
-    
+
     # 8 Preset Hubs
     hubs = [
         {"hub_id": f"H00{i+1}", "lat": 0.0, "lon": 0.0} for i in range(8)
     ]
-    
+
     # 8 Dynamic Hubs (lat, lon) -> resolving via Nominatim
     dynamic_coords = [
         ("LOC01", 48.8566, 2.3522),    # Paris, France
@@ -653,46 +653,46 @@ def test_16_hubs_data_flow():
         ("LOC07", -41.2865, 174.7762), # Wellington, NZ
         ("LOC08", -34.6037, -58.3816), # Buenos Aires, Argentina
     ]
-    
+
     for hid, lat, lon in dynamic_coords:
         hubs.append({"hub_id": hid, "lat": lat, "lon": lon})
-    
+
     ok = 0
     fail = 0
-    
+
     print(f"\n{'HUB':<6} | {'T' :<2} | {'COUNTRY RESOLVED':<20} | {'SNT' :<5} | {'RISK_S'} | {'WTH_S'} | {'CMB_S'}")
     print("-" * 75)
-    
+
     for i, hub in enumerate(hubs):
         t0 = time.time()
-        
+
         # 1. Reverse Geocode (if dynamic) or Map (if preset)
         hub_type = "PR" if hub["hub_id"].startswith("H") else "DY"
         geo_meta = handler._resolve_geo_meta(hub["hub_id"], hub["lat"], hub["lon"])
-        
+
         # 2. Get Geopolitical Score
         geo_risk = handler._get_geopolitical_risk(geo_meta, key)
-        
+
         dt = time.time() - t0
         country = geo_risk.get("country", "Unknown")
-        
+
         # 3. Simulate Weather Peak = 0.8 (Extreme) to test Combiner
         weather_peak = 0.8000
         combined = handler._combine_risk_scores(weather_peak, geo_risk)
-    
+
         if geo_risk["data_available"]:
             ok += 1
             g_s = geo_risk["geopolitical_risk_score"]
             c_s = combined["combined_risk_score"]
-            
+
             print(f"{hub['hub_id']:<6} | {hub_type:<2} | {country:<20} | {dt:4.1f}s | {g_s:.4f} | {weather_peak:.4f} | {c_s:.4f}")
         else:
             fail += 1
             print(f"{hub['hub_id']:<6} | {hub_type:<2} | {country:<20} | {dt:4.1f}s | FAIL   |        |")
-    
+
         # Nominatim requires 1s delay; we use 1.2s to be safe
         time.sleep(1.2)
-    
+
     print(f"\nRESULT: {ok}/16 OK, {fail}/16 FAIL")
 
 def test_live_news_api_e2e():
@@ -700,13 +700,13 @@ def test_live_news_api_e2e():
     """
     Live Integration Test - Analytics Handler with Real News Sentiment API
     ======================================================================
-    
+
     This script tests the full geopolitical risk pipeline against the REAL
     news sentiment API, with NO mocking of external services.
-    
+
     What IS mocked:  ML model (dummy RandomForest), S3 storage (in-memory dict)
     What is REAL:    News Sentiment API, Nominatim reverse geocoding
-    
+
     Flow tested:
         1. Register a fresh API key (DELETE old -> POST new)
         2. For each preset hub, resolve geo metadata (country + keywords)
@@ -714,17 +714,17 @@ def test_live_news_api_e2e():
         4. Compute keyword composites with confidence weighting
         5. Combine weather (65%) + geopolitical (35%) into final score
         6. Verify the output payload has all required fields
-    
+
     Run:
         python tests/integration/test_live_news_sentiment.py
     """
-    
-    
-    
+
+
+
     # Add project root so we can import our handler
-    
-    
-    
+
+
+
     # ---------------------------------------------------------------------------
     # Config
     # ---------------------------------------------------------------------------
@@ -738,8 +738,8 @@ def test_live_news_api_e2e():
     PASS = "[OK]"
     FAIL = "[FAIL]"
     WARN = "[WARN]"
-    
-    
+
+
     # ---------------------------------------------------------------------------
     # Helpers
     # ---------------------------------------------------------------------------
@@ -747,45 +747,45 @@ def test_live_news_api_e2e():
         print(f"\n{'='*70}")
         print(f"  {text}")
         print(f"{'='*70}")
-    
-    
+
+
     def print_result(label, passed, detail=""):
         icon = PASS if passed else FAIL
         print(f"  {icon} {label}" + (f" - {detail}" if detail else ""))
-    
-    
+
+
     # ---------------------------------------------------------------------------
     # Step 1: API Key Management
     # ---------------------------------------------------------------------------
     def get_fresh_api_key():
         """Delete any existing key, register a new one."""
         print_header("STEP 1: API Key Registration")
-    
+
         # Delete old key
         del_resp = requests.delete(f"{NEWS_API_BASE}/api/auth/key", timeout=10)
         print(f"  DELETE /api/auth/key -> {del_resp.status_code}")
-    
+
         # Register new key
         reg_resp = requests.post(f"{NEWS_API_BASE}/api/auth/key", timeout=10)
         print(f"  POST   /api/auth/key -> {reg_resp.status_code}")
-    
+
         if reg_resp.status_code not in (200, 201):
             print(f"  {FAIL} Could not register API key: {reg_resp.text}")
             return None
-    
+
         data = reg_resp.json()
         key = data.get("key")
         print_result("API key registered", key is not None, f"key={key[:16]}...")
         return key
-    
-    
+
+
     # ---------------------------------------------------------------------------
     # Step 2: Test x-api-key Header Auth
     # ---------------------------------------------------------------------------
     def test_auth_header(api_key):
         """Verify the API accepts x-api-key header and rejects query param."""
         print_header("STEP 2: Authentication (x-api-key header)")
-    
+
         # Should succeed with header
         r_ok = requests.get(
             f"{NEWS_API_BASE}/api/sentiment",
@@ -798,7 +798,7 @@ def test_live_news_api_e2e():
             r_ok.status_code == 200,
             f"status={r_ok.status_code}",
         )
-    
+
         # Should fail with query param
         r_bad = requests.get(
             f"{NEWS_API_BASE}/api/sentiment",
@@ -810,10 +810,10 @@ def test_live_news_api_e2e():
             r_bad.status_code == 401,
             f"status={r_bad.status_code}",
         )
-    
+
         return r_ok.status_code == 200
-    
-    
+
+
     # ---------------------------------------------------------------------------
     # Step 3: Geo Meta Resolution
     # ---------------------------------------------------------------------------
@@ -821,9 +821,9 @@ def test_live_news_api_e2e():
         """Test that preset hubs resolve to correct countries, and dynamic hubs
         use Nominatim reverse geocoding."""
         print_header("STEP 3: Geo Meta Resolution")
-    
+
         all_passed = True
-    
+
         # Preset hubs
         for hub_id, info in TEST_HUBS.items():
             meta = handler._resolve_geo_meta(hub_id, info["lat"], info["lon"])
@@ -834,7 +834,7 @@ def test_live_news_api_e2e():
                 passed,
                 f"country={meta['country']}, keywords={meta['keywords']}",
             )
-    
+
         # Dynamic hub (Tokyo - not in preset list)
         print("\n  --- Dynamic hub (reverse geocoding) ---")
         dyn_meta = handler._resolve_geo_meta("LOC_tokyo_test", 35.6762, 139.6503)
@@ -845,21 +845,21 @@ def test_live_news_api_e2e():
             dyn_passed,
             f"country={dyn_meta['country']}, keywords={dyn_meta['keywords']}",
         )
-    
+
         return all_passed
-    
-    
+
+
     # ---------------------------------------------------------------------------
     # Step 4: Live Sentiment Fetch
     # ---------------------------------------------------------------------------
     def test_live_sentiment_fetch(api_key):
         """Call _fetch_sentiment for real keywords (7d only)."""
         print_header("STEP 4: Live Sentiment Fetch (keywords x 7d)")
-    
+
         keywords = ["Singapore", "Strait of Malacca", "China", "South China Sea"]
         results = {}
         all_ok = True
-    
+
         for kw in keywords:
             result = handler._fetch_sentiment(kw, "7d", api_key)
             key = f"{kw}/7d"
@@ -878,101 +878,101 @@ def test_live_news_api_e2e():
                 print(f"  {WARN} {key:40s} - no data returned")
             # Small delay to avoid rate limiting
             time.sleep(1.0)
-    
+
         return all_ok, results
-    
-    
+
+
     # ---------------------------------------------------------------------------
     # Step 5: Keyword Composite Aggregation
     # ---------------------------------------------------------------------------
     def test_keyword_composite(api_key):
         """Test composite aggregation for a single keyword (7d only)."""
         print_header("STEP 5: Keyword Composite (7d-only aggregation)")
-    
+
         keyword = "China"
         tf_results = {}
-    
+
         result = handler._fetch_sentiment(keyword, "7d", api_key)
         tf_results["7d"] = result
         time.sleep(1.0)
-    
+
         composite = handler._compute_keyword_composite(tf_results)
         available = composite["data_available"]
-    
+
         print(f"  Keyword: {keyword}")
         print(f"  Data available: {available}")
-    
+
         if available:
             score = composite["composite_risk_score"]
             valid = 0.0 <= score <= 1.0
             print_result("Composite score in [0, 1]", valid, f"score={score:.4f}")
-    
+
             for tf, tf_data in composite["timeframes"].items():
                 conf = tf_data.get("confidence", "?")
                 eff_w = tf_data.get("effective_weight", "?")
                 print(f"    {tf}: risk={tf_data['risk_score']:.4f}  "
                       f"articles={tf_data['article_count']}  "
                       f"confidence={conf}  eff_weight={eff_w}")
-    
+
             return True
         else:
             print(f"  {WARN} No sentiment data available for '{keyword}' - API may have no articles")
             return True  # Graceful - not a failure
-    
-    
+
+
     # ---------------------------------------------------------------------------
     # Step 6: Full Geopolitical Risk Score
     # ---------------------------------------------------------------------------
     def test_full_geo_risk(api_key):
         """Test the complete geopolitical risk pipeline for a hub."""
         print_header("STEP 7: Full Geopolitical Risk (H002 - Port of Shanghai)")
-    
+
         # Resolve geo meta first, then compute geopolitical risk
         geo_meta = handler._resolve_geo_meta("H002", 31.23, 121.47)
         geo_risk = handler._get_geopolitical_risk(geo_meta, api_key)
-    
+
         print(f"  Country:            {geo_risk.get('country')}")
         print(f"  Data available:     {geo_risk.get('data_available')}")
         print(f"  Geo risk score:     {geo_risk.get('geopolitical_risk_score')}")
         print(f"  Geo risk level:     {geo_risk.get('geopolitical_risk_level')}")
-    
+
         kw_scores = geo_risk.get("keyword_scores", [])
         print(f"  Keywords scored:    {len(kw_scores)}")
         for kws in kw_scores:
             status = f"risk={kws['composite_risk_score']:.4f}" if kws.get("data_available") else "no data"
             print(f"    * {kws['keyword']}: {status}")
-    
+
         score = geo_risk.get("geopolitical_risk_score", -1)
         valid = 0.0 <= score <= 1.0
         print_result("Geo risk score in [0, 1]", valid, f"score={score:.4f}")
-    
+
         return valid, geo_risk
-    
-    
+
+
     # ---------------------------------------------------------------------------
     # Step 8: Combined Risk Formula
     # ---------------------------------------------------------------------------
     def test_combined_risk(geo_risk):
         """Verify the 65/35 weather+geo blend."""
         print_header("STEP 8: Combined Risk Formula (65% weather / 35% geo)")
-    
+
         weather_score = 0.42  # Simulated weather risk
-    
+
         combined = handler._combine_risk_scores(weather_score, geo_risk)
-    
+
         w_comp = combined["weather_component"]
         g_comp = combined["geopolitical_component"]
         c_score = combined["combined_risk_score"]
         w_weight = combined["weather_weight"]
         g_weight = combined["geo_weight"]
-    
+
         print(f"  Weather component:  {w_comp}")
         print(f"  Geo component:      {g_comp}")
         print(f"  Weather weight:     {w_weight}")
         print(f"  Geo weight:         {g_weight}")
         print(f"  Combined score:     {c_score}")
         print(f"  Combined level:     {combined['combined_risk_level']}")
-    
+
         if geo_risk.get("data_available"):
             expected = round(0.65 * weather_score + 0.35 * g_comp, 4)
             match = c_score == expected
@@ -981,46 +981,46 @@ def test_live_news_api_e2e():
         else:
             match = c_score == weather_score
             print_result("Fallback to weather-only", match, f"combined={c_score}, weather={weather_score}")
-    
+
         valid = 0.0 <= c_score <= 1.0
         print_result("Combined score in [0, 1]", valid)
-    
+
         return valid and (match if geo_risk.get("data_available") else True)
-    
-    
+
+
     # ---------------------------------------------------------------------------
     # Step 9: Dynamic Hub (user-created location)
     # ---------------------------------------------------------------------------
     def test_dynamic_hub(api_key):
         """Test geo risk for a user-created hub (not in preset list)."""
         print_header("STEP 9: Dynamic Hub - Tokyo (user-created location)")
-    
+
         # Resolve via Nominatim, then compute geopolitical risk
         geo_meta = handler._resolve_geo_meta("LOC_user_tokyo", 35.6762, 139.6503)
         geo_risk = handler._get_geopolitical_risk(geo_meta, api_key)
-    
+
         print(f"  Country:         {geo_risk.get('country')}")
         print(f"  Data available:  {geo_risk.get('data_available')}")
         print(f"  Risk score:      {geo_risk.get('geopolitical_risk_score')}")
         print(f"  Keywords:        {[k['keyword'] for k in geo_risk.get('keyword_scores', [])]}")
-    
+
         score = geo_risk.get("geopolitical_risk_score", -1)
         valid = 0.0 <= score <= 1.0
         country_resolved = geo_risk.get("country", "Unknown") != "Unknown"
-    
+
         print_result("Country resolved via Nominatim", country_resolved, geo_risk.get("country"))
         print_result("Risk score in [0, 1]", valid, f"score={score:.4f}")
-    
+
         return valid
-    
-    
+
+
     # ---------------------------------------------------------------------------
     # Step 10: ADAGE Response Structure
     # ---------------------------------------------------------------------------
     def test_adage_response(geo_risk):
         """Verify the ADAGE-compliant response structure."""
         print_header("STEP 10: ADAGE Response Structure Verification")
-    
+
         # Build fake scored_days
         scored_days = [
             {
@@ -1035,7 +1035,7 @@ def test_live_news_api_e2e():
             }
             for i in range(7)
         ]
-    
+
         combined = handler._combine_risk_scores(0.42, geo_risk)
         body = {
             "hub_id": "H002",
@@ -1044,19 +1044,19 @@ def test_live_news_api_e2e():
             "lon": 121.47,
             "forecast_origin": "2026-04-14T00:00:00Z",
         }
-    
+
         result = handler._build_adage_response(body, scored_days, geo_risk, combined)
-    
+
         # Check event types
         event_types = [e["event_type"] for e in result["events"]]
         daily_count = event_types.count("daily_risk_assessment")
         has_outlook = "seven_day_outlook" in event_types
         has_geo = "geopolitical_risk_assessment" in event_types
-    
+
         print_result(f"daily_risk_assessment x {daily_count}", daily_count == 7)
         print_result("seven_day_outlook present", has_outlook)
         print_result("geopolitical_risk_assessment present", has_geo)
-    
+
         # Check outlook has combined fields
         outlook = [e for e in result["events"] if e["event_type"] == "seven_day_outlook"][0]
         attr = outlook["attribute"]
@@ -1066,7 +1066,7 @@ def test_live_news_api_e2e():
             "weather_weight", "geo_weight",
         ])
         print_result("Outlook has combined risk fields", has_combined)
-    
+
         # Check geo event
         geo_ev = [e for e in result["events"] if e["event_type"] == "geopolitical_risk_assessment"][0]
         geo_attr = geo_ev["attribute"]
@@ -1075,15 +1075,15 @@ def test_live_news_api_e2e():
             "trajectory_label", "keyword_scores", "data_available",
         ])
         print_result("Geo event has all required fields", has_geo_fields)
-    
+
         # Check data_source mentions both APIs
         has_sources = "Pirate Weather" in result.get("data_source", "") and \
                       "News Sentiment" in result.get("data_source", "")
         print_result("data_source mentions both APIs", has_sources)
-    
+
         return daily_count == 7 and has_outlook and has_geo and has_combined and has_geo_fields
-    
-    
+
+
     # ===========================================================================
     # Main
     # ===========================================================================
@@ -1092,40 +1092,40 @@ def test_live_news_api_e2e():
         print("  LIVE INTEGRATION TEST - Analytics + News Sentiment API")
         print("  " + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))
         print("=" * 70)
-    
+
         results = {}
-    
+
         # Step 1: Get API key
         api_key = get_fresh_api_key()
         results["api_key"] = api_key is not None
         if not api_key:
             print(f"\n{FAIL} Cannot proceed without API key. Aborting.")
             return
-    
+
         # Step 2: Auth header
         results["auth"] = test_auth_header(api_key)
-    
+
         # Step 3: Geo meta
         results["geo_meta"] = test_geo_meta_resolution()
-    
+
         # Step 4: Live sentiment
         results["sentiment"], _ = test_live_sentiment_fetch(api_key)
-    
+
         # Step 5: Keyword composite
         results["composite"] = test_keyword_composite(api_key)
-    
+
         # Step 6: Full geo risk
         results["geo_risk"], geo_risk = test_full_geo_risk(api_key)
-    
+
         # Step 7: Combined risk
         results["combined"] = test_combined_risk(geo_risk)
-    
+
         # Step 8: Dynamic hub
         results["dynamic_hub"] = test_dynamic_hub(api_key)
-    
+
         # Step 9: ADAGE response
         results["adage"] = test_adage_response(geo_risk)
-    
+
         # Summary
         print_header("SUMMARY")
         total = len(results)
@@ -1133,20 +1133,20 @@ def test_live_news_api_e2e():
         for step, passed_flag in results.items():
             icon = PASS if passed_flag else FAIL
             print(f"  {icon} {step}")
-    
+
         print(f"\n  {passed}/{total} steps passed")
         if passed == total:
             print(f"\n  {PASS} ALL TESTS PASSED - Geopolitical risk integration is working!")
         else:
             print(f"\n  {FAIL} Some tests failed - review output above")
-    
+
         # Clean up: don't leave the key in module cache
         handler._NEWS_API_KEY = None
-    
+
         return passed == total
-    
-    
+
+
     if __name__ == "__main__":
         success = main()
         sys.exit(0 if success else 1)
-    
+

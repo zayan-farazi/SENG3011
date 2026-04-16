@@ -1,7 +1,7 @@
-from jsonschema import validate  # type: ignore
+from jsonschema import validate
 import json
 import os
-import requests  # type: ignore
+import requests
 from tests.test_constants import HUB_ID_1, DATE_3, RAW_WEATHER_DATA_H1
 from datetime import datetime, timezone
 from constants import STATUS_OK, RETRIEVE_PROCESSED_WEATHER_PATH, PROCESS_WEATHER_PATH, INGEST_WEATHER_PATH, RETRIEVE_RAW_WEATHER_PATH
@@ -39,7 +39,7 @@ def test_valid_process_retrieval_contract():
 
 def test_ingest_retrieve_process_contract():
     """Full flow: ingest -> retrieve raw -> process -> retrieve processed -> validate schemas"""
-    
+
     # Ingest raw data
     ingest_url = f"{BASE_URL}/{INGEST_WEATHER_PATH}/{HUB_ID_1}"
     response_ingest = requests.post(ingest_url)
@@ -58,7 +58,7 @@ def test_ingest_retrieve_process_contract():
     response_process = requests.post(process_url, json=raw_data)
     assert response_process.status_code == STATUS_OK
     body = response_process.json()
-    
+
     processed_data = body["processed_data"]
     if isinstance(processed_data, str):
         processed_data = json.loads(processed_data)

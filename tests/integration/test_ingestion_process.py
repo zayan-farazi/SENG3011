@@ -46,7 +46,7 @@ def test_ingestion_to_processing_success(
 
     assert processed_obj is not None
 
-    # Use retrieval lambda to check for process data retrieval in this case. 
+    # Use retrieval lambda to check for process data retrieval in this case.
     event = {
         "rawPath": RETRIEVE_PROCESSED_WEATHER_PATH,
         "pathParameters": { "hub_id": HUB_ID_1 },
@@ -57,7 +57,7 @@ def test_ingestion_to_processing_success(
     assert response["statusCode"] == STATUS_OK
     with open(PROCESSED_WEATHER_DATA_H1, "r") as f:
         processed_data = json.load(f)
-    
+
     assert json.loads(response["body"]) == processed_data
     assert processed_data ==  json.loads(processed_obj['Body'].read().decode('utf-8'))
 
