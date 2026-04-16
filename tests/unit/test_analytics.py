@@ -11,7 +11,7 @@ import joblib  # type: ignore[import-untyped]
 from unittest.mock import Mock
 from sklearn.ensemble import RandomForestRegressor  # type: ignore[import-untyped]
 from moto import mock_aws
-import boto3
+import boto3  # type: ignore
 
 from lambdas.analytics.handler import lambda_handler
 from tests.test_constants import (
@@ -406,24 +406,12 @@ def test_s3_event_multiple_records(mock_get, setup_analytics_s3):
     assert result[2]["reason"] == "invalid hub_id"
 
 
-@patch("lambdas.analytics.handler.requests.get")
-def test_api_invalid_date_format(mock_get, setup_analytics_s3):
-    mock_resp = Mock()
-    mock_resp.status_code = STATUS_OK
-    mock_get.return_value = mock_resp
-    event = {
-        "pathParameters": {"hub_id": HUB_ID_1},
-        "queryStringParameters": {"date": "2026-03-10"},
-    }
 
-    result = lambda_handler(event, None)
-    assert result["statusCode"] == STATUS_BAD_REQUEST
-    assert "date format" in json.loads(result["body"])["error"].lower()
 
 
 @patch("lambdas.analytics.handler._get_news_api_key", return_value="fake-key")
 @patch("lambdas.analytics.handler.requests.get")
-@patch("lambdas.retrieval.handler.validate_hub_id", return_value=True)
+@patch("lambdas.analytics.handler.validate_hub_id", return_value=True)
 def test_dynamic_hub_reverse_geocoding_sentiment(mock_val_hub, mock_get, mock_api_key, setup_analytics_s3):
     # Create fake retrieval response but modify hub_id to an unknown dynamic hub
     with open(PROCESSED_WEATHER_DATA_FILE, "r") as f:

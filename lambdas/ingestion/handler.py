@@ -1,6 +1,6 @@
 import json
-import boto3
-import requests
+import boto3  # type: ignore
+import requests  # type: ignore
 import os
 from datetime import datetime, timezone
 import constants

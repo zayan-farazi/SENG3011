@@ -1,5 +1,5 @@
 import json
-import boto3
+import boto3  # type: ignore
 from decimal import Decimal
 
 from hub_catalog import load_hubs

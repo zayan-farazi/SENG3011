@@ -1,6 +1,6 @@
-import requests
+import requests  # type: ignore
 import os
-from jsonschema import validate
+from jsonschema import validate  # type: ignore
 from datetime import datetime, timezone
 from tests.test_constants import HUB_ID_1
 from constants import STATUS_OK, INGEST_WEATHER_PATH, DATE_FORMAT, RETRIEVE_RAW_WEATHER_PATH

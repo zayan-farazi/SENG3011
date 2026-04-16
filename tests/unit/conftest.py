@@ -1,6 +1,6 @@
 import json
 import os
-import boto3
+import boto3  # type: ignore
 import pytest
 from moto import mock_aws
 from tests.test_constants import TEST_BUCKET_NAME

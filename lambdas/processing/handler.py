@@ -1,11 +1,11 @@
 import json
 from datetime import datetime, timezone
-import boto3
+import boto3  # type: ignore
 import logging
-import requests
+import requests  # type: ignore
 import os
 import constants
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key  # type: ignore
 from hub_catalog import load_hubs
 from lambdas.metrics import log_metric
 

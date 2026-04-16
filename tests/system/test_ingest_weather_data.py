@@ -1,4 +1,4 @@
-import requests
+import requests  # type: ignore
 import os
 from datetime import datetime, timezone
 from tests.test_constants import HUB_ID_1, HUB_INVALID

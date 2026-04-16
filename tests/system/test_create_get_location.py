@@ -1,6 +1,6 @@
 import os
 import uuid
-import requests
+import requests  # type: ignore
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, LOCATION_PATH
 from tests.test_constants import HUB_INVALID, HUB_ID_1
 

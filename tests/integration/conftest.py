@@ -1,5 +1,5 @@
 import pytest
-import boto3
+import boto3  # type: ignore
 import json
 import os
 from tests.test_constants import TEST_BUCKET_NAME, TEST_API_KEY, TEST_BASE_URL

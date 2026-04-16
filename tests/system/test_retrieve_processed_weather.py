@@ -1,4 +1,4 @@
-import requests
+import requests  # type: ignore
 import os
 from tests.test_constants import HUB_ID_1, DATE_2, DATE_INVALID
 from constants import STATUS_OK, STATUS_BAD_REQUEST, RETRIEVE_PROCESSED_WEATHER_PATH

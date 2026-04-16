@@ -1,9 +1,9 @@
 import re
 import os
-import boto3
+import boto3  # type: ignore
 import json
 from datetime import datetime, timezone
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Key, Attr  # type: ignore
 from decimal import Decimal
 import uuid
 import constants

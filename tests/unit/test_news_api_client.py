@@ -265,7 +265,7 @@ class TestErrorHandling:
 
     @patch("lambdas.analytics.handler.requests.get")
     def test_timeout_returns_none(self, mock_get):
-        import requests
+        import requests  # type: ignore
         mock_get.side_effect = requests.exceptions.Timeout("Read timed out")
         result = handler._fetch_sentiment("X", "24h", "key")
         assert result is None
@@ -348,63 +348,30 @@ class TestRetryWithRefresh:
 
 
 # ===========================================================================
-# 6. CONCURRENT FETCHING
+# 6. COUNTRY FETCHING
 # ===========================================================================
 
-class TestConcurrentFetching:
-    """Test that _get_geopolitical_risk fires requests sequentially."""
+class TestCountryFetching:
+    """Test that _get_geopolitical_risk fires request correctly."""
 
     @patch("lambdas.analytics.handler._fetch_sentiment")
-    def test_fires_all_keyword_combinations_sequentially(self, mock_fetch):
-        """3 keywords x 1 timeframe (7d) = 3 sequential calls."""
+    def test_fires_country_fetch_sequentially(self, mock_fetch):
         mock_fetch.return_value = {
             "risk_score": 0.5, "article_count": 10,
             "avg_sentiment": 0.0, "distribution": {},
         }
         geo_meta = {
-            "country": "Singapore",
-            "keywords": ["Singapore", "Strait of Malacca", "ASEAN trade"],
+            "country": "Singapore"
         }
         handler._get_geopolitical_risk(geo_meta, "test-key")
-        assert mock_fetch.call_count == 3  # 3 keywords x 1 timeframe
-
-    @patch("lambdas.analytics.handler._fetch_sentiment")
-    def test_handles_partial_failures(self, mock_fetch):
-        """If some calls fail, available keywords should still produce a composite."""
-        def side_effect(keyword, timeframe, api_key):
-            if keyword == "Singapore":
-                return {"risk_score": 0.6, "article_count": 50, "avg_sentiment": -0.2, "distribution": {}}
-            return None  # Other keywords fail
-
-        mock_fetch.side_effect = side_effect
-        geo_meta = {
-            "country": "Singapore",
-            "keywords": ["Singapore", "Strait of Malacca", "ASEAN trade"],
-        }
-        result = handler._get_geopolitical_risk(geo_meta, "test-key")
-        # Singapore data available, other two not
-        assert result["data_available"] is True
-        assert len([k for k in result["keyword_scores"] if k["data_available"]]) == 1
+        assert mock_fetch.call_count == 1  # 1 country x 1 timeframe (7d)
 
     @patch("lambdas.analytics.handler._fetch_sentiment", return_value=None)
     def test_all_failures_returns_neutral(self, mock_fetch):
-        geo_meta = {"country": "Mars", "keywords": ["Mars"]}
+        geo_meta = {"country": "Mars"}
         result = handler._get_geopolitical_risk(geo_meta, "test-key")
         assert result["data_available"] is False
         assert result["geopolitical_risk_score"] == 0.5
-
-    @patch("lambdas.analytics.handler._fetch_sentiment")
-    def test_single_keyword_hub(self, mock_fetch):
-        """Dynamic hubs have just 1 keyword (country name), 1 timeframe = 1 call."""
-        mock_fetch.return_value = {
-            "risk_score": 0.4, "article_count": 30,
-            "avg_sentiment": 0.2, "distribution": {},
-        }
-        geo_meta = {"country": "Japan", "keywords": ["Japan"]}
-        result = handler._get_geopolitical_risk(geo_meta, "test-key")
-        assert result["data_available"] is True
-        assert mock_fetch.call_count == 1  # 1 keyword x 1 timeframe
-        assert result["country"] == "Japan"
 
 
 # ===========================================================================
@@ -418,7 +385,6 @@ class TestGeoMetaResolution:
         for hub_id in ["H001", "H002", "H003", "H004", "H005", "H006", "H007", "H008"]:
             meta = handler._resolve_geo_meta(hub_id, 0.0, 0.0)
             assert meta["country"] != "Unknown", f"{hub_id} resolved to Unknown"
-            assert len(meta["keywords"]) == 3, f"{hub_id} has {len(meta['keywords'])} keywords"
 
     def test_preset_hub_ignores_coordinates(self):
         """Preset hubs use hardcoded meta regardless of lat/lon."""
@@ -429,55 +395,13 @@ class TestGeoMetaResolution:
     def test_dynamic_hub_uses_reverse_geocoding(self, mock_geo):
         meta = handler._resolve_geo_meta("LOC_custom_123", 50.1, 8.7)
         assert meta["country"] == "Germany"
-        assert meta["keywords"] == ["Germany"]
         mock_geo.assert_called_once_with(50.1, 8.7)
 
     @patch("lambdas.analytics.handler._reverse_geocode_country", return_value=None)
-    def test_dynamic_hub_falls_back_to_region_keywords(self, mock_geo):
-        """When Nominatim fails, use coordinate-based regional keywords."""
+    def test_dynamic_hub_falls_back_to_unknown(self, mock_geo):
+        """When Nominatim fails, fallback to Unknown."""
         meta = handler._resolve_geo_meta("LOC_ocean", 1.0, 105.0)
         assert meta["country"] == "Unknown"
-        assert "Southeast Asia" in meta["keywords"] or "South China Sea" in meta["keywords"]
-
-
-# ===========================================================================
-# 8. REGION KEYWORD FALLBACK
-# ===========================================================================
-
-class TestRegionKeywords:
-    """Test _region_keywords_from_coords coordinate-to-region mapping."""
-
-    def test_southeast_asia(self):
-        kw = handler._region_keywords_from_coords(10.0, 115.0)
-        assert "Southeast Asia" in kw
-
-    def test_persian_gulf(self):
-        kw = handler._region_keywords_from_coords(25.0, 50.0)
-        assert "Persian Gulf" in kw
-
-    def test_europe(self):
-        kw = handler._region_keywords_from_coords(52.0, 5.0)
-        assert "European trade" in kw
-
-    def test_australia(self):
-        kw = handler._region_keywords_from_coords(-33.0, 151.0)
-        assert "Australia" in kw
-
-    def test_us(self):
-        kw = handler._region_keywords_from_coords(40.0, -74.0)
-        assert "United States" in kw
-
-    def test_south_africa(self):
-        kw = handler._region_keywords_from_coords(-34.0, 30.0)
-        assert "South Africa" in kw or "Cape route" in kw
-
-    def test_brazil(self):
-        kw = handler._region_keywords_from_coords(-23.0, -43.0)
-        assert "Brazil" in kw
-
-    def test_unknown_region_returns_global(self):
-        kw = handler._region_keywords_from_coords(70.0, 0.0)  # Arctic
-        assert "global trade" in kw
 
 
 # ===========================================================================
@@ -493,24 +417,23 @@ class TestGeoRiskOutputStructure:
             "risk_score": 0.6, "article_count": 50,
             "avg_sentiment": -0.2, "distribution": {},
         }
-        geo_meta = {"country": "China", "keywords": ["China", "South China Sea"]}
+        geo_meta = {"country": "China"}
         result = handler._get_geopolitical_risk(geo_meta, "key")
 
         required_fields = [
             "country", "geopolitical_risk_score", "geopolitical_risk_level",
-            "keyword_scores", "data_available",
+            "country_scores", "data_available",
         ]
         for field in required_fields:
             assert field in result, f"Missing field: {field}"
 
-
-        # Keyword scores
-        for kw in result["keyword_scores"]:
-            assert "keyword" in kw
-            assert "data_available" in kw
-            if kw["data_available"]:
-                assert "composite_risk_score" in kw
-                assert "timeframes" in kw
+        # Country scores
+        for c in result["country_scores"]:
+            assert "country" in c
+            assert "data_available" in c
+            if c["data_available"]:
+                assert "composite_risk_score" in c
+                assert "timeframes" in c
 
 
 class TestNeutralGeoRisk:
@@ -522,4 +445,4 @@ class TestNeutralGeoRisk:
         assert result["geopolitical_risk_score"] == 0.5
         assert result["geopolitical_risk_level"] == "Elevated"
         assert result["data_available"] is False
-        assert result["keyword_scores"] == []
+        assert result["country_scores"] == []

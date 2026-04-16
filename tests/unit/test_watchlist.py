@@ -1,5 +1,5 @@
 import json
-import boto3
+import boto3  # type: ignore
 import constants
 from lambdas.watchlist.handler import lambda_handler
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND

@@ -1,7 +1,7 @@
 import os
 
-import boto3
-import botocore
+import boto3  # type: ignore
+import botocore  # type: ignore
 
 import constants
 from hub_catalog import load_hubs

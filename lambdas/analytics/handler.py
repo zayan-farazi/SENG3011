@@ -6,11 +6,11 @@ import tempfile
 from datetime import datetime, timezone
 from typing import Optional
 
-import boto3
-from boto3.dynamodb.conditions import Key
+import boto3  # type: ignore
+from boto3.dynamodb.conditions import Key  # type: ignore
 import joblib  # type: ignore[import-untyped]
 import numpy as np
-import requests
+import requests  # type: ignore
 
 import constants
 from lambdas.metrics import log_metric
@@ -543,7 +543,7 @@ def _primary_driver(features: dict) -> str:
         "humidity":        lambda v: max(0, (v - 0.90) / 0.10),
     }
     scores = {f: weights[f] * norm[f](float(features.get(f, 0))) for f in weights}
-    return max(scores, key=scores.get).replace("_", " ").title()
+    return max(scores, key=lambda k: scores[k]).replace("_", " ").title()
 
 
 def _score_day(model, day_obj: dict, hub_id: str) -> dict:
@@ -639,7 +639,7 @@ def _build_adage_response(
     events.append({
         "time_object": {
             "timestamp":     body.get("forecast_origin", now),
-            "duration":      7,
+            "duration":      len(scored_days),
             "duration_unit": "day",
             "timezone":      "UTC",
         },
@@ -790,7 +790,7 @@ def _handle_s3_event(event: dict) -> list:
                 continue
 
             hub_id   = parts[2]
-            if not validate_hub_id(os.environ.get("API_BASE_URL"), hub_id):
+            if not validate_hub_id(os.environ["API_BASE_URL"], hub_id):
                 logger.error(f"S3 event for invalid hub_id: {hub_id}")
                 results.append({"status": "ignored", "reason": "invalid hub_id", "key": key})
                 continue
@@ -815,26 +815,15 @@ def _handle_api_event(event: dict) -> dict:
     s3          = boto3.client("s3")
     bucket      = os.environ["DATA_BUCKET"]
     path_params = event.get("pathParameters") or {}
-    query_params= event.get("queryStringParameters") or {}
     hub_id      = path_params.get("hub_id")
 
     if not hub_id:
         return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id"})
 
-    if not validate_hub_id(os.environ.get("API_BASE_URL"), hub_id):
+    if not validate_hub_id(os.environ["API_BASE_URL"], hub_id):
         return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
 
-    date = query_params.get("date")
-    if date:
-        try:
-            datetime.strptime(date, constants.DATE_FORMAT)
-        except ValueError:
-            return response(
-                constants.STATUS_BAD_REQUEST,
-                {"error": "Invalid date format. Use DD-MM-YYYY"},
-            )
-    else:
-        date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
+    date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
 
     try:
         cached = s3.get_object(Bucket=bucket, Key=f"risk/weather/{hub_id}/latest.json")

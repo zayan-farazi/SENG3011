@@ -10,7 +10,7 @@ from lambdas.retrieval.handler import lambda_handler as retrieval_handler
 from constants import RETRIEVE_PROCESSED_WEATHER_PATH
 import sys
 import time
-import requests  # noqa: E402
+import requests  # type: ignore[import-untyped]  # noqa: E402
 from lambdas.analytics import handler  # noqa: E402
 """
 Integration test for the analytics handler with geopolitical risk.
@@ -466,9 +466,6 @@ def test_degrades_to_weather_only_when_no_api_key(
     assert geo["attribute"]["data_available"] is False
     assert geo["attribute"]["geopolitical_risk_score"] == 0.5
 
-
-def _mock_hub_info():
-    return {"hub_id": HUB_ID_1, "name": "Test Hub", "lat": 1.264, "lon": 103.820}
 
 def _mock_requests(mock_get, payload, status=STATUS_OK):
     mock_resp = Mock()

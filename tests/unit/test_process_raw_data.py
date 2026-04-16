@@ -1,5 +1,5 @@
 import json
-import boto3
+import boto3  # type: ignore
 import constants
 from lambdas.processing.handler import lambda_handler
 from tests.test_constants import TEST_BUCKET_NAME, HUB_ID_1, RAW_WEATHER_DATA_H1, PROCESSED_WEATHER_DATA_H1, DATE_H1

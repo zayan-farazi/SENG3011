@@ -1,7 +1,7 @@
 import json
 import os
 
-import botocore
+import botocore  # type: ignore
 
 import constants
 

@@ -1,6 +1,6 @@
 import os
 import json
-import boto3
+import boto3  # type: ignore
 from decimal import Decimal
 from unittest.mock import patch
 from datetime import datetime, timezone

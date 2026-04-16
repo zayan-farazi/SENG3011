@@ -1,11 +1,11 @@
 import json
 import re
 import os
-import boto3
+import boto3  # type: ignore
 import constants
 import logging
 from urllib.parse import unquote
-import requests
+import requests  # type: ignore
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

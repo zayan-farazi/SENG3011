@@ -1,4 +1,4 @@
-import requests
+import requests  # type: ignore
 import os
 import json
 from tests.test_constants import HUB_ID_1

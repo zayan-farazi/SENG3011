@@ -1,4 +1,4 @@
-import requests
+import requests  # type: ignore
 import json
 import os
 from tests.test_constants import HUB_ID_1, DATE_3, RAW_WEATHER_DATA_H1
