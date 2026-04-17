@@ -84,5 +84,5 @@ def response(status, body):
         "statusCode": status,
         "body": json.dumps(body)
     }
-            
-    
+
+

@@ -16,16 +16,16 @@ logger.setLevel(logging.INFO)
 def response(status, body):
     return {"statusCode": status, "body": json.dumps(body)}
 
-def check_raw_format(body): 
+def check_raw_format(body):
     required_top_keys = ["currently", "latitude", "longitude", "hourly"]
-    
+
     for key in required_top_keys:
         if key not in body:
             raise ValueError(f"Missing key: {key}")
 
     if "time" not in body["currently"]:
         raise ValueError("Missing key: currently.time")
-    
+
     if not isinstance(body["currently"]["time"], (int, float)):
         raise TypeError("currently.time must be a number")
 
@@ -117,7 +117,7 @@ def process_data(body):
     for obj in hourly_data:
         if not check_six_hour_point(obj["time"]):
             continue
-        
+
         curr_date = unix_to_date(obj["time"])
         if date != curr_date:
             date = curr_date
@@ -159,7 +159,7 @@ def handle_s3_event(event):
     base_url = os.environ["API_BASE_URL"]
     url = f"{base_url}/{constants.RETRIEVE_RAW_WEATHER_PATH}"
     res = []
-    
+
     for record in event["Records"]:
         try:
             path = record["s3"]["object"]["key"]
@@ -174,14 +174,14 @@ def handle_s3_event(event):
                 raise LookupError(f"Raw weather data not found for hub {hub_id} on {date}")
             if resp.status_code != constants.STATUS_OK:
                 raise RuntimeError(f"Retrieval service returned {resp.status_code}: {resp.text}")
-            
+
             data = resp.json()
             processed_data = process_data(data)
             res.append({"status": "processed", "processed_data": (processed_data)})
         except Exception as e:
             logger.exception(f"Error processing record for {record.get('s3', {}).get('object', {}).get('key', 'unknown')}: {e}")
             res.append({"status": "error", "error": str(e), "key": record.get("s3", {}).get("object", {}).get("key", "unknown")})
-            
+
     logger.info(f"handle_s3_event completed with {len(res)} records processed")
     return res
 
@@ -195,7 +195,7 @@ def lambda_handler(event, context):
                 constants.STATUS_INTERNAL_SERVER_ERROR,
                 {"error": "Missing DATA_BUCKET configuration"}
             )
-        
+
         if "Records" in event and event["Records"][0].get("eventSource") == "aws:s3":
             logger.info(f"Processing triggered by S3 event: {event}")
             return handle_s3_event(event)
@@ -205,7 +205,7 @@ def lambda_handler(event, context):
             return response(constants.STATUS_OK, {"message": f"Data processed successfully for {res['hub_id']}", "processed_data": json.dumps(res)})
         else:
             logger.error("Request missing raw data payload")
-            return response(constants.STATUS_BAD_REQUEST, {"error": "Raw data not provided"}) 
+            return response(constants.STATUS_BAD_REQUEST, {"error": "Raw data not provided"})
     except (TypeError, ValueError) as e:
         logger.exception(str(e))
         return response(constants.STATUS_BAD_REQUEST, {"error": str(e)})

@@ -32,7 +32,7 @@ def setup_s3():
 
         _seed_hubs_file(s3)
 
-        yield s3 
+        yield s3
 
 @pytest.fixture
 def setup_dynamodb():
@@ -57,7 +57,7 @@ def setup_s3_dynamodb():
         dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
         _create_location_table(dynamodb)
 
-        yield s3 
+        yield s3
 
 def _seed_hubs_file(s3):
     with open(constants.HUBS_FILE_KEY, "r") as f:

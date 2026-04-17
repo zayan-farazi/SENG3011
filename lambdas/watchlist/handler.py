@@ -22,7 +22,7 @@ def add_email(hub_id, email, table):
     except Exception as e:
         logger.error(f"DynamoDB error: {str(e)}")
         return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
-    
+
     return response(constants.STATUS_OK, f"{email} added to hub {hub_id}")
 
 def delete_email(hub_id, email, table):
@@ -59,25 +59,25 @@ def lambda_handler(event, context):
     region = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
     dynamodb = boto3.resource("dynamodb", region_name=region)
     table = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
-    
+
 
     http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
 
     hub_id = path_params.get("hub_id")
     email = path_params.get("email")
-    
+
 
     if not email or not hub_id:
         logger.error("missing hub_id or email")
         return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id or email"})
-    
+
     email = unquote(email)
 
     if not valid_email(email):
         logger.error("Invalid email")
         return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid email"})
-    
+
     base_url = os.environ.get("API_BASE_URL")
     if not base_url:
         logger.error("Missing API_BASE_URL configuration")

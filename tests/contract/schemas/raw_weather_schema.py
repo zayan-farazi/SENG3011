@@ -4,7 +4,7 @@ INGESTION_API_SCHEMA = {
     "properties": {
         "message": {
             "type": "string",
-            "enum": ["Success"]   
+            "enum": ["Success"]
         }
     },
     "additionalProperties": False

@@ -16,4 +16,4 @@ def test_risk_valid():
     res = response.json()
     assert response.status_code == STATUS_OK
     validate(instance=res,schema=ANALYTICS_API_SCHEMA)
-    
+

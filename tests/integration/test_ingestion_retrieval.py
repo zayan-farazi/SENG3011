@@ -17,7 +17,7 @@ def test_ingestion_then_retrieval(
     mock_fetch_weather,
     setup_s3,
 ):
-    s3 = setup_s3["s3"] 
+    s3 = setup_s3["s3"]
     bucket = setup_s3["bucket"]
 
     with open(RAW_WEATHER_DATA_H1, "r") as f:
