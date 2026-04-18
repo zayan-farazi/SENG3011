@@ -512,16 +512,31 @@ def notify_watchlist(hub_id: str) -> None:
     except Exception:
         return
 
+def store_risk_score(hub_id, score):
+    region   = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
+    dynamodb = boto3.resource("dynamodb", region_name=region)
+    table = dynamodb.Table(os.environ.get("SCORES_TABLE_NAME", "scores"))
+
+    table.update_item(
+        Key={"hub_id": hub_id},
+        UpdateExpression="SET risk_score = :s",
+        ExpressionAttributeValues={":s": score}
+    )
+
 
 def _risk_level(score: float, hub_id: Optional[str] = None) -> str:
     if score < 0.20:
+        store_risk_score(hub_id, score)
         return "Low"
     if score < 0.40:
+        store_risk_score(hub_id, score)
         return "Elevated"
     if score < 0.60:
+        store_risk_score(hub_id, score)
         return "High"
     if hub_id is not None:
         notify_watchlist(hub_id)
+    store_risk_score(hub_id, score)
     return "Critical"
 
 
