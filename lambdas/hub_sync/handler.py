@@ -13,6 +13,14 @@ log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 PORTWATCH_PAGE_SIZE = 1000
+SKIP_NAME_TERMS = (
+    "terminal",
+    "anchorage",
+    "berth",
+    "jetty",
+    "buoy",
+    "offshore oil",
+)
 
 
 def _response(status, body):
@@ -36,19 +44,25 @@ def _normalize_name(value):
     return " ".join(normalized.split())
 
 
+def _should_skip_feature(name):
+    normalized_name = _normalize_name(name)
+    # ignore facility-level records 
+    return any(term in normalized_name for term in SKIP_NAME_TERMS)
+
+
 def _legacy_hub_id(lat, lon, name, legacy_hubs):
     rounded_key = (round(float(lat), 3), round(float(lon), 3))
     for hub_id, hub_info in legacy_hubs.items():
         if rounded_key == (round(float(hub_info["lat"]), 3), round(float(hub_info["lon"]), 3)):
-            return hub_id
+            return hub_id, hub_info
 
     normalized_name = _normalize_name(name)
     for hub_id, hub_info in legacy_hubs.items():
         legacy_name = _normalize_name(hub_info.get("name"))
         if legacy_name and (legacy_name == normalized_name or legacy_name in normalized_name or normalized_name in legacy_name):
-            return hub_id
+            return hub_id, hub_info
 
-    return None
+    return None, None
 
 
 def _fetch_portwatch_features(base_url, api_key):
@@ -88,6 +102,7 @@ def _fetch_portwatch_features(base_url, api_key):
     if not features:
         raise ValueError("PortWatch returned an empty hub catalog")
 
+    log.info("Fetched %s total PortWatch hub records", len(features))
     return features
 
 
@@ -110,14 +125,21 @@ def _normalize_feature(feature, legacy_hubs):
     if lat < -90 or lat > 90 or lon < -180 or lon > 180:
         raise ValueError("PortWatch feature contains out-of-range coordinates")
 
-    hub_id = _legacy_hub_id(lat, lon, name, legacy_hubs)
+    if _should_skip_feature(name):
+        log.info("Skipping facility-level PortWatch record source_port_id=%s name=%s", upstream_id, name)
+        return None, None
+
+    hub_id, hub_info = _legacy_hub_id(lat, lon, name, legacy_hubs)
     if not hub_id:
         hub_id = f"PW_{_sanitize_identifier(upstream_id)}"
+    else:
+        # retain legacy name
+        name = hub_info.get("name")
 
     return hub_id, {
         "name": name,
-        "lat": round(lat, 6),
-        "lon": round(lon, 6),
+        "lat": round(lat, 3),
+        "lon": round(lon, 3),
         "country": attributes.get("country"),
         "locode": attributes.get("LOCODE"),
         "source": "PortWatch",
@@ -137,13 +159,24 @@ def _build_runtime_catalog(features, legacy_hubs):
         seen_source_ids.add(source_id)
 
         hub_id, hub_info = _normalize_feature(feature, legacy_hubs)
+        if hub_id is None:
+            continue
         if hub_id in catalog:
-            raise ValueError(f"Duplicate final hub_id detected during sync: {hub_id}")
+            log.warning(
+                "Skipping duplicate final hub_id during sync hub_id=%s source_port_id=%s name=%s",
+                hub_id,
+                hub_info.get("source_port_id"),
+                hub_info.get("name"),
+            )
+            continue
         catalog[hub_id] = hub_info
 
     if not catalog:
         raise ValueError("Normalized PortWatch catalog is empty")
 
+    log.info(
+        "Built runtime hub catalog catalog_size=%s", len(catalog),
+    )
     return catalog
 
 
@@ -152,6 +185,12 @@ def _write_catalog(s3, bucket, runtime_key, history_prefix, catalog):
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     snapshot_key = f"{history_prefix}/{timestamp}.json"
 
+    log.info(
+        "Writing hub catalog to S3 bucket=%s runtime_key=%s snapshot_key=%s",
+        bucket,
+        runtime_key,
+        snapshot_key,
+    )
     s3.put_object(Bucket=bucket, Key=runtime_key, Body=body, ContentType="application/json")
     s3.put_object(Bucket=bucket, Key=snapshot_key, Body=body, ContentType="application/json")
 
@@ -191,7 +230,7 @@ def lambda_handler(event, context):
             },
         )
     except ValueError as exc:
-        log.warning(f"PortWatch hub sync rejected: {exc}")
+        log.exception(f"PortWatch hub sync rejected: {exc}")
         return _response(constants.STATUS_BAD_REQUEST, {"error": str(exc)})
     except Exception as exc:
         log.exception(f"PortWatch hub sync failed: {exc}")

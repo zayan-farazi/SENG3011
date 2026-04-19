@@ -105,7 +105,7 @@ def process_data(body):
     curr_unix_time = body["currently"]["time"]
     lat, lon = body["latitude"], body["longitude"]
     hourly_data = body["hourly"]["data"]
-    hub_info = get_hub_info_from_pos(lat, lon)
+    hub_info = get_hub_info_from_pos(round(lat, 3), round(lon, 3))
     hub_id, hub_name = hub_info["hub_id"], hub_info["hub_name"]
     schema_version = "1.0"
     forecast_origin = convert_unix_to_utc(curr_unix_time)
