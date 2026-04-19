@@ -73,5 +73,6 @@ build_lambda "analytics" "analytics.zip"
 build_lambda "hub_sync" "hub_sync.zip"
 build_lambda "watchlist" "watchlist.zip"
 build_lambda "testing" "testing.zip"
+build_lambda "pathfinding" "pathfinding.zip"
 
 rm -rf "$WORK_DIR"
