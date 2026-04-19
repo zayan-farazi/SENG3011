@@ -99,8 +99,8 @@ locals {
   testing_zip_path     = "${local.lambda_artifact_dir}/testing.zip"
   hub_sync_zip_path    = "${local.lambda_artifact_dir}/hub_sync.zip"
   pathfinding_zip_path = "${local.lambda_artifact_dir}/pathfinding.zip"
-  analytics_zip_key    = "artifacts/lambdas/analytics.zip"
-
+ 
+  analytics_zip_key   = "artifacts/lambdas/analytics.zip"
   hubs_seed_key       = "hubs.json"
   hubs_runtime_key    = "runtime/hubs.json"
   hubs_history_prefix = "history/hubs"
@@ -657,7 +657,7 @@ resource "aws_lambda_function" "hub_sync" {
 }
 
 resource "aws_lambda_function" "pathfinding" {
-  function_name = local.pathfinding_lambda_name
+  function_name    = local.pathfinding_lambda_name
   role             = aws_iam_role.lambda_execution.arn
   runtime          = "python3.12"
   handler          = "lambdas.pathfinding.handler.lambda_handler"
