@@ -99,7 +99,7 @@ locals {
   testing_zip_path     = "${local.lambda_artifact_dir}/testing.zip"
   hub_sync_zip_path    = "${local.lambda_artifact_dir}/hub_sync.zip"
   pathfinding_zip_path = "${local.lambda_artifact_dir}/pathfinding.zip"
- 
+
   analytics_zip_key   = "artifacts/lambdas/analytics.zip"
   hubs_seed_key       = "hubs.json"
   hubs_runtime_key    = "runtime/hubs.json"
@@ -387,7 +387,7 @@ resource "aws_dynamodb_table" "scores" {
     name = "hub_id"
     type = "S"
   }
-  
+
   tags = {
     Name        = local.scores_table_name
     Environment = var.environment_name
