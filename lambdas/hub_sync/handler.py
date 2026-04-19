@@ -44,18 +44,6 @@ def _normalize_name(value):
     return " ".join(normalized.split())
 
 
-def _clean_hub_name(value):
-    name = str(value or "").strip()
-    if not name:
-        return name
-
-    # remove anything in parentheses and final comma suffix
-    # name = re.sub(r"\s*\([^)]*\)", "", name).strip()
-    # name = re.sub(r",\s*[^,()]+$", "", name).strip()
-
-    return re.sub(r"\s+", " ", name)
-
-
 def _should_skip_feature(name):
     normalized_name = _normalize_name(name)
     # ignore facility-level records 
@@ -121,11 +109,11 @@ def _fetch_portwatch_features(base_url, api_key):
 def _normalize_feature(feature, legacy_hubs):
     attributes = feature.get("attributes", {})
     upstream_id = attributes.get("portid") or attributes.get("ObjectId")
-    raw_name = attributes.get("fullname") or attributes.get("portname")
+    name = attributes.get("fullname") or attributes.get("portname")
     lat = attributes.get("lat")
     lon = attributes.get("lon")
 
-    if not upstream_id or not raw_name or lat is None or lon is None:
+    if not upstream_id or not name or lat is None or lon is None:
         raise ValueError("PortWatch feature is missing required hub fields")
 
     try:
@@ -137,11 +125,10 @@ def _normalize_feature(feature, legacy_hubs):
     if lat < -90 or lat > 90 or lon < -180 or lon > 180:
         raise ValueError("PortWatch feature contains out-of-range coordinates")
 
-    if _should_skip_feature(raw_name):
-        log.info("Skipping facility-level PortWatch record source_port_id=%s name=%s", upstream_id, raw_name)
+    if _should_skip_feature(name):
+        log.info("Skipping facility-level PortWatch record source_port_id=%s name=%s", upstream_id, name)
         return None, None
 
-    name = _clean_hub_name(raw_name)
     hub_id, hub_info = _legacy_hub_id(lat, lon, name, legacy_hubs)
     if not hub_id:
         hub_id = f"PW_{_sanitize_identifier(upstream_id)}"
