@@ -99,8 +99,7 @@ locals {
   testing_zip_path     = "${local.lambda_artifact_dir}/testing.zip"
   hub_sync_zip_path    = "${local.lambda_artifact_dir}/hub_sync.zip"
   pathfinding_zip_path = "${local.lambda_artifact_dir}/pathfinding.zip"
-
-  analytics_zip_key   = "artifacts/lambdas/analytics.zip"
+  analytics_zip_key    = "artifacts/lambdas/analytics.zip"
 
   hubs_seed_key       = "hubs.json"
   hubs_runtime_key    = "runtime/hubs.json"
@@ -232,6 +231,7 @@ data "aws_iam_policy_document" "lambda_access" {
       aws_dynamodb_table.locations.arn,
       "${aws_dynamodb_table.locations.arn}/index/*",
       aws_dynamodb_table.watchlist.arn,
+      aws_dynamodb_table.scores.arn,
     ]
   }
 
@@ -385,11 +385,6 @@ resource "aws_dynamodb_table" "scores" {
   
   attribute {
     name = "hub_id"
-    type = "S"
-  }
-
-  attribute {
-    name = "risk_score"
     type = "S"
   }
 
@@ -661,6 +656,28 @@ resource "aws_lambda_function" "hub_sync" {
   }
 }
 
+resource "aws_lambda_function" "pathfinding" {
+  function_name = local.pathfinding_lambda_name
+  role             = aws_iam_role.lambda_execution.arn
+  runtime          = "python3.12"
+  handler          = "lambdas.pathfinding.handler.lambda_handler"
+  filename         = local.pathfinding_zip_path
+  source_code_hash = filebase64sha256(local.pathfinding_zip_path)
+  timeout          = 120
+
+  environment {
+    variables = {
+      DATA_BUCKET       = aws_s3_bucket.seng_3011_bkt.bucket
+      SCORES_TABLE_NAME = aws_dynamodb_table.scores.name
+    }
+  }
+
+  tags = {
+    Environment = var.environment_name
+    Project     = "seng3011"
+  }
+}
+
 ############################
 # API Gateway HTTP API
 ############################
@@ -738,6 +755,14 @@ resource "aws_apigatewayv2_integration" "testing" {
   payload_format_version = "2.0"
 }
 
+resource "aws_apigatewayv2_integration" "pathfinding" {
+  api_id                 = aws_apigatewayv2_api.weather_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.pathfinding.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
 resource "aws_apigatewayv2_route" "location" {
   for_each = local.location_routes
 
@@ -792,6 +817,14 @@ resource "aws_apigatewayv2_route" "testing" {
   api_id    = aws_apigatewayv2_api.weather_api.id
   route_key = each.value.route_key
   target    = "integrations/${aws_apigatewayv2_integration.testing.id}"
+}
+
+resource "aws_apigatewayv2_route" "pathfinding" {
+  for_each = local.pathfinding_routes
+
+  api_id    = aws_apigatewayv2_api.weather_api.id
+  route_key = each.value.route_key
+  target    = "integrations/${aws_apigatewayv2_integration.pathfinding.id}"
 }
 
 resource "aws_lambda_permission" "allow_apigw_location" {
@@ -860,6 +893,16 @@ resource "aws_lambda_permission" "allow_apigw_testing" {
   statement_id  = "AllowHttpApiInvoke-testing-${each.key}"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.testing.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.weather_api.execution_arn}/*/${each.value.path_pattern}"
+}
+
+resource "aws_lambda_permission" "allow_apigw_pathfinding" {
+  for_each = local.pathfinding_routes
+
+  statement_id  = "AllowHttpApiInvoke-pathfinding-${each.key}"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.pathfinding.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.weather_api.execution_arn}/*/${each.value.path_pattern}"
 }

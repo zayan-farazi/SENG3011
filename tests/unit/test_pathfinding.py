@@ -1,14 +1,11 @@
 import json
-import os
 import pytest
 import boto3
 import networkx as nx
 from decimal import Decimal
 from unittest.mock import patch
-from moto import mock_aws
 
 import constants
-from tests.test_constants import TEST_BUCKET_NAME
 from lambdas.pathfinding.handler import (
     haversine_km,
     load_all_risk_scores,

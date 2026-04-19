@@ -1,7 +1,6 @@
 import os
 import math
 import json
-from decimal import Decimal
 import boto3
 import networkx as nx
 import constants
