@@ -50,8 +50,8 @@ def _clean_hub_name(value):
         return name
 
     # remove anything in parentheses and final comma suffix
-    name = re.sub(r"\s*\([^)]*\)", "", name).strip()
-    name = re.sub(r",\s*[^,()]+$", "", name).strip()
+    # name = re.sub(r"\s*\([^)]*\)", "", name).strip()
+    # name = re.sub(r",\s*[^,()]+$", "", name).strip()
 
     return re.sub(r"\s+", " ", name)
 
@@ -141,7 +141,7 @@ def _normalize_feature(feature, legacy_hubs):
         log.info("Skipping facility-level PortWatch record source_port_id=%s name=%s", upstream_id, raw_name)
         return None, None
 
-    # name = _clean_hub_name(raw_name)
+    name = _clean_hub_name(raw_name)
     hub_id, hub_info = _legacy_hub_id(lat, lon, name, legacy_hubs)
     if not hub_id:
         hub_id = f"PW_{_sanitize_identifier(upstream_id)}"
