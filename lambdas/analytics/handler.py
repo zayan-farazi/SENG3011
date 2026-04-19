@@ -5,7 +5,7 @@ import os
 import tempfile
 from datetime import datetime, timezone
 from typing import Optional
-
+from decimal import Decimal
 import boto3
 from boto3.dynamodb.conditions import Key
 import joblib  # type: ignore[import-untyped]
@@ -520,23 +520,20 @@ def store_risk_score(hub_id, score):
     table.update_item(
         Key={"hub_id": hub_id},
         UpdateExpression="SET risk_score = :s",
-        ExpressionAttributeValues={":s": score}
+        ExpressionAttributeValues={":s": Decimal(str(score))}
     )
 
 
 def _risk_level(score: float, hub_id: Optional[str] = None) -> str:
+    store_risk_score(hub_id, score)
     if score < 0.20:
-        store_risk_score(hub_id, score)
         return "Low"
     if score < 0.40:
-        store_risk_score(hub_id, score)
         return "Elevated"
     if score < 0.60:
-        store_risk_score(hub_id, score)
         return "High"
     if hub_id is not None:
         notify_watchlist(hub_id)
-    store_risk_score(hub_id, score)
     return "Critical"
 
 
