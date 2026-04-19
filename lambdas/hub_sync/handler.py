@@ -88,6 +88,7 @@ def _fetch_portwatch_features(base_url, api_key):
     if not features:
         raise ValueError("PortWatch returned an empty hub catalog")
 
+    log.info("Fetched %s total PortWatch hub records", len(features))
     return features
 
 
@@ -138,12 +139,21 @@ def _build_runtime_catalog(features, legacy_hubs):
 
         hub_id, hub_info = _normalize_feature(feature, legacy_hubs)
         if hub_id in catalog:
-            raise ValueError(f"Duplicate final hub_id detected during sync: {hub_id}")
+            log.warning(
+                "Skipping duplicate final hub_id during sync hub_id=%s source_port_id=%s name=%s",
+                hub_id,
+                hub_info.get("source_port_id"),
+                hub_info.get("name"),
+            )
+            continue
         catalog[hub_id] = hub_info
 
     if not catalog:
         raise ValueError("Normalized PortWatch catalog is empty")
 
+    log.info(
+        "Built runtime hub catalog catalog_size=%s", len(catalog),
+    )
     return catalog
 
 
@@ -152,6 +162,12 @@ def _write_catalog(s3, bucket, runtime_key, history_prefix, catalog):
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     snapshot_key = f"{history_prefix}/{timestamp}.json"
 
+    log.info(
+        "Writing hub catalog to S3 bucket=%s runtime_key=%s snapshot_key=%s",
+        bucket,
+        runtime_key,
+        snapshot_key,
+    )
     s3.put_object(Bucket=bucket, Key=runtime_key, Body=body, ContentType="application/json")
     s3.put_object(Bucket=bucket, Key=snapshot_key, Body=body, ContentType="application/json")
 
@@ -191,7 +207,7 @@ def lambda_handler(event, context):
             },
         )
     except ValueError as exc:
-        log.warning(f"PortWatch hub sync rejected: {exc}")
+        log.exception(f"PortWatch hub sync rejected: {exc}")
         return _response(constants.STATUS_BAD_REQUEST, {"error": str(exc)})
     except Exception as exc:
         log.exception(f"PortWatch hub sync failed: {exc}")
