@@ -2,13 +2,10 @@ import os
 import math
 import json
 from decimal import Decimal
-
 import boto3
 import networkx as nx
-
 import constants
 from hub_catalog import load_hubs
-
 
 def response(status, body):
     return {
@@ -66,11 +63,11 @@ def load_all_risk_scores(dynamodb):
 def risk_scalar(hub_id, scores_by_hub):
     risk_score = scores_by_hub.get(hub_id)
     if risk_score is None:
-        return 1.0
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Cant find risk score"})
     return 1 + risk_score 
 
 
-def build_monitored_hub_graph(s3, bucket_name, k=4, scores_by_hub=None):
+def build_hub_graph(s3, bucket_name, k=4, scores_by_hub=None):
     hubs = load_hubs(s3, bucket_name)
     scores_by_hub = scores_by_hub or {}
 
@@ -180,19 +177,19 @@ def lambda_handler(event, context):
 
     scores_by_hub = load_all_risk_scores(dynamodb=dynamodb)
 
-    G = build_monitored_hub_graph(
+    G = build_hub_graph(
         s3=s3,
         bucket_name=bucket_name,
         k=4,
         scores_by_hub=scores_by_hub,
     )
 
-    path = nx.dijkstra_path(
-        G,
-        source=hub_id_1,
-        target=hub_id_2,
-        weight="weight"
-    )
+    try:
+        path = nx.dijkstra_path(G, source=hub_id_1, target=hub_id_2, weight="weight")
+    except nx.NodeNotFound:
+        return response(constants.STATUS_BAD_REQUEST, {"error": f"One or both hub IDs not found: {hub_id_1}, {hub_id_2}"})
+    except nx.NetworkXNoPath:
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "graph construction error"})    
 
     result = path_details_json(path, G, scores_by_hub)
 
