@@ -121,7 +121,7 @@ def _fetch_portwatch_features(base_url, api_key):
 def _normalize_feature(feature, legacy_hubs):
     attributes = feature.get("attributes", {})
     upstream_id = attributes.get("portid") or attributes.get("ObjectId")
-    raw_name = attributes.get("portname") or attributes.get("fullname")
+    raw_name = attributes.get("fullname") or attributes.get("portname")
     lat = attributes.get("lat")
     lon = attributes.get("lon")
 
