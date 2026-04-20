@@ -1,6 +1,9 @@
 DATE_FORMAT = "%d-%m-%Y"
 PROCESSED_TIME_SLOTS = ["0000", "0600", "1200", "1800"]
 HUBS_FILE_KEY = "hubs.json"
+HUBS_SEED_KEY = HUBS_FILE_KEY
+HUBS_RUNTIME_KEY = "runtime/hubs.json"
+HUBS_HISTORY_PREFIX = "history/hubs"
 
 STATUS_OK = 200
 STATUS_BAD_REQUEST = 400
@@ -16,6 +19,8 @@ INGEST_WEATHER_PATH = "ese/v1/ingest/weather"
 PROCESS_WEATHER_PATH = "ese/v1/process/weather"
 LOCATION_PATH = "ese/v1/location"
 MODEL_S3_KEY = "models/risk_model.joblib"
+
+DEFAULT_REGION = "ap-southeast-2"
 
 ## custom metrics constants
 API_SERVICE = "ApiService"

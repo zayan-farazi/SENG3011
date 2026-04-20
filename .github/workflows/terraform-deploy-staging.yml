@@ -1,0 +1,312 @@
+name: Terraform Deploy Staging
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "terraform/**"
+      - ".github/workflows/**"
+      - "docs/openapi.yaml"
+      - "hubs.json"
+      - "lambdas/**"
+      - "models/**"
+      - "scripts/**"
+      - "tests/data/**"
+      - "**/*.py"
+      - "**/requirements*.txt"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to deploy and use when resolving the latest successful Terraform CI run
+        required: false
+        default: main
+      ci_run_id:
+        description: Optional Terraform CI run ID to use for coverage download
+        required: false
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-staging-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Apply Terraform to staging
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      staging_base_url: ${{ steps.capture-staging-url.outputs.staging_base_url }}
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'ap-southeast-2' }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_STATE_KEY: ${{ vars.TF_STATE_KEY != '' && vars.TF_STATE_KEY || 'staging/terraform.tfstate' }}
+      DATA_BUCKET_NAME: ${{ vars.TF_VAR_data_bucket_name }}
+      PIRATE_WEATHER_API_KEY: ${{ secrets.PIRATE_WEATHER_API_KEY }}
+      TF_ENVIRONMENT_NAME: staging
+      TF_STAGE_NAME: staging
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref_name }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Check required GitHub environment variables
+        run: |
+          # These values come from the GitHub staging environment, not the repo.
+          test -n "${{ vars.AWS_ROLE_ARN }}"
+          test -n "$TF_STATE_BUCKET"
+          test -n "$DATA_BUCKET_NAME"
+          test -n "$PIRATE_WEATHER_API_KEY"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+
+      - name: Build Lambda artifacts
+        run: bash ./scripts/build_lambda_artifacts.sh
+
+      - name: Terraform init
+        run: |
+          # The staging backend key stays isolated from dev and prod in the same state bucket.
+          terraform -chdir=terraform init -input=false \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=${TF_STATE_KEY}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Terraform apply
+        run: |
+          # The GitHub OIDC deploy role is responsible for the Terraform refresh/apply here.
+          export TF_VAR_aws_region="${AWS_REGION}"
+          export TF_VAR_data_bucket_name="${DATA_BUCKET_NAME}"
+          export TF_VAR_pirate_weather_api_key="${PIRATE_WEATHER_API_KEY}"
+          export TF_VAR_environment_name="${TF_ENVIRONMENT_NAME}"
+          export TF_VAR_stage_name="${TF_STAGE_NAME}"
+
+          terraform -chdir=terraform apply -auto-approve -input=false -no-color
+      
+      - name: Capture staging base URL
+        id: capture-staging-url
+        run: |
+          staging_base_url="$(terraform -chdir=terraform output -raw base_invoke_url)"
+          test -n "$staging_base_url"
+          echo "staging_base_url=$staging_base_url" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Run system, contract, and e2e tests against staging
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'ap-southeast-2' }}
+      DEV_BASE_URL: ${{ needs.deploy.outputs.staging_base_url }}
+      STAGING_BASE_URL: ${{ needs.deploy.outputs.staging_base_url }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref_name }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+
+      - name: Install Python dependencies and tooling
+        run: |
+          set -euo pipefail
+
+          python -m pip install --upgrade pip wheel
+
+          if [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
+          fi
+
+          if [ -f pyproject.toml ]; then
+            python -m pip install -e .
+          fi
+      
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Resolve Terraform CI run for coverage
+        id: resolve-ci-run
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const explicitRunId = `${{ inputs.ci_run_id || '' }}`.trim();
+            if (explicitRunId) {
+              core.setOutput('run_id', explicitRunId);
+              return;
+            }
+
+            const branch = context.eventName === 'workflow_dispatch'
+              ? `${{ inputs.branch || 'main' }}`
+              : context.ref.replace('refs/heads/', '');
+
+            const workflows = await github.rest.actions.listRepoWorkflows({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const ciWorkflow = workflows.data.workflows.find(
+              (workflow) => workflow.name === 'Terraform CI'
+            );
+
+            if (!ciWorkflow) {
+              core.setFailed('Could not find the Terraform CI workflow.');
+              return;
+            }
+
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: ciWorkflow.id,
+              branch,
+              status: 'completed',
+              per_page: 20,
+            });
+
+            const successfulRun = runs.data.workflow_runs.find(
+              (run) => run.conclusion === 'success'
+            );
+
+            if (!successfulRun) {
+              core.setFailed(`Could not find a successful Terraform CI run for branch ${branch}.`);
+              return;
+            }
+
+            core.setOutput('run_id', String(successfulRun.id));
+
+      - name: Write staging metadata
+        run: |
+          mkdir -p reporting/staging
+          {
+            echo "ci_run_id=${{ steps.resolve-ci-run.outputs.run_id }}"
+            echo "branch=${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref_name }}"
+            echo "head_sha=$(git rev-parse HEAD)"
+          } > reporting/staging/staging-report-metadata.txt
+
+      - name: Run post-deploy contract and system tests
+        id: staging-pytest
+        run: |
+          set +e
+          python -m pytest tests/system tests/contract \
+            --junitxml=reporting/staging/staging-junit.xml \
+            --html=reporting/staging/staging-test-report.html --self-contained-html
+          exit_code=$?
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Run E2E tests via testing service
+        id: staging-e2e
+        run: |
+          set +e
+          test -n "$STAGING_BASE_URL"
+          response=$(curl -s --max-time 40 -X POST "$STAGING_BASE_URL/ese/v1/testing/run")
+          curl_exit=$?
+
+          status="fail"
+          message="E2E request failed"
+
+          echo "E2E endpoint: $STAGING_BASE_URL/ese/v1/testing/run"
+
+          if [ "$curl_exit" -eq 0 ]; then
+            echo "E2E response:"
+            echo "$response" | jq .
+            parsed_status=$(echo "$response" | jq -r '.status' 2>/dev/null)
+            parsed_results=$(echo "$response" | jq -c '.results' 2>/dev/null)
+            if [ "$parsed_status" = "pass" ]; then
+              status="pass"
+              message="E2E tests passed"
+            else
+              status="fail"
+              message="E2E tests failed"
+            fi
+          else
+            echo "curl failed with exit code: $curl_exit"
+          fi
+          echo "$message"
+
+          if [ "$status" = "pass" ]; then
+            failures="0"
+            failure_block=""
+            exit_code=0
+          else
+            failures="1"
+            failure_block="<failure message=\"$message\">$message</failure>"
+            exit_code=1
+          fi
+
+          mkdir -p reporting/staging
+          cat > reporting/staging/staging-e2e-junit.xml <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <testsuites tests="1" failures="$failures" errors="0" skipped="0">
+            <testsuite name="staging-e2e-service" tests="1" failures="$failures" errors="0" skipped="0" time="0">
+              <testcase classname="staging.e2e" name="service_run">$failure_block</testcase>
+            </testsuite>
+          </testsuites>
+          EOF
+
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Install wkhtmltopdf
+        if: ${{ always() }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wkhtmltopdf
+
+      - name: Convert staging HTML report to PDF
+        if: ${{ always() }}
+        run: |
+          wkhtmltopdf reporting/staging/staging-test-report.html reporting/staging/staging-test-report.pdf
+
+      - name: Upload staging test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-test-results
+          path: reporting/staging/
+
+      - name: Upload staging PDF reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-report-pdfs
+          path: reporting/staging/staging-test-report.pdf
+
+      - name: Fail if staging tests failed
+        if: ${{ steps.staging-pytest.outputs.exit_code != '0' || steps.staging-e2e.outputs.exit_code != '0' }}
+        run: exit 1

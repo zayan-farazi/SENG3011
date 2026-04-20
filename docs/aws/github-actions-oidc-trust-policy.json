@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "AllowGitHubActionsDevEnvironment",
+      "Sid": "AllowGitHubActionsDeployEnvironments",
       "Effect": "Allow",
       "Principal": {
         "Federated": "arn:aws:iam::<aws-account-id>:oidc-provider/token.actions.githubusercontent.com"
@@ -13,7 +13,11 @@
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:zayan-farazi/SENG3011:environment:dev"
+          "token.actions.githubusercontent.com:sub": [
+            "repo:zayan-farazi/SENG3011:environment:staging",
+            "repo:zayan-farazi/SENG3011:environment:dev",
+            "repo:zayan-farazi/SENG3011:environment:prod"
+          ]
         }
       }
     }

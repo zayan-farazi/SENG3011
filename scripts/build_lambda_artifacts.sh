@@ -49,9 +49,14 @@ build_lambda() {
   fi
 
   cp "$ROOT_DIR/constants.py" "$stage_dir/constants.py"
+  cp "$ROOT_DIR/hub_catalog.py" "$stage_dir/hub_catalog.py"
+  cp "$ROOT_DIR/hub_lookup.py" "$stage_dir/hub_lookup.py"
   cp "$ROOT_DIR/lambdas/__init__.py" "$stage_dir/lambdas/__init__.py"
   cp "$ROOT_DIR/lambdas/metrics.py" "$stage_dir/lambdas/metrics.py"
   cp -R "$service_dir/." "$stage_dir/lambdas/$service/"
+  if [ "$service" = "testing" ]; then
+    cp -R "$ROOT_DIR/tests" "$stage_dir/tests"
+  fi
   find "$stage_dir" -name '__pycache__' -type d -prune -exec rm -rf {} +
 
   (
@@ -60,9 +65,14 @@ build_lambda() {
   )
 }
 
+build_lambda "location" "location.zip"
 build_lambda "retrieval" "retrieval.zip"
 build_lambda "ingestion" "ingestion.zip"
 build_lambda "processing" "processing.zip"
 build_lambda "analytics" "analytics.zip"
+build_lambda "hub_sync" "hub_sync.zip"
+build_lambda "watchlist" "watchlist.zip"
+build_lambda "testing" "testing.zip"
+build_lambda "pathfinding" "pathfinding.zip"
 
 rm -rf "$WORK_DIR"

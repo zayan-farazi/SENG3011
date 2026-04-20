@@ -16,7 +16,7 @@ servers:
       apiId:
         default: your-api-id
       region:
-        default: us-east-1
+        default: ap-southeast-2
       stage:
         default: dev
 tags:

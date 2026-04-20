@@ -5,7 +5,7 @@ from tests.test_constants import HUB_ID_1, DATE_3, RAW_WEATHER_DATA_H1
 from datetime import datetime
 from constants import STATUS_OK, STATUS_BAD_REQUEST, RETRIEVE_PROCESSED_WEATHER_PATH, PROCESS_WEATHER_PATH
 
-BASE_URL = os.environ["DEV_BASE_URL"]
+BASE_URL = os.environ["STAGING_BASE_URL"]
 
 
 def is_iso_datetime(value):
@@ -100,7 +100,7 @@ def test_process_raw_valid():
         data = json.load(f)
 
     # Process the raw data obtained
-    response_process = requests.post(url_process, json=data) 
+    response_process = requests.post(url_process, json=data)
     assert response_process.status_code == STATUS_OK
     processed = response_process.json()["processed_data"]
     if isinstance(processed, str):
@@ -123,8 +123,8 @@ def test_process_raw_invalid_hub():
     # Invalid latitude and longitude
     invalid_payload = {
         "currently": {"time": 123456},
-        "latitude": 999, 
-        "longitude": 999,  
+        "latitude": 999,
+        "longitude": 999,
         "hourly": {"data": []}
     }
 

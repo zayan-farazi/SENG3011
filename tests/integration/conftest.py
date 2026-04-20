@@ -8,10 +8,11 @@ from moto import mock_aws
 
 import io
 import joblib  # type: ignore[import-untyped]
-from sklearn.ensemble import RandomForestRegressor # type: ignore[import-untyped]
+from sklearn.ensemble import RandomForestRegressor  # type: ignore[import-untyped]
 import numpy as np
 import tempfile
-import lambdas.analytics.handler as handler  
+import lambdas.analytics.handler as handler
+import constants
 
 def _create_dummy_model():
     np.random.seed(42)
@@ -42,6 +43,7 @@ def setup_s3():
         s3 = boto3.client("s3", region_name="us-east-1")
         bucket = TEST_BUCKET_NAME
         s3.create_bucket(Bucket=bucket)
+        dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
 
         with open(HUBS_FILE_KEY, "r") as f:
             hubs = json.load(f)
@@ -58,5 +60,27 @@ def setup_s3():
         os.environ["DATA_BUCKET"] = bucket
         os.environ["API_KEY"] = TEST_API_KEY
         os.environ["API_BASE_URL"] = TEST_BASE_URL
+        os.environ["AWS_REGION"] = constants.DEFAULT_REGION
+        _create_location_table(dynamodb)
 
         yield {"s3": s3, "bucket": bucket}
+
+
+def _create_location_table(dynamodb):
+    table = dynamodb.create_table(
+        TableName="locations",
+        KeySchema=[{"AttributeName": "hub_id", "KeyType": "HASH"}],
+        AttributeDefinitions=[
+            {"AttributeName": "hub_id", "AttributeType": "S"},
+            {"AttributeName": "lat_lon", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+        GlobalSecondaryIndexes=[
+            {
+                "IndexName": "lat-lon-index",
+                "KeySchema": [{"AttributeName": "lat_lon", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            }
+        ],
+    )
+    table.wait_until_exists()

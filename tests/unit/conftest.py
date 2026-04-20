@@ -4,7 +4,7 @@ import boto3
 import pytest
 from moto import mock_aws
 from tests.test_constants import TEST_BUCKET_NAME
-from constants import HUBS_FILE_KEY
+import constants
 
 
 @pytest.fixture(autouse=True)
@@ -23,39 +23,52 @@ def set_data_bucket_env():
 @pytest.fixture
 def setup_s3():
     with mock_aws():
-        s3 = boto3.client("s3", region_name="us-east-1")
-        s3.create_bucket(Bucket=TEST_BUCKET_NAME)
+        s3 = boto3.client("s3", region_name=constants.DEFAULT_REGION)
+        s3.create_bucket(
+            Bucket=TEST_BUCKET_NAME,
+            CreateBucketConfiguration={"LocationConstraint": constants.DEFAULT_REGION},
+        )
         os.environ["API_BASE_URL"] = "http://test-api"
 
-        # upload hubs.json to test bucket
-        with open(HUBS_FILE_KEY, "r") as f:
-            hubs = json.load(f)
-        s3.put_object(
-            Bucket=TEST_BUCKET_NAME,
-            Key=HUBS_FILE_KEY,
-            Body=json.dumps(hubs)
-        )
+        _seed_hubs_file(s3)
 
-        yield s3 
+        yield s3
 
 @pytest.fixture
 def setup_dynamodb():
     with mock_aws():
-        dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+        dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
         _create_location_table(dynamodb)
+        _create_watchlist_table(dynamodb)
+        _create_scores_table(dynamodb)
+        os.environ["API_BASE_URL"] = "http://test-api"
         yield
 
 @pytest.fixture
 def setup_s3_dynamodb():
     with mock_aws():
-        s3 = boto3.client("s3", region_name="us-east-1")
-        s3.create_bucket(Bucket=TEST_BUCKET_NAME)
+        s3 = boto3.client("s3", region_name=constants.DEFAULT_REGION)
+        s3.create_bucket(
+            Bucket=TEST_BUCKET_NAME,
+            CreateBucketConfiguration={"LocationConstraint": constants.DEFAULT_REGION},
+        )
         os.environ["API_BASE_URL"] = "http://test-api"
+        _seed_hubs_file(s3)
 
-        dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+        dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
         _create_location_table(dynamodb)
+        _create_scores_table(dynamodb)
 
-        yield s3 
+        yield s3
+
+def _seed_hubs_file(s3):
+    with open(constants.HUBS_FILE_KEY, "r") as f:
+        hubs = json.load(f)
+    s3.put_object(
+        Bucket=TEST_BUCKET_NAME,
+        Key=constants.HUBS_FILE_KEY,
+        Body=json.dumps(hubs)
+    )
 
 def _create_location_table(dynamodb):
     table = dynamodb.create_table(
@@ -75,3 +88,28 @@ def _create_location_table(dynamodb):
         ],
     )
     table.wait_until_exists()
+
+def _create_watchlist_table(dynamodb):
+    dynamodb.create_table(
+        TableName="watchlist",
+        KeySchema=[
+            {"AttributeName": "hub_id", "KeyType": "HASH"},
+            {"AttributeName": "email", "KeyType": "RANGE"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "hub_id", "AttributeType": "S"},
+            {"AttributeName": "email", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+    )
+def _create_scores_table(dynamodb):
+    table = dynamodb.create_table(
+        TableName="scores",
+        KeySchema=[{"AttributeName": "hub_id", "KeyType": "HASH"}],
+        AttributeDefinitions=[
+            {"AttributeName": "hub_id", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+    )
+    table.wait_until_exists()
+

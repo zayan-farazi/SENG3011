@@ -2,18 +2,13 @@ import json
 import boto3
 import os
 import logging
-import requests
 from datetime import datetime
 import constants
+from hub_lookup import resolve_hub
 from lambdas.metrics import log_metric
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
-def validate_hub_id(base_url, hub_id):
-    url = f"{base_url}/{constants.LOCATION_PATH}/{hub_id}"
-    response = requests.get(url, timeout=10)
-    return response.status_code == constants.STATUS_OK
 
 def lambda_handler(event, context):
     logger.info(f"Incoming retrieval request: event={event}")
@@ -42,12 +37,8 @@ def lambda_handler(event, context):
     try:
         datetime.strptime(date, constants.DATE_FORMAT)
 
-        base_url = os.environ.get("API_BASE_URL")
-        if not base_url:
-            logger.error("Missing API_BASE_URL configuration")
-            return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing API_BASE_URL configuration"})
-
-        if not validate_hub_id(base_url, hub_id):
+        hub = resolve_hub(hub_id, bucket_name, s3=s3)
+        if not hub:
             logger.error(f"Invalid hub_id requested: {hub_id}")
             return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
 
@@ -55,7 +46,7 @@ def lambda_handler(event, context):
             key = f"raw/weather/{hub_id}/{date}.json"
         elif "processed" in path:
             key = f"processed/weather/{hub_id}/{date}.json"
-        
+
         obj = s3.get_object(Bucket=bucket_name, Key=key)
         data = json.loads(obj["Body"].read())
         logger.info(f"Successfully retrieved object s3://{bucket_name}/{key}")
@@ -64,7 +55,7 @@ def lambda_handler(event, context):
     except ValueError:
         logger.exception(f"Invalid date format: {date}")
         return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid date format. Use DD-MM-YYYY"})
-    
+
     except s3.exceptions.NoSuchKey:
         logger.exception(f"No data found for key s3://{bucket_name}/{key}")
         return response(constants.STATUS_NOT_FOUND, {"error": "Data for hub_id and date not found"})

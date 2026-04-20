@@ -1,4 +1,5 @@
 pytest
+pytest-html
 moto
 requests
 numpy
@@ -15,3 +16,7 @@ joblib
 jsonschema
 types-jsonschema
 boto3
+reportlab
+types-reportlab
+networkx
+types-networkx

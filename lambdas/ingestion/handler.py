@@ -5,21 +5,12 @@ import os
 from datetime import datetime, timezone
 import constants
 import logging
+from hub_catalog import load_seed_hubs
+from hub_lookup import resolve_hub
 from lambdas.metrics import log_metric
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
-def load_hubs(s3, bucket_name):
-    s3_response = s3.get_object(Bucket=bucket_name, Key=constants.HUBS_FILE_KEY)
-    return json.loads(s3_response["Body"].read().decode("utf-8"))
-
-def fetch_hub_info(base_url, hub_id):
-    url = f"{base_url}/{constants.LOCATION_PATH}/{hub_id}"
-    response = requests.get(url, timeout=10)
-    if response.status_code == constants.STATUS_OK:
-        return response.json()
-    return None
 
 def fetch_weather(lat, lon, api_key):
     url = f"https://api.pirateweather.net/forecast/{api_key}/{lat},{lon}"
@@ -66,19 +57,14 @@ def lambda_handler(event, context):
 
     if hub_id:
         logger.info(f"Ingestion for hub {hub_id} requested")
-        base_url = os.environ.get("API_BASE_URL")
-        if not base_url:
-            logger.error("Missing API_BASE_URL configuration")
-            return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Missing API_BASE_URL configuration"})
-
-        hub_info = fetch_hub_info(base_url, hub_id)
+        hub_info = resolve_hub(hub_id, bucket_name, s3=s3)
         if not hub_info:
             logger.error(f"Invalid hub_id requested: {hub_id}")
             return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid hub_id"})
         hubs = {hub_id: hub_info}
     else:
-        hubs = load_hubs(s3, bucket_name)
-        logger.info(f"Automated ingestion triggered, loaded {len(hubs)} hubs from {constants.HUBS_FILE_KEY}")
+        hubs = load_seed_hubs(s3, bucket_name)
+        logger.info(f"Automated ingestion triggered, loaded {len(hubs)} seed hubs")
 
     try:
         date = datetime.now(timezone.utc).strftime(constants.DATE_FORMAT)
@@ -98,5 +84,5 @@ def response(status, body):
         "statusCode": status,
         "body": json.dumps(body)
     }
-            
-    
+
+
