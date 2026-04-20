@@ -62,13 +62,12 @@ def load_all_risk_scores(dynamodb):
 def risk_scalar(hub_id, scores_by_hub):
     risk_score = scores_by_hub.get(hub_id)
     if risk_score is None:
-        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Cant find risk score"})
+        return 1
     return 1 + risk_score 
 
 
-def build_hub_graph(s3, bucket_name, k=4, scores_by_hub=None):
-    hubs = load_hubs(s3, bucket_name)
-    scores_by_hub = scores_by_hub or {}
+def build_hub_graph(hubs, k=4, scores_by_hub=None):
+   
 
     G = nx.Graph()
 
@@ -160,6 +159,7 @@ def lambda_handler(event, context):
     if not hub_id_1 or not hub_id_2:
         return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id(s)"})
     
+
     s3 = boto3.client(
         "s3",
         region_name=os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
@@ -176,11 +176,17 @@ def lambda_handler(event, context):
 
     scores_by_hub = load_all_risk_scores(dynamodb=dynamodb)
 
+    hubs = load_hubs(s3, bucket_name)
+    if hub_id_1 not in hubs or hub_id_2 not in hubs:
+        return response(
+            constants.STATUS_BAD_REQUEST,
+            {"error": f"One or both hub IDs not found: {hub_id_1}, {hub_id_2}"}
+        )
+
     G = build_hub_graph(
-        s3=s3,
-        bucket_name=bucket_name,
+        hubs=hubs,
         k=4,
-        scores_by_hub=scores_by_hub,
+        scores_by_hub=scores_by_hub
     )
 
     try:

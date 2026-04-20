@@ -38,10 +38,6 @@ def test_haversine_is_symmetric():
 def test_risk_scalar_returns_one_plus_score():
     assert risk_scalar("H1", {"H1": 0.5}) == pytest.approx(1.5)
 
-def test_risk_scalar_missing_hub_returns_error_response():
-    result = risk_scalar("MISSING", {})
-    assert result["statusCode"] == constants.STATUS_INTERNAL_SERVER_ERROR
-    assert "error" in json.loads(result["body"])
 
 
 # ---------------------------------------------------------------------------
@@ -79,9 +75,7 @@ MOCK_SCORES = {hub_id: 0.0 for hub_id in MOCK_HUBS}
 
 @pytest.fixture
 def mock_graph():
-    with patch("lambdas.pathfinding.handler.load_hubs", return_value=MOCK_HUBS):
-        from unittest.mock import MagicMock
-        yield build_hub_graph(MagicMock(), "bucket", k=2, scores_by_hub=MOCK_SCORES)
+    yield build_hub_graph(hubs=MOCK_HUBS, k=2, scores_by_hub=MOCK_SCORES)
 
 def test_graph_has_all_hubs_as_nodes(mock_graph):
     assert set(mock_graph.nodes) == set(MOCK_HUBS.keys())
