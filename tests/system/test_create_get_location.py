@@ -1,10 +1,18 @@
 import os
 import uuid
 import requests
+import pytest
 from constants import STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, LOCATION_PATH
 from tests.test_constants import HUB_INVALID, HUB_ID_1
 
 BASE_URL = os.environ["STAGING_BASE_URL"]
+AUTH_ID_TOKEN = os.environ.get("AUTH_ID_TOKEN")
+
+
+def auth_headers():
+    if not AUTH_ID_TOKEN:
+        pytest.skip("AUTH_ID_TOKEN is required for auth-protected location creation tests")
+    return {"Authorization": f"Bearer {AUTH_ID_TOKEN}"}
 
 def _unique_location_payload():
     unique_suffix = uuid.uuid4().hex
@@ -22,7 +30,7 @@ def test_location_create_valid():
     url = f"{BASE_URL}/{LOCATION_PATH}"
     payload = _unique_location_payload()
 
-    response = requests.post(url, json=payload)
+    response = requests.post(url, json=payload, headers=auth_headers())
 
     assert response.status_code == STATUS_OK
     data = response.json()
@@ -34,7 +42,7 @@ def test_location_create_valid():
 def test_location_get_valid_dynamic():
     create_url = f"{BASE_URL}/{LOCATION_PATH}"
     payload = _unique_location_payload()
-    create_response = requests.post(create_url, json=payload)
+    create_response = requests.post(create_url, json=payload, headers=auth_headers())
     assert create_response.status_code == STATUS_OK
     hub_id = create_response.json()["hub_id"]
 
@@ -69,7 +77,7 @@ def test_location_create_invalid_name():
         "name": "Invalid@Name!"
     }
 
-    response = requests.post(url, json=payload)
+    response = requests.post(url, json=payload, headers=auth_headers())
 
     assert response.status_code == STATUS_BAD_REQUEST
     assert "Name can contain only letters" in response.json()["error"]
@@ -82,7 +90,7 @@ def test_location_create_invalid_lon():
         "name": "Port 1"
     }
 
-    response = requests.post(url, json=payload)
+    response = requests.post(url, json=payload, headers=auth_headers())
 
     assert response.status_code == STATUS_BAD_REQUEST
     assert response.json()["error"] == "Longitude must be between -180 and 180."
@@ -98,7 +106,7 @@ def test_location_get_invalid_hub():
 def test_location_list_all():
     create_url = f"{BASE_URL}/{LOCATION_PATH}"
     payload = _unique_location_payload()
-    create_response = requests.post(create_url, json=payload)
+    create_response = requests.post(create_url, json=payload, headers=auth_headers())
     assert create_response.status_code == STATUS_OK
     created_hub_id = create_response.json()["hub_id"]
 
@@ -118,7 +126,7 @@ def test_location_list_all():
 def test_location_list_dynamic():
     create_url = f"{BASE_URL}/{LOCATION_PATH}"
     payload = _unique_location_payload()
-    create_response = requests.post(create_url, json=payload)
+    create_response = requests.post(create_url, json=payload, headers=auth_headers())
     assert create_response.status_code == STATUS_OK
     created_hub_id = create_response.json()["hub_id"]
 

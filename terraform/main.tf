@@ -61,6 +61,24 @@ variable "lambda_execution_role_name" {
   default     = "seng3011-weather-lambda-role"
 }
 
+variable "cognito_domain_prefix" {
+  type        = string
+  description = "Base prefix for the Cognito hosted UI domain"
+  default     = "seng3011-auth"
+}
+
+variable "cognito_callback_urls" {
+  type        = list(string)
+  description = "Allowed OAuth callback URLs for the frontend client"
+  default     = ["http://localhost:3000/callback"]
+}
+
+variable "cognito_logout_urls" {
+  type        = list(string)
+  description = "Allowed OAuth logout URLs for the frontend client"
+  default     = ["http://localhost:3000"]
+}
+
 ############################
 # Locals
 ############################
@@ -75,6 +93,9 @@ locals {
   location_table_name        = "locations${local.resource_suffix}"
   watchlist_table_name       = "watchlist${local.resource_suffix}"
   lambda_execution_role_name = var.environment_name == "dev" ? var.lambda_execution_role_name : "${var.lambda_execution_role_name}-${var.environment_name}"
+  cognito_domain_prefix      = "${var.cognito_domain_prefix}-${data.aws_caller_identity.current.account_id}${local.resource_suffix}"
+  cognito_issuer_url         = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.auth.id}"
+  cognito_hosted_ui_url      = "https://${aws_cognito_user_pool_domain.auth.domain}.auth.${var.aws_region}.amazoncognito.com"
   scores_table_name          = "scores${local.resource_suffix}"
   messages_table_name        = "messages${local.resource_suffix}"
 
@@ -110,16 +131,19 @@ locals {
 
   location_routes = {
     list_locations = {
-      route_key    = "GET /ese/v1/location/list"
-      path_pattern = "GET/ese/v1/location/list"
+      route_key     = "GET /ese/v1/location/list"
+      path_pattern  = "GET/ese/v1/location/list"
+      auth_required = false
     }
     get_location = {
-      route_key    = "GET /ese/v1/location/{hub_id}"
-      path_pattern = "GET/ese/v1/location/*"
+      route_key     = "GET /ese/v1/location/{hub_id}"
+      path_pattern  = "GET/ese/v1/location/*"
+      auth_required = false
     }
     create_location = {
-      route_key    = "POST /ese/v1/location"
-      path_pattern = "POST/ese/v1/location"
+      route_key     = "POST /ese/v1/location"
+      path_pattern  = "POST/ese/v1/location"
+      auth_required = true
     }
   }
 
@@ -156,13 +180,20 @@ locals {
   }
 
   watchlist_routes = {
-    add_email = {
-      route_key    = "POST /ese/v1/watchlist/{hub_id}/{email}"
-      path_pattern = "POST/ese/v1/watchlist/*"
+    list_watchlist = {
+      route_key     = "GET /ese/v1/watchlist"
+      path_pattern  = "GET/ese/v1/watchlist"
+      auth_required = true
     }
-    remove_email = {
-      route_key    = "DELETE /ese/v1/watchlist/{hub_id}/{email}"
-      path_pattern = "DELETE/ese/v1/watchlist/*"
+    add_watch = {
+      route_key     = "POST /ese/v1/watchlist/{hub_id}"
+      path_pattern  = "POST/ese/v1/watchlist/*"
+      auth_required = true
+    }
+    remove_watch = {
+      route_key     = "DELETE /ese/v1/watchlist/{hub_id}"
+      path_pattern  = "DELETE/ese/v1/watchlist/*"
+      auth_required = true
     }
   }
 
@@ -186,6 +217,8 @@ locals {
 ############################
 
 data "aws_partition" "current" {}
+
+data "aws_caller_identity" "current" {}
 
 data "aws_iam_policy_document" "lambda_assume_role" {
   statement {
@@ -232,6 +265,7 @@ data "aws_iam_policy_document" "lambda_access" {
       aws_dynamodb_table.locations.arn,
       "${aws_dynamodb_table.locations.arn}/index/*",
       aws_dynamodb_table.watchlist.arn,
+      "${aws_dynamodb_table.watchlist.arn}/index/*",
       aws_dynamodb_table.scores.arn,
       aws_dynamodb_table.messages.arn,
     ]
@@ -331,7 +365,7 @@ resource "aws_dynamodb_table" "watchlist" {
   name         = local.watchlist_table_name
   billing_mode = "PAY_PER_REQUEST"
 
-  hash_key  = "email"
+  hash_key  = "user_id"
   range_key = "hub_id"
 
   attribute {
@@ -340,8 +374,15 @@ resource "aws_dynamodb_table" "watchlist" {
   }
 
   attribute {
-    name = "email"
+    name = "user_id"
     type = "S"
+  }
+
+  global_secondary_index {
+    name            = "hub-id-index"
+    hash_key        = "hub_id"
+    range_key       = "user_id"
+    projection_type = "ALL"
   }
 
   tags = {
@@ -589,7 +630,7 @@ resource "aws_lambda_function" "analytics" {
       API_BASE_URL         = local.api_base_url
       RISK_MODEL_KEY       = local.model_s3_key
       WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
-      messages_table_name  = aws_dynamodb_table.messages.name
+      MESSAGES_TABLE_NAME  = aws_dynamodb_table.messages.name
     }
   }
 
@@ -713,14 +754,68 @@ resource "aws_apigatewayv2_api" "weather_api" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = ["https://ayrasaqib.github.io"]
+    allow_origins = ["https://ayrasaqib.github.io", "http://localhost:3000"]
     allow_methods = ["GET", "POST", "DELETE", "OPTIONS"]
-    allow_headers = ["content-type"]
+    allow_headers = ["authorization", "content-type"]
   }
 
   tags = {
     Environment = var.environment_name
     Project     = "seng3011"
+  }
+}
+
+resource "aws_cognito_user_pool" "auth" {
+  name = "weather-supply-chain-auth${local.resource_suffix}"
+
+  auto_verified_attributes = ["email"]
+  username_attributes      = ["email"]
+
+  schema {
+    attribute_data_type = "String"
+    name                = "email"
+    required            = true
+    mutable             = true
+  }
+
+  verification_message_template {
+    default_email_option = "CONFIRM_WITH_CODE"
+  }
+
+  tags = {
+    Environment = var.environment_name
+    Project     = "seng3011"
+  }
+}
+
+resource "aws_cognito_user_pool_client" "frontend" {
+  name         = "weather-supply-chain-frontend${local.resource_suffix}"
+  user_pool_id = aws_cognito_user_pool.auth.id
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  callback_urls                        = var.cognito_callback_urls
+  logout_urls                          = var.cognito_logout_urls
+  explicit_auth_flows                  = ["ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_SRP_AUTH"]
+  generate_secret                      = false
+  supported_identity_providers         = ["COGNITO"]
+}
+
+resource "aws_cognito_user_pool_domain" "auth" {
+  domain       = local.cognito_domain_prefix
+  user_pool_id = aws_cognito_user_pool.auth.id
+}
+
+resource "aws_apigatewayv2_authorizer" "cognito_jwt" {
+  api_id           = aws_apigatewayv2_api.weather_api.id
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+  name             = "cognito-jwt${local.resource_suffix}"
+
+  jwt_configuration {
+    audience = [aws_cognito_user_pool_client.frontend.id]
+    issuer   = local.cognito_issuer_url
   }
 }
 
@@ -791,9 +886,11 @@ resource "aws_apigatewayv2_integration" "pathfinding" {
 resource "aws_apigatewayv2_route" "location" {
   for_each = local.location_routes
 
-  api_id    = aws_apigatewayv2_api.weather_api.id
-  route_key = each.value.route_key
-  target    = "integrations/${aws_apigatewayv2_integration.location.id}"
+  api_id             = aws_apigatewayv2_api.weather_api.id
+  route_key          = each.value.route_key
+  target             = "integrations/${aws_apigatewayv2_integration.location.id}"
+  authorization_type = each.value.auth_required ? "JWT" : "NONE"
+  authorizer_id      = each.value.auth_required ? aws_apigatewayv2_authorizer.cognito_jwt.id : null
 }
 
 resource "aws_apigatewayv2_route" "retrieval" {
@@ -831,9 +928,11 @@ resource "aws_apigatewayv2_route" "analytics" {
 resource "aws_apigatewayv2_route" "watchlist" {
   for_each = local.watchlist_routes
 
-  api_id    = aws_apigatewayv2_api.weather_api.id
-  route_key = each.value.route_key
-  target    = "integrations/${aws_apigatewayv2_integration.watchlist.id}"
+  api_id             = aws_apigatewayv2_api.weather_api.id
+  route_key          = each.value.route_key
+  target             = "integrations/${aws_apigatewayv2_integration.watchlist.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
 }
 
 resource "aws_apigatewayv2_route" "testing" {
@@ -1084,4 +1183,20 @@ output "risk_location_url_example" {
 
 output "testing_run_url_example" {
   value = "${local.api_base_url}/ese/v1/testing/run"
+}
+
+output "cognito_user_pool_id" {
+  value = aws_cognito_user_pool.auth.id
+}
+
+output "cognito_user_pool_client_id" {
+  value = aws_cognito_user_pool_client.frontend.id
+}
+
+output "cognito_hosted_ui_url" {
+  value = local.cognito_hosted_ui_url
+}
+
+output "cognito_issuer_url" {
+  value = local.cognito_issuer_url
 }

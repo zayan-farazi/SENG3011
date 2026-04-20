@@ -7,6 +7,8 @@ HUBS_HISTORY_PREFIX = "history/hubs"
 
 STATUS_OK = 200
 STATUS_BAD_REQUEST = 400
+STATUS_UNAUTHORIZED = 401
+STATUS_FORBIDDEN = 403
 STATUS_NOT_FOUND = 404
 STATUS_INTERNAL_SERVER_ERROR = 500
 STATUS_BAD_GATEWAY = 502
@@ -18,6 +20,7 @@ MODEL_S3_KEY = "models/risk_model.joblib"
 INGEST_WEATHER_PATH = "ese/v1/ingest/weather"
 PROCESS_WEATHER_PATH = "ese/v1/process/weather"
 LOCATION_PATH = "ese/v1/location"
+WATCHLIST_PATH = "ese/v1/watchlist"
 MODEL_S3_KEY = "models/risk_model.joblib"
 
 DEFAULT_REGION = "ap-southeast-2"

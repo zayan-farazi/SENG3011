@@ -8,6 +8,7 @@ from decimal import Decimal
 import uuid
 import constants
 import logging
+from auth_context import AuthError, auth_error_response, require_authenticated_user
 from hub_catalog import load_hubs
 from hub_lookup import get_dynamic_hub
 from lambdas.metrics import log_metric
@@ -170,6 +171,12 @@ def lambda_handler(event, context):
 
     # POST /ese/v1/location
     if http_method == "POST":
+        try:
+            require_authenticated_user(event)
+        except AuthError as error:
+            logger.error("POST /location failed: %s", error.message)
+            return auth_error_response(error)
+
         logger.info("Incoming request to create new location")
         body = event.get("body")
         if not body:

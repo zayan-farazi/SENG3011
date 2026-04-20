@@ -62,6 +62,7 @@ def setup_s3():
         os.environ["API_BASE_URL"] = TEST_BASE_URL
         os.environ["AWS_REGION"] = constants.DEFAULT_REGION
         _create_location_table(dynamodb)
+        _create_watchlist_table(dynamodb)
 
         yield {"s3": s3, "bucket": bucket}
 
@@ -79,6 +80,32 @@ def _create_location_table(dynamodb):
             {
                 "IndexName": "lat-lon-index",
                 "KeySchema": [{"AttributeName": "lat_lon", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            }
+        ],
+    )
+    table.wait_until_exists()
+
+
+def _create_watchlist_table(dynamodb):
+    table = dynamodb.create_table(
+        TableName="watchlist",
+        KeySchema=[
+            {"AttributeName": "user_id", "KeyType": "HASH"},
+            {"AttributeName": "hub_id", "KeyType": "RANGE"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "hub_id", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+        GlobalSecondaryIndexes=[
+            {
+                "IndexName": "hub-id-index",
+                "KeySchema": [
+                    {"AttributeName": "hub_id", "KeyType": "HASH"},
+                    {"AttributeName": "user_id", "KeyType": "RANGE"},
+                ],
                 "Projection": {"ProjectionType": "ALL"},
             }
         ],

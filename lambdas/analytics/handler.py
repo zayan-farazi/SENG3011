@@ -499,11 +499,14 @@ def notify_watchlist(hub_id: str) -> None:
         ses      = boto3.client("ses", region_name=region)
         dynamodb = boto3.resource("dynamodb", region_name=region)
         table    = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
-        result   = table.query(KeyConditionExpression=Key("hub_id").eq(hub_id))
+        result   = table.query(
+            IndexName="hub-id-index",
+            KeyConditionExpression=Key("hub_id").eq(hub_id),
+        )
         for item in result.get("Items", []):
             ses.send_email(
                 Source="alerts@yourdomain.com",
-                Destination={"ToAddresses": [item["email"]]},
+                Destination={"ToAddresses": [item["notification_email"]]},
                 Message={
                     "Subject": {"Data": f"Hub {hub_id} Alert"},
                     "Body":    {"Text": {"Data": "Critical risk level"}},

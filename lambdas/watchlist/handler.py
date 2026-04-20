@@ -1,51 +1,69 @@
 import json
-import re
 import os
+from datetime import datetime, timezone
+
 import boto3
 import constants
 import logging
-from urllib.parse import unquote
 import requests
+from auth_context import AuthError, auth_error_response, require_authenticated_user
+from boto3.dynamodb.conditions import Key
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def add_email(hub_id, email, table):
+def add_watch(user_id, email, hub_id, table):
     try:
         table.put_item(
             Item={
-                "email": email,
+                "user_id": user_id,
                 "hub_id": hub_id,
+                "notification_email": email,
+                "created_at": datetime.now(timezone.utc).isoformat(),
             }
         )
-        logger.info(f"adding hub {hub_id} to {email} watchlist")
-    except Exception as e:
-        logger.error(f"DynamoDB error: {str(e)}")
+        logger.info("added hub %s to user %s watchlist", hub_id, user_id)
+    except Exception as exc:
+        logger.error("DynamoDB error: %s", exc)
         return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
 
-    return response(constants.STATUS_OK, f"hub {hub_id} added to {email} watchlist")
+    return response(constants.STATUS_OK, {"message": f"hub {hub_id} added to watchlist"})
 
 
-def delete_email(hub_id, email, table):
+def delete_watch(user_id, hub_id, table):
     try:
         table.delete_item(
             Key={
-                "email": email,
+                "user_id": user_id,
                 "hub_id": hub_id,
             }
         )
-        logger.info(f"deleting hub {hub_id} from {email} watchlist")
-    except Exception as e:
-        logger.error(f"DynamoDB error: {str(e)}")
+        logger.info("removed hub %s from user %s watchlist", hub_id, user_id)
+    except Exception as exc:
+        logger.error("DynamoDB error: %s", exc)
         return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
 
-    return response(constants.STATUS_OK, f"hub {hub_id} removed from {email} watchlist")
+    return response(constants.STATUS_OK, {"message": f"hub {hub_id} removed from watchlist"})
 
 
-def valid_email(email):
-    pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-    return re.match(pattern, email) is not None
+def list_watches(user_id, table):
+    try:
+        result = table.query(KeyConditionExpression=Key("user_id").eq(user_id))
+    except Exception as exc:
+        logger.error("DynamoDB error: %s", exc)
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
+
+    hubs = [
+        {
+            "hub_id": item["hub_id"],
+            "notification_email": item["notification_email"],
+            "created_at": item["created_at"],
+        }
+        for item in result.get("Items", [])
+    ]
+    hubs.sort(key=lambda item: item["hub_id"])
+    return response(constants.STATUS_OK, {"hubs": hubs})
 
 
 def valid_hub_id(base_url, hub_id):
@@ -67,19 +85,21 @@ def lambda_handler(event, context):
 
     http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
-
     hub_id = path_params.get("hub_id")
-    email = path_params.get("email")
 
-    if not email or not hub_id:
-        logger.error("missing hub_id or email")
-        return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id or email"})
+    try:
+        user = require_authenticated_user(event, require_verified_email=http_method in {"POST", "DELETE"})
+    except AuthError as error:
+        logger.error("watchlist auth failure: %s", error.message)
+        return auth_error_response(error)
 
-    email = unquote(email)
+    if http_method == "GET":
+        logger.info("listing watchlist for user %s", user["user_id"])
+        return list_watches(user["user_id"], table)
 
-    if not valid_email(email):
-        logger.error("Invalid email")
-        return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid email"})
+    if not hub_id:
+        logger.error("missing hub_id")
+        return response(constants.STATUS_BAD_REQUEST, {"error": "Missing hub_id"})
 
     base_url = os.environ.get("API_BASE_URL")
     if not base_url:
@@ -92,19 +112,18 @@ def lambda_handler(event, context):
 
     if http_method == "POST":
         logger.info("POST method requested")
-        return add_email(hub_id, email, table)
+        return add_watch(user["user_id"], user["notification_email"], hub_id, table)
 
-    elif http_method == "DELETE":
+    if http_method == "DELETE":
         logger.info("DELETE method requested")
-        return delete_email(hub_id, email, table)
+        return delete_watch(user["user_id"], hub_id, table)
 
-    else:
-        logger.info("Invalid request call")
-        return response(constants.STATUS_BAD_REQUEST, "Method not allowed")
+    logger.info("Invalid request call")
+    return response(constants.STATUS_BAD_REQUEST, {"error": "Method not allowed"})
 
 
-def response(status, message):
+def response(status, body):
     return {
         "statusCode": status,
-        "body": json.dumps({"message": message}),
+        "body": json.dumps(body),
     }
