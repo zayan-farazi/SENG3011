@@ -2,8 +2,8 @@
 
 This repo currently deploys:
 
-- six Lambdas: location, retrieval, ingestion, processing, analytics, and watchlist
-- one HTTP API with location, retrieval, ingestion, processing, risk, and watchlist routes
+- seven Lambdas: auth, location, retrieval, ingestion, processing, analytics, and watchlist
+- one HTTP API with auth, location, retrieval, ingestion, processing, risk, and watchlist routes
 - one Cognito user pool, app client, and hosted UI domain for end-user auth
 - one daily EventBridge rule at `02:00 UTC` that invokes ingestion for all hubs
 - one application data bucket chosen per AWS account
@@ -168,7 +168,12 @@ Frontend auth flow:
 
 - redirect users to the Cognito hosted UI
 - use OAuth authorization code flow with PKCE
-- send the Cognito ID token as `Authorization: Bearer <token>` to `POST /ese/v1/location` and all watchlist routes
+- send the Cognito ID token as `Authorization: Bearer <token>` to:
+  - `POST /ese/v1/location`
+  - all watchlist routes
+  - `GET/PUT /ese/v1/auth/profile`
+- use `PUT /ese/v1/auth/password` with the current and new password to rotate credentials
+- use `GET /ese/v1/watchlist/notifications` to retrieve stored notification history
 
 ```bash
 curl "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/retrieve/raw/weather/H001?date=10-03-2026"

@@ -19,7 +19,8 @@ def test_notify_watchlist_queries_hub_index_and_emails_notification_address(mock
             }
         ]
     }
-    mock_resource.return_value.Table.return_value = mock_table
+    mock_messages = MagicMock()
+    mock_resource.return_value.Table.side_effect = [mock_table, mock_messages]
 
     handler.notify_watchlist("H001")
 
@@ -30,3 +31,4 @@ def test_notify_watchlist_queries_hub_index_and_emails_notification_address(mock
     assert mock_ses.send_email.call_args.kwargs["Destination"] == {
         "ToAddresses": ["user@example.com"]
     }
+    mock_messages.put_item.assert_called_once()

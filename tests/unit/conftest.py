@@ -41,6 +41,7 @@ def setup_dynamodb():
         _create_location_table(dynamodb)
         _create_watchlist_table(dynamodb)
         _create_scores_table(dynamodb)
+        _create_messages_table(dynamodb)
         os.environ["API_BASE_URL"] = "http://test-api"
         yield
 
@@ -58,6 +59,8 @@ def setup_s3_dynamodb():
         dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
         _create_location_table(dynamodb)
         _create_scores_table(dynamodb)
+        _create_watchlist_table(dynamodb)
+        _create_messages_table(dynamodb)
 
         yield s3
 
@@ -119,6 +122,22 @@ def _create_scores_table(dynamodb):
         KeySchema=[{"AttributeName": "hub_id", "KeyType": "HASH"}],
         AttributeDefinitions=[
             {"AttributeName": "hub_id", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+    )
+    table.wait_until_exists()
+
+
+def _create_messages_table(dynamodb):
+    table = dynamodb.create_table(
+        TableName="messages",
+        KeySchema=[
+            {"AttributeName": "user_id", "KeyType": "HASH"},
+            {"AttributeName": "sent_at", "KeyType": "RANGE"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "sent_at", "AttributeType": "S"},
         ],
         BillingMode="PAY_PER_REQUEST",
     )

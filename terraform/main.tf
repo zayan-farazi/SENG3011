@@ -110,6 +110,7 @@ locals {
   testing_lambda_name     = "weather-testing-handler${local.resource_suffix}"
   hub_sync_lambda_name    = "weather-portwatch-hub-sync${local.resource_suffix}"
   pathfinding_lambda_name = "weather-pathfinding-handler${local.resource_suffix}"
+  auth_lambda_name        = "weather-auth-handler${local.resource_suffix}"
 
   lambda_artifact_dir  = "${path.module}/../build/lambdas"
   location_zip_path    = "${local.lambda_artifact_dir}/location.zip"
@@ -121,6 +122,7 @@ locals {
   testing_zip_path     = "${local.lambda_artifact_dir}/testing.zip"
   hub_sync_zip_path    = "${local.lambda_artifact_dir}/hub_sync.zip"
   pathfinding_zip_path = "${local.lambda_artifact_dir}/pathfinding.zip"
+  auth_zip_path        = "${local.lambda_artifact_dir}/auth.zip"
 
   analytics_zip_key   = "artifacts/lambdas/analytics.zip"
   hubs_seed_key       = "hubs.json"
@@ -180,6 +182,11 @@ locals {
   }
 
   watchlist_routes = {
+    list_notifications = {
+      route_key     = "GET /ese/v1/watchlist/notifications"
+      path_pattern  = "GET/ese/v1/watchlist/notifications"
+      auth_required = true
+    }
     list_watchlist = {
       route_key     = "GET /ese/v1/watchlist"
       path_pattern  = "GET/ese/v1/watchlist"
@@ -208,6 +215,24 @@ locals {
     optimal_path = {
       route_key    = "GET /ese/v1/pathfinding/{hub_id_1}/{hub_id_2}"
       path_pattern = "GET/ese/v1/pathfinding/*"
+    }
+  }
+
+  auth_routes = {
+    get_profile = {
+      route_key     = "GET /ese/v1/auth/profile"
+      path_pattern  = "GET/ese/v1/auth/profile"
+      auth_required = true
+    }
+    update_profile = {
+      route_key     = "PUT /ese/v1/auth/profile"
+      path_pattern  = "PUT/ese/v1/auth/profile"
+      auth_required = true
+    }
+    update_password = {
+      route_key     = "PUT /ese/v1/auth/password"
+      path_pattern  = "PUT/ese/v1/auth/password"
+      auth_required = true
     }
   }
 }
@@ -290,6 +315,20 @@ data "aws_iam_policy_document" "lambda_access" {
     ]
     resources = [
       "arn:aws:ssm:*:*:parameter/seng3011/news-api-key"
+    ]
+  }
+
+  statement {
+    sid    = "ManageCognitoUsers"
+    effect = "Allow"
+    actions = [
+      "cognito-idp:AdminGetUser",
+      "cognito-idp:AdminInitiateAuth",
+      "cognito-idp:AdminSetUserPassword",
+      "cognito-idp:AdminUpdateUserAttributes",
+    ]
+    resources = [
+      aws_cognito_user_pool.auth.arn,
     ]
   }
 }
@@ -440,16 +479,16 @@ resource "aws_dynamodb_table" "scores" {
 resource "aws_dynamodb_table" "messages" {
   name         = local.messages_table_name
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "email"
-  range_key    = "message"
+  hash_key     = "user_id"
+  range_key    = "sent_at"
 
   attribute {
-    name = "email"
+    name = "user_id"
     type = "S"
   }
 
   attribute {
-    name = "message"
+    name = "sent_at"
     type = "S"
   }
 
@@ -658,6 +697,29 @@ resource "aws_lambda_function" "watchlist" {
       DATA_BUCKET          = aws_s3_bucket.seng_3011_bkt.bucket
       API_BASE_URL         = local.api_base_url
       WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
+      MESSAGES_TABLE_NAME  = aws_dynamodb_table.messages.name
+    }
+  }
+
+  tags = {
+    Environment = var.environment_name
+    Project     = "seng3011"
+  }
+}
+
+resource "aws_lambda_function" "auth" {
+  function_name    = local.auth_lambda_name
+  role             = aws_iam_role.lambda_execution.arn
+  runtime          = "python3.12"
+  handler          = "lambdas.auth.handler.lambda_handler"
+  filename         = local.auth_zip_path
+  source_code_hash = filebase64sha256(local.auth_zip_path)
+  timeout          = 30
+
+  environment {
+    variables = {
+      COGNITO_USER_POOL_ID        = aws_cognito_user_pool.auth.id
+      COGNITO_USER_POOL_CLIENT_ID = aws_cognito_user_pool_client.frontend.id
     }
   }
 
@@ -778,6 +840,13 @@ resource "aws_cognito_user_pool" "auth" {
     mutable             = true
   }
 
+  schema {
+    attribute_data_type = "String"
+    name                = "company_name"
+    required            = false
+    mutable             = true
+  }
+
   verification_message_template {
     default_email_option = "CONFIRM_WITH_CODE"
   }
@@ -797,9 +866,11 @@ resource "aws_cognito_user_pool_client" "frontend" {
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   callback_urls                        = var.cognito_callback_urls
   logout_urls                          = var.cognito_logout_urls
-  explicit_auth_flows                  = ["ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_SRP_AUTH"]
+  explicit_auth_flows                  = ["ALLOW_ADMIN_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_SRP_AUTH"]
   generate_secret                      = false
   supported_identity_providers         = ["COGNITO"]
+  read_attributes                      = ["email", "email_verified", "preferred_username", "custom:company_name"]
+  write_attributes                     = ["email", "preferred_username", "custom:company_name"]
 }
 
 resource "aws_cognito_user_pool_domain" "auth" {
@@ -883,6 +954,14 @@ resource "aws_apigatewayv2_integration" "pathfinding" {
   payload_format_version = "2.0"
 }
 
+resource "aws_apigatewayv2_integration" "auth" {
+  api_id                 = aws_apigatewayv2_api.weather_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.auth.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
 resource "aws_apigatewayv2_route" "location" {
   for_each = local.location_routes
 
@@ -949,6 +1028,16 @@ resource "aws_apigatewayv2_route" "pathfinding" {
   api_id    = aws_apigatewayv2_api.weather_api.id
   route_key = each.value.route_key
   target    = "integrations/${aws_apigatewayv2_integration.pathfinding.id}"
+}
+
+resource "aws_apigatewayv2_route" "auth" {
+  for_each = local.auth_routes
+
+  api_id             = aws_apigatewayv2_api.weather_api.id
+  route_key          = each.value.route_key
+  target             = "integrations/${aws_apigatewayv2_integration.auth.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
 }
 
 resource "aws_lambda_permission" "allow_apigw_location" {
@@ -1027,6 +1116,16 @@ resource "aws_lambda_permission" "allow_apigw_pathfinding" {
   statement_id  = "AllowHttpApiInvoke-pathfinding-${each.key}"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.pathfinding.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.weather_api.execution_arn}/*/${each.value.path_pattern}"
+}
+
+resource "aws_lambda_permission" "allow_apigw_auth" {
+  for_each = local.auth_routes
+
+  statement_id  = "AllowHttpApiInvoke-auth-${each.key}"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.auth.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.weather_api.execution_arn}/*/${each.value.path_pattern}"
 }

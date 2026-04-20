@@ -102,6 +102,51 @@ def test_list_watchlist_returns_only_current_user(setup_dynamodb):
     }
 
 
+def test_list_notifications_returns_only_current_user(setup_dynamodb):
+    messages_table = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION).Table("messages")
+    messages_table.put_item(
+        Item={
+            "user_id": "user-123",
+            "sent_at": "2026-04-20T10:00:00+00:00#1",
+            "hub_id": "H001",
+            "notification_email": "test@example.com",
+            "subject": "Hub H001 Alert",
+            "message": "Critical risk level",
+        }
+    )
+    messages_table.put_item(
+        Item={
+            "user_id": "user-999",
+            "sent_at": "2026-04-20T11:00:00+00:00#1",
+            "hub_id": "H002",
+            "notification_email": "other@example.com",
+            "subject": "Hub H002 Alert",
+            "message": "Critical risk level",
+        }
+    )
+
+    response = lambda_handler(
+        {
+            **auth_event("GET"),
+            "routeKey": "GET /ese/v1/watchlist/notifications",
+        },
+        None,
+    )
+
+    assert response["statusCode"] == STATUS_OK
+    assert json.loads(response["body"]) == {
+        "notifications": [
+            {
+                "sent_at": "2026-04-20T10:00:00+00:00#1",
+                "hub_id": "H001",
+                "notification_email": "test@example.com",
+                "subject": "Hub H001 Alert",
+                "message": "Critical risk level",
+            }
+        ]
+    }
+
+
 def test_watchlist_requires_auth(setup_dynamodb):
     response = lambda_handler({"httpMethod": "GET", "pathParameters": {}}, None)
 

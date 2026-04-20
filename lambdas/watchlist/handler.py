@@ -66,6 +66,29 @@ def list_watches(user_id, table):
     return response(constants.STATUS_OK, {"hubs": hubs})
 
 
+def list_notifications(user_id, table):
+    try:
+        result = table.query(
+            KeyConditionExpression=Key("user_id").eq(user_id),
+            ScanIndexForward=False,
+        )
+    except Exception as exc:
+        logger.error("DynamoDB error: %s", exc)
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
+
+    notifications = [
+        {
+            "sent_at": item["sent_at"],
+            "hub_id": item["hub_id"],
+            "notification_email": item["notification_email"],
+            "subject": item["subject"],
+            "message": item["message"],
+        }
+        for item in result.get("Items", [])
+    ]
+    return response(constants.STATUS_OK, {"notifications": notifications})
+
+
 def valid_hub_id(base_url, hub_id):
     url = f"{base_url}/{constants.LOCATION_PATH}/{hub_id}"
     res = requests.get(url, timeout=10)
@@ -82,10 +105,12 @@ def lambda_handler(event, context):
     region = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
     dynamodb = boto3.resource("dynamodb", region_name=region)
     table = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
+    messages_table = dynamodb.Table(os.environ.get("MESSAGES_TABLE_NAME", "messages"))
 
     http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
     hub_id = path_params.get("hub_id")
+    route_key = event.get("routeKey", "")
 
     try:
         user = require_authenticated_user(event, require_verified_email=http_method in {"POST", "DELETE"})
@@ -94,6 +119,9 @@ def lambda_handler(event, context):
         return auth_error_response(error)
 
     if http_method == "GET":
+        if route_key == "GET /ese/v1/watchlist/notifications":
+            logger.info("listing notifications for user %s", user["user_id"])
+            return list_notifications(user["user_id"], messages_table)
         logger.info("listing watchlist for user %s", user["user_id"])
         return list_watches(user["user_id"], table)
 

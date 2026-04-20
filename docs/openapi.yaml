@@ -20,6 +20,7 @@ servers:
       stage:
         default: dev
 tags:
+  - name: Auth microservice
   - name: Location microservice
   - name: Data collection microservice
   - name: Data retrieval microservice
@@ -27,6 +28,110 @@ tags:
   - name: Analytics microservice
   - name: Watchlist microservice
 paths:
+  /ese/v1/auth/profile:
+    get:
+      tags:
+        - Auth microservice
+      summary: Retrieve the authenticated user's profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current Cognito-backed user profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Auth microservice
+      summary: Update the authenticated user's profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                company_name:
+                  type: string
+      responses:
+        '200':
+          description: Profile updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: No supported fields provided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/auth/password:
+    put:
+      tags:
+        - Auth microservice
+      summary: Change the authenticated user's password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - current_password
+                - new_password
+              properties:
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+      responses:
+        '200':
+          description: Password updated successfully.
+        '400':
+          description: Invalid password payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Current password is incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /ese/v1/location:
     post:
       tags:
@@ -281,6 +386,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/watchlist/notifications:
+    get:
+      tags:
+        - Watchlist microservice
+      summary: List notification history for the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Notifications previously sent to this user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationHistoryResponse'
+        '401':
+          description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /ese/v1/watchlist/{hub_id}:
     post:
       tags:
@@ -478,6 +603,39 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WatchlistEntry'
+    NotificationHistoryEntry:
+      type: object
+      properties:
+        sent_at:
+          type: string
+        hub_id:
+          type: string
+        notification_email:
+          type: string
+          format: email
+        subject:
+          type: string
+        message:
+          type: string
+    NotificationHistoryResponse:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationHistoryEntry'
+    UserProfile:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        email_verified:
+          type: boolean
+        company_name:
+          type: string
     RawWeatherResponse:
       type: object
       description: Placeholder schema for the raw Pirate Weather API payload.

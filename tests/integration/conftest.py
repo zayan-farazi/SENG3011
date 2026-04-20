@@ -63,6 +63,7 @@ def setup_s3():
         os.environ["AWS_REGION"] = constants.DEFAULT_REGION
         _create_location_table(dynamodb)
         _create_watchlist_table(dynamodb)
+        _create_messages_table(dynamodb)
 
         yield {"s3": s3, "bucket": bucket}
 
@@ -109,5 +110,21 @@ def _create_watchlist_table(dynamodb):
                 "Projection": {"ProjectionType": "ALL"},
             }
         ],
+    )
+    table.wait_until_exists()
+
+
+def _create_messages_table(dynamodb):
+    table = dynamodb.create_table(
+        TableName="messages",
+        KeySchema=[
+            {"AttributeName": "user_id", "KeyType": "HASH"},
+            {"AttributeName": "sent_at", "KeyType": "RANGE"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "sent_at", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
     )
     table.wait_until_exists()
