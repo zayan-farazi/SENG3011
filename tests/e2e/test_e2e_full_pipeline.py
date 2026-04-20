@@ -28,7 +28,6 @@ def _wait_for_processed_data(hub_id, date, timeout_seconds=15, interval_seconds=
         response = requests.get(url_processed, params={"date": date})
         if response.status_code == STATUS_OK:
             return response
-        time.sleep(interval_seconds)
 
     return response
 
@@ -40,7 +39,6 @@ def _wait_for_analytics_data(hub_id, date, timeout_seconds=15, interval_seconds=
         response = requests.get(url_analytics, params={"date": date})
         if response.status_code == STATUS_OK:
             return response
-        time.sleep(interval_seconds)
 
     return response
 
