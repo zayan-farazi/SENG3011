@@ -410,7 +410,7 @@ resource "aws_dynamodb_table" "messages" {
   name         = local.messages_table_name
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "email"
-  range_key = "timestamp"
+  range_key    = "timestamp"
 
   attribute {
     name = "email"
@@ -599,7 +599,7 @@ resource "aws_lambda_function" "analytics" {
       API_BASE_URL         = local.api_base_url
       RISK_MODEL_KEY       = local.model_s3_key
       WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
-      MESSAGES_TABLE_NAME = aws_dynamodb_table.messages.name
+      MESSAGES_TABLE_NAME  = aws_dynamodb_table.messages.name
     }
   }
 
