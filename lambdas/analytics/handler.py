@@ -498,9 +498,21 @@ def notify_watchlist(hub_id: str) -> None:
         region   = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
         ses      = boto3.client("ses", region_name=region)
         dynamodb = boto3.resource("dynamodb", region_name=region)
-        table    = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
-        result   = table.query(KeyConditionExpression=Key("hub_id").eq(hub_id))
+        watchlist_table    = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
+        messages_table =dynamodb.Table(os.environ.get("MESSAGE_TABLE_NAME", "messages"))
+        result   = watchlist_table.scan(FilterExpression=Key("hub_id").eq(hub_id))
+        
         for item in result.get("Items", []):
+            email = item["email"]
+            message = f"Hub {hub_id} has reached a critical level."
+            timestamp = datetime.now(timezone.utc).isoformat()
+            messages_table.put_item(
+                Item={
+                    "email": email, 
+                    "timestamp": timestamp,
+                    "message": message
+                }
+            )
             ses.send_email(
                 Source="alerts@yourdomain.com",
                 Destination={"ToAddresses": [item["email"]]},
