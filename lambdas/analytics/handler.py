@@ -5,7 +5,7 @@ import os
 import tempfile
 from datetime import datetime, timezone
 from typing import Optional
-
+from decimal import Decimal
 import boto3
 from boto3.dynamodb.conditions import Key
 import joblib  # type: ignore[import-untyped]
@@ -512,8 +512,23 @@ def notify_watchlist(hub_id: str) -> None:
     except Exception:
         return
 
+def store_risk_score(hub_id, score):
+    try:
+        region   = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
+        dynamodb = boto3.resource("dynamodb", region_name=region)
+        table = dynamodb.Table(os.environ.get("SCORES_TABLE_NAME", "scores"))
+
+        table.update_item(
+            Key={"hub_id": hub_id},
+            UpdateExpression="SET risk_score = :s",
+            ExpressionAttributeValues={":s": Decimal(str(score))}
+        )
+    except Exception:
+        return
+
 
 def _risk_level(score: float, hub_id: Optional[str] = None) -> str:
+    store_risk_score(hub_id, score)
     if score < 0.20:
         return "Low"
     if score < 0.40:

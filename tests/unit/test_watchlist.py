@@ -27,8 +27,8 @@ def test_post_add_email_success(mock_get, setup_dynamodb):
     assert "added" in json.loads(response["body"])["message"]
 
     result = table.get_item(Key={
+        "email": "test@example.com",
         "hub_id": "H001",
-        "email": "test@example.com"
     })
     assert "Item" in result
 
@@ -38,8 +38,8 @@ def test_delete_email_success(mock_get, setup_dynamodb):
     table = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION).Table(TABLE_NAME)
 
     table.put_item(Item={
+        "email": "test@example.com",
         "hub_id": "H001",
-        "email": "test@example.com"
     })
 
     event = {
@@ -54,7 +54,10 @@ def test_delete_email_success(mock_get, setup_dynamodb):
 
     assert response["statusCode"] == STATUS_OK
     assert "removed" in json.loads(response["body"])["message"]
-    deleted = table.get_item(Key={"hub_id": "H001", "email": "test@example.com"})
+    deleted = table.get_item(Key={
+        "email": "test@example.com",
+        "hub_id": "H001",
+    })
     assert "Item" not in deleted
 
 

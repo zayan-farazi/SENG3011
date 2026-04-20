@@ -40,6 +40,7 @@ def setup_dynamodb():
         dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
         _create_location_table(dynamodb)
         _create_watchlist_table(dynamodb)
+        _create_scores_table(dynamodb)
         os.environ["API_BASE_URL"] = "http://test-api"
         yield
 
@@ -56,6 +57,7 @@ def setup_s3_dynamodb():
 
         dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
         _create_location_table(dynamodb)
+        _create_scores_table(dynamodb)
 
         yield s3
 
@@ -100,3 +102,14 @@ def _create_watchlist_table(dynamodb):
         ],
         BillingMode="PAY_PER_REQUEST",
     )
+def _create_scores_table(dynamodb):
+    table = dynamodb.create_table(
+        TableName="scores",
+        KeySchema=[{"AttributeName": "hub_id", "KeyType": "HASH"}],
+        AttributeDefinitions=[
+            {"AttributeName": "hub_id", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+    )
+    table.wait_until_exists()
+
