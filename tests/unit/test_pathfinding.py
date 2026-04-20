@@ -3,7 +3,6 @@ import pytest
 import boto3
 import networkx as nx
 from decimal import Decimal
-from unittest.mock import patch
 
 import constants
 from lambdas.pathfinding.handler import (
