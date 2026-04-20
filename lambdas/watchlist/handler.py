@@ -56,7 +56,7 @@ def retrieve_messages(email, table):
                 "messages": result.get("Items", [])
             })}
 
-    except Exception as e:
+    except Exception:
         return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
 
 def retrieve_hubs(email, table):
@@ -71,7 +71,7 @@ def retrieve_hubs(email, table):
             "body": json.dumps({
                 "hubs": hubs
             })}
-    except Exception as e:
+    except Exception:
         return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
 
 
