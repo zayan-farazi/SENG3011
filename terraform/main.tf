@@ -76,6 +76,7 @@ locals {
   watchlist_table_name       = "watchlist${local.resource_suffix}"
   lambda_execution_role_name = var.environment_name == "dev" ? var.lambda_execution_role_name : "${var.lambda_execution_role_name}-${var.environment_name}"
   scores_table_name          = "scores${local.resource_suffix}"
+  messages_table_name        = "messages${local.resource_suffix}"
 
   hub_items = jsondecode(file("${path.module}/../hubs.json"))
 
@@ -232,6 +233,7 @@ data "aws_iam_policy_document" "lambda_access" {
       "${aws_dynamodb_table.locations.arn}/index/*",
       aws_dynamodb_table.watchlist.arn,
       aws_dynamodb_table.scores.arn,
+      aws_dynamodb_table.messages.arn,
     ]
   }
 
@@ -329,8 +331,8 @@ resource "aws_dynamodb_table" "watchlist" {
   name         = local.watchlist_table_name
   billing_mode = "PAY_PER_REQUEST"
 
-  hash_key  = "hub_id"
-  range_key = "email"
+  hash_key  = "email"
+  range_key = "hub_id"
 
   attribute {
     name = "hub_id"
@@ -390,6 +392,28 @@ resource "aws_dynamodb_table" "scores" {
 
   tags = {
     Name        = local.scores_table_name
+    Environment = var.environment_name
+  }
+}
+
+resource "aws_dynamodb_table" "messages" {
+  name         = local.messages_table_name
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "email"
+  range_key    = "message"
+
+  attribute {
+    name = "email"
+    type = "S"
+  }
+
+  attribute {
+    name = "message"
+    type = "S"
+  }
+
+  tags = {
+    Name        = local.messages_table_name
     Environment = var.environment_name
   }
 }
@@ -565,6 +589,7 @@ resource "aws_lambda_function" "analytics" {
       API_BASE_URL         = local.api_base_url
       RISK_MODEL_KEY       = local.model_s3_key
       WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
+      messages_table_name  = aws_dynamodb_table.messages.name
     }
   }
 

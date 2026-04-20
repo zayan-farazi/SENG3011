@@ -10,44 +10,48 @@ import requests
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+
 def add_email(hub_id, email, table):
     try:
         table.put_item(
             Item={
+                "email": email,
                 "hub_id": hub_id,
-                "email": email
             }
         )
-        logger.info(f"adding {email} to hub {hub_id} watchlist")
+        logger.info(f"adding hub {hub_id} to {email} watchlist")
     except Exception as e:
         logger.error(f"DynamoDB error: {str(e)}")
         return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
 
-    return response(constants.STATUS_OK, f"{email} added to hub {hub_id}")
+    return response(constants.STATUS_OK, f"hub {hub_id} added to {email} watchlist")
+
 
 def delete_email(hub_id, email, table):
     try:
         table.delete_item(
             Key={
+                "email": email,
                 "hub_id": hub_id,
-                "email": email
             }
         )
-        logger.info(f"deleting {email} from hub {hub_id} watchlist")
+        logger.info(f"deleting hub {hub_id} from {email} watchlist")
     except Exception as e:
         logger.error(f"DynamoDB error: {str(e)}")
         return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
 
-    return response(constants.STATUS_OK, f"{email} removed from hub {hub_id}")
+    return response(constants.STATUS_OK, f"hub {hub_id} removed from {email} watchlist")
+
 
 def valid_email(email):
     pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
     return re.match(pattern, email) is not None
 
+
 def valid_hub_id(base_url, hub_id):
     url = f"{base_url}/{constants.LOCATION_PATH}/{hub_id}"
-    response = requests.get(url, timeout=10)
-    return response.status_code == constants.STATUS_OK
+    res = requests.get(url, timeout=10)
+    return res.status_code == constants.STATUS_OK
 
 
 def get_http_method(event):
@@ -55,18 +59,17 @@ def get_http_method(event):
     http_context = request_context.get("http") or {}
     return http_context.get("method") or event.get("httpMethod")
 
+
 def lambda_handler(event, context):
     region = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
     dynamodb = boto3.resource("dynamodb", region_name=region)
     table = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
-
 
     http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
 
     hub_id = path_params.get("hub_id")
     email = path_params.get("email")
-
 
     if not email or not hub_id:
         logger.error("missing hub_id or email")
@@ -100,9 +103,8 @@ def lambda_handler(event, context):
         return response(constants.STATUS_BAD_REQUEST, "Method not allowed")
 
 
-
 def response(status, message):
     return {
         "statusCode": status,
-        "body": json.dumps({"message": message})
+        "body": json.dumps({"message": message}),
     }
