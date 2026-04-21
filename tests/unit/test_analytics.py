@@ -317,6 +317,7 @@ def test_api_returns_cached_result_and_backfills_score_table(mock_get, setup_ana
     mock_hub_resp.status_code = STATUS_OK
     mock_get.return_value = mock_hub_resp
 
+    os.environ["AWS_REGION"] = "us-east-1"
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
     scores_table = dynamodb.create_table(
         TableName="scores",
