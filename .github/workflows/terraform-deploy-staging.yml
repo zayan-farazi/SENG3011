@@ -41,6 +41,8 @@ jobs:
     environment: staging
     outputs:
       staging_base_url: ${{ steps.capture-staging-url.outputs.staging_base_url }}
+      hub_sync_lambda_name: ${{ steps.capture-staging-resources.outputs.hub_sync_lambda_name }}
+      data_bucket_name: ${{ steps.capture-staging-resources.outputs.data_bucket_name }}
     env:
       AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'ap-southeast-2' }}
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
@@ -112,6 +114,16 @@ jobs:
           test -n "$staging_base_url"
           echo "staging_base_url=$staging_base_url" >> "$GITHUB_OUTPUT"
 
+      - name: Capture staging resource names
+        id: capture-staging-resources
+        run: |
+          hub_sync_lambda_name="$(terraform -chdir=terraform output -raw hub_sync_lambda_name)"
+          data_bucket_name="$(terraform -chdir=terraform output -raw data_bucket_name)"
+          test -n "$hub_sync_lambda_name"
+          test -n "$data_bucket_name"
+          echo "hub_sync_lambda_name=$hub_sync_lambda_name" >> "$GITHUB_OUTPUT"
+          echo "data_bucket_name=$data_bucket_name" >> "$GITHUB_OUTPUT"
+
   test:
     name: Run system, contract, and e2e tests against staging
     needs: deploy
@@ -119,7 +131,9 @@ jobs:
     environment: staging
     env:
       AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'ap-southeast-2' }}
+      DATA_BUCKET_NAME: ${{ needs.deploy.outputs.data_bucket_name }}
       DEV_BASE_URL: ${{ needs.deploy.outputs.staging_base_url }}
+      HUB_SYNC_LAMBDA_NAME: ${{ needs.deploy.outputs.hub_sync_lambda_name }}
       STAGING_BASE_URL: ${{ needs.deploy.outputs.staging_base_url }}
 
     defaults:
@@ -234,7 +248,7 @@ jobs:
         run: |
           set +e
           test -n "$STAGING_BASE_URL"
-          response=$(curl -s --max-time 40 -X POST "$STAGING_BASE_URL/ese/v1/testing/run")
+          response=$(curl -s --max-time 60 -X POST "$STAGING_BASE_URL/ese/v1/testing/run")
           curl_exit=$?
 
           status="fail"

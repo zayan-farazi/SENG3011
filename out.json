@@ -1,0 +1,1 @@
+{"statusCode": 200, "headers": {"Content-Type": "application/json"}, "body": "{\"message\": \"Hub catalog sync complete\", \"hub_count\": 1814, \"runtime_key\": \"runtime/hubs.json\", \"graph_runtime_key\": \"runtime/hub_graph.json\", \"snapshot_key\": \"history/hubs/20260421T030520Z.json\"}"}

@@ -1,10 +1,21 @@
 import os
 import math
 import json
+import time
 import boto3
 import networkx as nx
 import constants
-from hub_catalog import load_hubs
+
+
+_GRAPH_CACHE_TTL_SECONDS = 300
+_SCORES_CACHE_TTL_SECONDS = 300
+_SCORES_CACHE = {"loaded_at": 0.0, "scores_by_hub": None}
+_GRAPH_CACHE = {
+    "loaded_at": 0.0,
+    "graph_key": None,
+    "token": None,
+    "graph": None,
+}
 
 def response(status, body):
     return {
@@ -33,6 +44,13 @@ def haversine_km(lat1, lon1, lat2, lon2):
 
 
 def load_all_risk_scores(dynamodb):
+    now = time.time()
+    if (
+        _SCORES_CACHE["scores_by_hub"] is not None
+        and now - _SCORES_CACHE["loaded_at"] < _SCORES_CACHE_TTL_SECONDS
+    ):
+        return _SCORES_CACHE["scores_by_hub"]
+
     table = dynamodb.Table(os.environ.get("SCORES_TABLE_NAME", "scores"))
 
     items = []
@@ -56,6 +74,8 @@ def load_all_risk_scores(dynamodb):
         risk_score = float(risk_score)
         scores_by_hub[hub_id] = risk_score
 
+    _SCORES_CACHE["loaded_at"] = now
+    _SCORES_CACHE["scores_by_hub"] = scores_by_hub
     return scores_by_hub
 
 
@@ -66,54 +86,50 @@ def risk_scalar(hub_id, scores_by_hub):
     return 1 + risk_score 
 
 
-def build_hub_graph(hubs, k=4, scores_by_hub=None):
-   
+def load_precomputed_graph(s3, bucket_name):
+    now = time.time()
+    graph_key = os.environ.get("HUB_GRAPH_RUNTIME_KEY", constants.HUB_GRAPH_RUNTIME_KEY)
+    metadata = s3.head_object(Bucket=bucket_name, Key=graph_key)
+    cache_token = (
+        metadata.get("ETag"),
+        metadata.get("LastModified"),
+        metadata.get("ContentLength"),
+    )
 
-    G = nx.Graph()
+    if (
+        _GRAPH_CACHE["graph"] is not None
+        and now - _GRAPH_CACHE["loaded_at"] < _GRAPH_CACHE_TTL_SECONDS
+        and _GRAPH_CACHE["graph_key"] == graph_key
+        and _GRAPH_CACHE["token"] == cache_token
+    ):
+        return _GRAPH_CACHE["graph"]
 
-    for hub_id, hub in hubs.items():
+    response = s3.get_object(Bucket=bucket_name, Key=graph_key)
+    artifact = json.loads(response["Body"].read().decode("utf-8"))
+
+    G = nx.DiGraph()
+
+    for hub_id, hub in artifact.get("nodes", {}).items():
         G.add_node(
             hub_id,
             name=hub["name"],
             lat=float(hub["lat"]),
             lon=float(hub["lon"]),
             type="monitored",
-            risk_score=scores_by_hub.get(hub_id),
         )
 
-    hub_ids = list(hubs.keys())
-
-    for hub_id in hub_ids:
-        current_hub = hubs[hub_id]
-        distances = []
-
-        for other_hub_id in hub_ids:
-            if other_hub_id == hub_id:
-                continue
-
-            other_hub = hubs[other_hub_id]
-
-            raw_distance = haversine_km(
-                current_hub["lat"],
-                current_hub["lon"],
-                other_hub["lat"],
-                other_hub["lon"],
-            )
-
-            weighted_distance = raw_distance * risk_scalar(other_hub_id, scores_by_hub)
-
-            distances.append((other_hub_id, raw_distance, weighted_distance))
-
-        distances.sort(key=lambda x: x[2])
-
-        for neighbour_hub_id, raw_distance, weighted_distance in distances[:k]:
+    for hub_id, neighbours in artifact.get("edges", {}).items():
+        for neighbour in neighbours:
             G.add_edge(
                 hub_id,
-                neighbour_hub_id,
-                weight=weighted_distance,
-                distance_km=raw_distance,
+                neighbour["to"],
+                distance_km=float(neighbour["distance_km"]),
             )
 
+    _GRAPH_CACHE["loaded_at"] = now
+    _GRAPH_CACHE["graph_key"] = graph_key
+    _GRAPH_CACHE["token"] = cache_token
+    _GRAPH_CACHE["graph"] = G
     return G
 
 
@@ -176,25 +192,28 @@ def lambda_handler(event, context):
 
     scores_by_hub = load_all_risk_scores(dynamodb=dynamodb)
 
-    hubs = load_hubs(s3, bucket_name)
-    if hub_id_1 not in hubs or hub_id_2 not in hubs:
+    try:
+        G = load_precomputed_graph(s3=s3, bucket_name=bucket_name)
+    except Exception:
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Hub graph is unavailable"})
+
+    if hub_id_1 not in G or hub_id_2 not in G:
         return response(
             constants.STATUS_BAD_REQUEST,
             {"error": f"One or both hub IDs not found: {hub_id_1}, {hub_id_2}"}
         )
 
-    G = build_hub_graph(
-        hubs=hubs,
-        k=4,
-        scores_by_hub=scores_by_hub
-    )
-
     try:
-        path = nx.dijkstra_path(G, source=hub_id_1, target=hub_id_2, weight="weight")
+        path = nx.dijkstra_path(
+            G,
+            source=hub_id_1,
+            target=hub_id_2,
+            weight=lambda _u, v, data: data["distance_km"] * risk_scalar(v, scores_by_hub),
+        )
     except nx.NodeNotFound:
         return response(constants.STATUS_BAD_REQUEST, {"error": f"One or both hub IDs not found: {hub_id_1}, {hub_id_2}"})
     except nx.NetworkXNoPath:
-        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "graph construction error"})    
+        return response(constants.STATUS_NOT_FOUND, {"error": f"No path found between hubs: {hub_id_1}, {hub_id_2}"})
 
     result = path_details_json(path, G, scores_by_hub)
 

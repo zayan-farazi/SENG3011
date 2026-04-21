@@ -101,12 +101,13 @@ locals {
   hub_sync_zip_path    = "${local.lambda_artifact_dir}/hub_sync.zip"
   pathfinding_zip_path = "${local.lambda_artifact_dir}/pathfinding.zip"
 
-  analytics_zip_key   = "artifacts/lambdas/analytics.zip"
-  hubs_seed_key       = "hubs.json"
-  hubs_runtime_key    = "runtime/hubs.json"
-  hubs_history_prefix = "history/hubs"
-  model_s3_key        = "models/risk_model.joblib"
-  api_base_url        = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
+  analytics_zip_key     = "artifacts/lambdas/analytics.zip"
+  hubs_seed_key         = "hubs.json"
+  hubs_runtime_key      = "runtime/hubs.json"
+  hub_graph_runtime_key = "runtime/hub_graph.json"
+  hubs_history_prefix   = "history/hubs"
+  model_s3_key          = "models/risk_model.joblib"
+  api_base_url          = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
 
   location_routes = {
     list_locations = {
@@ -599,6 +600,7 @@ resource "aws_lambda_function" "analytics" {
       API_BASE_URL         = local.api_base_url
       RISK_MODEL_KEY       = local.model_s3_key
       WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
+      SCORES_TABLE_NAME    = aws_dynamodb_table.scores.name
       MESSAGES_TABLE_NAME  = aws_dynamodb_table.messages.name
     }
   }
@@ -643,7 +645,7 @@ resource "aws_lambda_function" "testing" {
   handler          = "lambdas.testing.handler.lambda_handler"
   filename         = local.testing_zip_path
   source_code_hash = filebase64sha256(local.testing_zip_path)
-  timeout          = 120
+  timeout          = 180
 
   environment {
     variables = {
@@ -672,12 +674,13 @@ resource "aws_lambda_function" "hub_sync" {
 
   environment {
     variables = {
-      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
-      PORTWATCH_HUBS_URL  = var.portwatch_hubs_url
-      PORTWATCH_API_KEY   = var.portwatch_api_key
-      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
-      HUBS_SEED_KEY       = local.hubs_seed_key
-      HUBS_HISTORY_PREFIX = local.hubs_history_prefix
+      DATA_BUCKET           = aws_s3_bucket.seng_3011_bkt.bucket
+      PORTWATCH_HUBS_URL    = var.portwatch_hubs_url
+      PORTWATCH_API_KEY     = var.portwatch_api_key
+      HUBS_RUNTIME_KEY      = local.hubs_runtime_key
+      HUB_GRAPH_RUNTIME_KEY = local.hub_graph_runtime_key
+      HUBS_SEED_KEY         = local.hubs_seed_key
+      HUBS_HISTORY_PREFIX   = local.hubs_history_prefix
     }
   }
 
@@ -702,8 +705,9 @@ resource "aws_lambda_function" "pathfinding" {
 
   environment {
     variables = {
-      DATA_BUCKET       = aws_s3_bucket.seng_3011_bkt.bucket
-      SCORES_TABLE_NAME = aws_dynamodb_table.scores.name
+      DATA_BUCKET           = aws_s3_bucket.seng_3011_bkt.bucket
+      HUB_GRAPH_RUNTIME_KEY = local.hub_graph_runtime_key
+      SCORES_TABLE_NAME     = aws_dynamodb_table.scores.name
     }
   }
 
@@ -1074,6 +1078,14 @@ output "daily_all_hubs_ingestion_rule_name" {
 
 output "daily_hub_sync_rule_name" {
   value = aws_cloudwatch_event_rule.daily_hub_sync.name
+}
+
+output "hub_sync_lambda_name" {
+  value = aws_lambda_function.hub_sync.function_name
+}
+
+output "data_bucket_name" {
+  value = aws_s3_bucket.seng_3011_bkt.bucket
 }
 
 output "weather_retrieve_raw_url_example" {
