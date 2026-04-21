@@ -634,7 +634,7 @@ resource "aws_lambda_function" "testing" {
   handler          = "lambdas.testing.handler.lambda_handler"
   filename         = local.testing_zip_path
   source_code_hash = filebase64sha256(local.testing_zip_path)
-  timeout          = 120
+  timeout          = 180
 
   environment {
     variables = {
