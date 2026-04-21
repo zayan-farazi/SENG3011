@@ -5,6 +5,7 @@ import boto3
 import constants
 import logging
 from urllib.parse import unquote
+from boto3.dynamodb.conditions import Key
 import requests
 
 logger = logging.getLogger()
@@ -42,6 +43,37 @@ def delete_email(hub_id, email, table):
 
     return response(constants.STATUS_OK, f"hub {hub_id} removed from {email} watchlist")
 
+def retrieve_messages(email, table): 
+    try:
+        result = table.query(
+            KeyConditionExpression=Key("email").eq(email),
+            ScanIndexForward=False 
+        )
+
+        return {
+            "statusCode": constants.STATUS_OK,
+            "body": json.dumps({
+                "messages": result.get("Items", [])
+            })}
+
+    except Exception:
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
+
+def retrieve_hubs(email, table):
+    try:
+        result = table.query(
+            KeyConditionExpression=Key("email").eq(email)
+        )
+        hubs = [item["hub_id"] for item in result.get("Items", [])]
+
+        return {
+            "statusCode": constants.STATUS_OK,
+            "body": json.dumps({
+                "hubs": hubs
+            })}
+    except Exception:
+        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
+
 
 def valid_email(email):
     pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -64,9 +96,31 @@ def lambda_handler(event, context):
     region = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
     dynamodb = boto3.resource("dynamodb", region_name=region)
     table = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
+    messages_table = dynamodb.Table(os.environ.get("MESSAGE_TABLE_NAME", "messages"))
+
 
     http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
+
+    if http_method == "GET":
+        email = path_params.get("email")
+        if not email:
+            return response(constants.STATUS_BAD_REQUEST, {"error": "Missing email"})
+
+        email = unquote(email)
+
+        if not valid_email(email):
+            return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid email"})
+
+        route = event.get("routeKey", "")
+        if route.startswith("GET /ese/v1/watchlist/messages"):
+            return retrieve_messages(email, messages_table)
+
+        if route.startswith("GET /ese/v1/watchlist"):
+            return retrieve_hubs(email, table)
+
+        return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid GET route"})
+
 
     hub_id = path_params.get("hub_id")
     email = path_params.get("email")

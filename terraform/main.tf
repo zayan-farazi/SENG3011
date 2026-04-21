@@ -165,6 +165,16 @@ locals {
       route_key    = "DELETE /ese/v1/watchlist/{hub_id}/{email}"
       path_pattern = "DELETE/ese/v1/watchlist/*"
     }
+
+    get_hubs = {
+      route_key    = "GET /ese/v1/watchlist/{email}"
+      path_pattern = "GET/ese/v1/watchlist/*"
+    }
+
+    get_messages = {
+      route_key    = "GET /ese/v1/watchlist/messages/{email}"
+      path_pattern = "GET/ese/v1/watchlist/messages/*"
+    }
   }
 
   testing_routes = {
@@ -401,7 +411,7 @@ resource "aws_dynamodb_table" "messages" {
   name         = local.messages_table_name
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "email"
-  range_key    = "message"
+  range_key    = "timestamp"
 
   attribute {
     name = "email"
@@ -409,7 +419,7 @@ resource "aws_dynamodb_table" "messages" {
   }
 
   attribute {
-    name = "message"
+    name = "timestamp"
     type = "S"
   }
 
@@ -590,7 +600,7 @@ resource "aws_lambda_function" "analytics" {
       API_BASE_URL         = local.api_base_url
       RISK_MODEL_KEY       = local.model_s3_key
       WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
-      messages_table_name  = aws_dynamodb_table.messages.name
+      MESSAGES_TABLE_NAME  = aws_dynamodb_table.messages.name
     }
   }
 
