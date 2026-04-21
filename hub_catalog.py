@@ -1,12 +1,13 @@
 import json
 import os
+from typing import Any
 
 import botocore
 
 import constants
 
 
-_HUB_CATALOG_CACHE = {}
+_HUB_CATALOG_CACHE: dict[tuple[str, str], dict[str, Any]] = {}
 
 
 def _get_hub_keys():

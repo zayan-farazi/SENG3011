@@ -162,7 +162,7 @@ jobs:
       - name: Mypy type check
         env:
           PYTHONPATH: ${{ needs.detect-python.outputs.project_dir }}
-        run: python -m mypy .
+        run: python -m mypy . --exclude '^build/'
 
   unit-integration-tests:
     name: Unit and integration tests, and coverage
