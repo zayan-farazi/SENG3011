@@ -525,6 +525,9 @@ def notify_watchlist(hub_id: str) -> None:
         return
 
 def store_risk_score(hub_id, score):
+    if not hub_id or score is None:
+        return
+
     try:
         region   = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
         dynamodb = boto3.resource("dynamodb", region_name=region)
@@ -536,7 +539,22 @@ def store_risk_score(hub_id, score):
             ExpressionAttributeValues={":s": Decimal(str(score))}
         )
     except Exception:
+        logger.exception(f"Failed to store risk score for hub {hub_id}")
         return
+
+
+def _extract_score_from_cached_response(adage_response: dict) -> Optional[float]:
+    for event in adage_response.get("events", []):
+        if event.get("event_type") != "seven_day_outlook":
+            continue
+
+        attribute = event.get("attribute", {})
+        for field in ("combined_risk_score", "outlook_risk_score"):
+            score = attribute.get(field)
+            if score is not None:
+                return float(score)
+
+    return None
 
 
 def _risk_level(score: float, hub_id: Optional[str] = None) -> str:
@@ -856,6 +874,9 @@ def _handle_api_event(event: dict) -> dict:
         cached = s3.get_object(Bucket=bucket, Key=f"risk/weather/{hub_id}/latest.json")
         adage_response = json.loads(cached["Body"].read())
         logger.info(f"Returning cached risk scores for hub {hub_id}")
+        cached_score = _extract_score_from_cached_response(adage_response)
+        if cached_score is not None:
+            store_risk_score(hub_id, cached_score)
         return response(constants.STATUS_OK, adage_response)
     except s3.exceptions.NoSuchKey:
         logger.info(f"No cached risk for {hub_id}, computing on demand")

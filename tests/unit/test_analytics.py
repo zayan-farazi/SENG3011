@@ -312,6 +312,51 @@ def test_api_returns_cached_result(mock_get, setup_analytics_s3):
 
 
 @patch("lambdas.analytics.handler.requests.get")
+def test_api_returns_cached_result_and_backfills_score_table(mock_get, setup_analytics_s3):
+    mock_hub_resp = Mock()
+    mock_hub_resp.status_code = STATUS_OK
+    mock_get.return_value = mock_hub_resp
+
+    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    scores_table = dynamodb.create_table(
+        TableName="scores",
+        KeySchema=[{"AttributeName": "hub_id", "KeyType": "HASH"}],
+        AttributeDefinitions=[{"AttributeName": "hub_id", "AttributeType": "S"}],
+        BillingMode="PAY_PER_REQUEST",
+    )
+    scores_table.wait_until_exists()
+    os.environ["SCORES_TABLE_NAME"] = "scores"
+
+    s3 = setup_analytics_s3
+    cached_body = {
+        "events": [
+            {
+                "event_type": "seven_day_outlook",
+                "attribute": {"combined_risk_score": 0.42},
+            }
+        ],
+        "cached": True,
+    }
+    s3.put_object(
+        Bucket=TEST_BUCKET_NAME,
+        Key=f"risk/weather/{HUB_ID_1}/latest.json",
+        Body=json.dumps(cached_body),
+        ContentType="application/json",
+    )
+
+    event = {
+        "pathParameters": {"hub_id": HUB_ID_1},
+        "queryStringParameters": {"date": "10-03-2026"},
+    }
+
+    result = lambda_handler(event, None)
+
+    assert result["statusCode"] == STATUS_OK
+    item = scores_table.get_item(Key={"hub_id": HUB_ID_1})["Item"]
+    assert float(item["risk_score"]) == pytest.approx(0.42)
+
+
+@patch("lambdas.analytics.handler.requests.get")
 def test_api_falls_back_to_compute(mock_get, setup_analytics_s3):
     mock_get.return_value = _mock_retrieval_response()
 

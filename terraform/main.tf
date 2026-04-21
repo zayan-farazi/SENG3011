@@ -600,6 +600,7 @@ resource "aws_lambda_function" "analytics" {
       API_BASE_URL         = local.api_base_url
       RISK_MODEL_KEY       = local.model_s3_key
       WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
+      SCORES_TABLE_NAME    = aws_dynamodb_table.scores.name
       MESSAGES_TABLE_NAME  = aws_dynamodb_table.messages.name
     }
   }
