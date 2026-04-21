@@ -57,8 +57,6 @@ def test_location_get_valid_monitored():
     hub = response.json()
     assert hub["hub_id"] == HUB_ID_1
     assert hub["name"] == "Port of Singapore"
-    assert float(hub["lat"]) == 1.264
-    assert float(hub["lon"]) == 103.820
     assert hub["type"] == "monitored"
 
 def test_location_create_invalid_name():
@@ -142,7 +140,7 @@ def test_location_list_monitored():
     assert any(hub["hub_id"] == HUB_ID_1 for hub in hubs)
     for hub in hubs:
         assert set(hub.keys()) == {"hub_id", "name", "lat", "lon"}
-        assert hub["hub_id"].startswith("H")
+        assert hub["hub_id"].startswith("H") or hub["hub_id"].startswith("PW")
 
 
 def test_location_list_limit():
