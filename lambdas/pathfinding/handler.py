@@ -1,10 +1,22 @@
 import os
 import math
 import json
+import time
 import boto3
 import networkx as nx
 import constants
 from hub_catalog import load_hubs
+
+
+_GRAPH_CACHE_TTL_SECONDS = 300
+_SCORES_CACHE_TTL_SECONDS = 300
+_SCORES_CACHE = {"loaded_at": 0.0, "scores_by_hub": None}
+_GRAPH_CACHE = {
+    "loaded_at": 0.0,
+    "hub_ids": None,
+    "score_items": None,
+    "graph": None,
+}
 
 def response(status, body):
     return {
@@ -33,6 +45,13 @@ def haversine_km(lat1, lon1, lat2, lon2):
 
 
 def load_all_risk_scores(dynamodb):
+    now = time.time()
+    if (
+        _SCORES_CACHE["scores_by_hub"] is not None
+        and now - _SCORES_CACHE["loaded_at"] < _SCORES_CACHE_TTL_SECONDS
+    ):
+        return _SCORES_CACHE["scores_by_hub"]
+
     table = dynamodb.Table(os.environ.get("SCORES_TABLE_NAME", "scores"))
 
     items = []
@@ -56,6 +75,8 @@ def load_all_risk_scores(dynamodb):
         risk_score = float(risk_score)
         scores_by_hub[hub_id] = risk_score
 
+    _SCORES_CACHE["loaded_at"] = now
+    _SCORES_CACHE["scores_by_hub"] = scores_by_hub
     return scores_by_hub
 
 
@@ -67,7 +88,7 @@ def risk_scalar(hub_id, scores_by_hub):
 
 
 def build_hub_graph(hubs, k=4, scores_by_hub=None):
-   
+    scores_by_hub = scores_by_hub or {}
 
     G = nx.Graph()
 
@@ -115,6 +136,27 @@ def build_hub_graph(hubs, k=4, scores_by_hub=None):
             )
 
     return G
+
+
+def get_cached_hub_graph(hubs, scores_by_hub, k=4):
+    now = time.time()
+    hub_ids = tuple(sorted(hubs.keys()))
+    score_items = tuple(sorted((hub_id, scores_by_hub.get(hub_id)) for hub_id in hub_ids))
+
+    if (
+        _GRAPH_CACHE["graph"] is not None
+        and now - _GRAPH_CACHE["loaded_at"] < _GRAPH_CACHE_TTL_SECONDS
+        and _GRAPH_CACHE["hub_ids"] == hub_ids
+        and _GRAPH_CACHE["score_items"] == score_items
+    ):
+        return _GRAPH_CACHE["graph"]
+
+    graph = build_hub_graph(hubs=hubs, k=k, scores_by_hub=scores_by_hub)
+    _GRAPH_CACHE["loaded_at"] = now
+    _GRAPH_CACHE["hub_ids"] = hub_ids
+    _GRAPH_CACHE["score_items"] = score_items
+    _GRAPH_CACHE["graph"] = graph
+    return graph
 
 
 def path_details_json(path, graph, scores_by_hub):
@@ -183,7 +225,7 @@ def lambda_handler(event, context):
             {"error": f"One or both hub IDs not found: {hub_id_1}, {hub_id_2}"}
         )
 
-    G = build_hub_graph(
+    G = get_cached_hub_graph(
         hubs=hubs,
         k=4,
         scores_by_hub=scores_by_hub

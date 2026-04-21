@@ -6,10 +6,13 @@ from decimal import Decimal
 
 import constants
 from lambdas.pathfinding.handler import (
+    _GRAPH_CACHE,
+    _SCORES_CACHE,
     haversine_km,
     load_all_risk_scores,
     risk_scalar,
     build_hub_graph,
+    get_cached_hub_graph,
     path_details_json,
     lambda_handler,
 )
@@ -44,12 +47,16 @@ def test_risk_scalar_returns_one_plus_score():
 # ---------------------------------------------------------------------------
 
 def test_load_all_risk_scores_returns_scores(setup_dynamodb):
+    _SCORES_CACHE["loaded_at"] = 0.0
+    _SCORES_CACHE["scores_by_hub"] = None
     dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
     dynamodb.Table("scores").put_item(Item={"hub_id": "H1", "risk_score": Decimal("0.42")})
     scores = load_all_risk_scores(dynamodb)
     assert scores["H1"] == pytest.approx(0.42)
 
 def test_load_all_risk_scores_skips_items_missing_score(setup_dynamodb):
+    _SCORES_CACHE["loaded_at"] = 0.0
+    _SCORES_CACHE["scores_by_hub"] = None
     boto3.client("dynamodb", region_name=constants.DEFAULT_REGION).put_item(
         TableName="scores",
         Item={"hub_id": {"S": "NO_SCORE"}},
@@ -87,6 +94,17 @@ def test_graph_edges_have_weight_and_distance(mock_graph):
 def test_graph_zero_risk_weight_equals_raw_distance(mock_graph):
     for _, _, data in mock_graph.edges(data=True):
         assert data["weight"] == pytest.approx(data["distance_km"])
+
+def test_get_cached_hub_graph_reuses_graph_for_same_inputs():
+    _GRAPH_CACHE["loaded_at"] = 0.0
+    _GRAPH_CACHE["hub_ids"] = None
+    _GRAPH_CACHE["score_items"] = None
+    _GRAPH_CACHE["graph"] = None
+
+    graph_1 = get_cached_hub_graph(hubs=MOCK_HUBS, k=2, scores_by_hub=MOCK_SCORES)
+    graph_2 = get_cached_hub_graph(hubs=MOCK_HUBS, k=2, scores_by_hub=MOCK_SCORES)
+
+    assert graph_1 is graph_2
 
 
 # ---------------------------------------------------------------------------
