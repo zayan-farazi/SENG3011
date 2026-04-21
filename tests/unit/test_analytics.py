@@ -19,7 +19,7 @@ from tests.test_constants import (
 )
 from constants import (
     STATUS_OK, STATUS_BAD_REQUEST, STATUS_NOT_FOUND, STATUS_INTERNAL_SERVER_ERROR,
-    HUBS_FILE_KEY, MODEL_S3_KEY,
+    HUBS_FILE_KEY, MODEL_S3_KEY, DEFAULT_REGION
 )
 
 
@@ -317,8 +317,7 @@ def test_api_returns_cached_result_and_backfills_score_table(mock_get, setup_ana
     mock_hub_resp.status_code = STATUS_OK
     mock_get.return_value = mock_hub_resp
 
-    os.environ["AWS_REGION"] = "us-east-1"
-    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    dynamodb = boto3.resource("dynamodb", region_name=DEFAULT_REGION)
     scores_table = dynamodb.create_table(
         TableName="scores",
         KeySchema=[{"AttributeName": "hub_id", "KeyType": "HASH"}],
@@ -326,7 +325,6 @@ def test_api_returns_cached_result_and_backfills_score_table(mock_get, setup_ana
         BillingMode="PAY_PER_REQUEST",
     )
     scores_table.wait_until_exists()
-    os.environ["SCORES_TABLE_NAME"] = "scores"
 
     s3 = setup_analytics_s3
     cached_body = {
