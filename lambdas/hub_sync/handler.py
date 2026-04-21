@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import re
 from datetime import datetime, timezone
@@ -21,6 +22,7 @@ SKIP_NAME_TERMS = (
     "buoy",
     "offshore oil",
 )
+DEFAULT_GRAPH_NEIGHBOUR_COUNT = 4
 
 
 def _response(status, body):
@@ -48,6 +50,25 @@ def _should_skip_feature(name):
     normalized_name = _normalize_name(name)
     # ignore facility-level records 
     return any(term in normalized_name for term in SKIP_NAME_TERMS)
+
+
+def _haversine_km(lat1, lon1, lat2, lon2):
+    radius_km = 6371.0
+
+    lat1 = math.radians(float(lat1))
+    lon1 = math.radians(float(lon1))
+    lat2 = math.radians(float(lat2))
+    lon2 = math.radians(float(lon2))
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return radius_km * c
 
 
 def _legacy_hub_id(lat, lon, name, legacy_hubs):
@@ -180,6 +201,58 @@ def _build_runtime_catalog(features, legacy_hubs):
     return catalog
 
 
+def build_graph_artifact(hubs, k=DEFAULT_GRAPH_NEIGHBOUR_COUNT):
+    hub_ids = list(hubs.keys())
+    nodes = {}
+    edges = {}
+
+    for hub_id, hub in hubs.items():
+        nodes[hub_id] = {
+            "name": hub["name"],
+            "lat": float(hub["lat"]),
+            "lon": float(hub["lon"]),
+        }
+
+    for hub_id in hub_ids:
+        current_hub = hubs[hub_id]
+        distances = []
+
+        for other_hub_id in hub_ids:
+            if other_hub_id == hub_id:
+                continue
+
+            other_hub = hubs[other_hub_id]
+            raw_distance = _haversine_km(
+                current_hub["lat"],
+                current_hub["lon"],
+                other_hub["lat"],
+                other_hub["lon"],
+            )
+            distances.append((other_hub_id, raw_distance))
+
+        distances.sort(key=lambda item: item[1])
+        edges[hub_id] = [
+            {"to": neighbour_hub_id, "distance_km": distance_km}
+            for neighbour_hub_id, distance_km in distances[:k]
+        ]
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "k": k,
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+def write_graph_artifact(s3, bucket, key, artifact):
+    s3.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=json.dumps(artifact, sort_keys=True),
+        ContentType="application/json",
+    )
+
+
 def _write_catalog(s3, bucket, runtime_key, history_prefix, catalog):
     body = json.dumps(catalog, sort_keys=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -202,6 +275,7 @@ def lambda_handler(event, context):
     portwatch_hubs_url = os.environ.get("PORTWATCH_HUBS_URL")
     portwatch_api_key = os.environ.get("PORTWATCH_API_KEY", "")
     hubs_runtime_key = os.environ.get("HUBS_RUNTIME_KEY", constants.HUBS_RUNTIME_KEY)
+    hub_graph_runtime_key = os.environ.get("HUB_GRAPH_RUNTIME_KEY", constants.HUB_GRAPH_RUNTIME_KEY)
     hubs_seed_key = os.environ.get("HUBS_SEED_KEY", constants.HUBS_SEED_KEY)
     hubs_history_prefix = os.environ.get("HUBS_HISTORY_PREFIX", constants.HUBS_HISTORY_PREFIX)
 
@@ -218,7 +292,9 @@ def lambda_handler(event, context):
 
         features = _fetch_portwatch_features(portwatch_hubs_url, portwatch_api_key)
         catalog = _build_runtime_catalog(features, legacy_hubs)
+        graph_artifact = build_graph_artifact(catalog)
         snapshot_key = _write_catalog(s3, bucket, hubs_runtime_key, hubs_history_prefix, catalog)
+        write_graph_artifact(s3, bucket, hub_graph_runtime_key, graph_artifact)
 
         return _response(
             constants.STATUS_OK,
@@ -226,6 +302,7 @@ def lambda_handler(event, context):
                 "message": "Hub catalog sync complete",
                 "hub_count": len(catalog),
                 "runtime_key": hubs_runtime_key,
+                "graph_runtime_key": hub_graph_runtime_key,
                 "snapshot_key": snapshot_key,
             },
         )

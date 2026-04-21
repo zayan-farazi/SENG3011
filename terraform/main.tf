@@ -101,12 +101,13 @@ locals {
   hub_sync_zip_path    = "${local.lambda_artifact_dir}/hub_sync.zip"
   pathfinding_zip_path = "${local.lambda_artifact_dir}/pathfinding.zip"
 
-  analytics_zip_key   = "artifacts/lambdas/analytics.zip"
-  hubs_seed_key       = "hubs.json"
-  hubs_runtime_key    = "runtime/hubs.json"
-  hubs_history_prefix = "history/hubs"
-  model_s3_key        = "models/risk_model.joblib"
-  api_base_url        = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
+  analytics_zip_key     = "artifacts/lambdas/analytics.zip"
+  hubs_seed_key         = "hubs.json"
+  hubs_runtime_key      = "runtime/hubs.json"
+  hub_graph_runtime_key = "runtime/hub_graph.json"
+  hubs_history_prefix   = "history/hubs"
+  model_s3_key          = "models/risk_model.joblib"
+  api_base_url          = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
 
   location_routes = {
     list_locations = {
@@ -662,12 +663,13 @@ resource "aws_lambda_function" "hub_sync" {
 
   environment {
     variables = {
-      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
-      PORTWATCH_HUBS_URL  = var.portwatch_hubs_url
-      PORTWATCH_API_KEY   = var.portwatch_api_key
-      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
-      HUBS_SEED_KEY       = local.hubs_seed_key
-      HUBS_HISTORY_PREFIX = local.hubs_history_prefix
+      DATA_BUCKET           = aws_s3_bucket.seng_3011_bkt.bucket
+      PORTWATCH_HUBS_URL    = var.portwatch_hubs_url
+      PORTWATCH_API_KEY     = var.portwatch_api_key
+      HUBS_RUNTIME_KEY      = local.hubs_runtime_key
+      HUB_GRAPH_RUNTIME_KEY = local.hub_graph_runtime_key
+      HUBS_SEED_KEY         = local.hubs_seed_key
+      HUBS_HISTORY_PREFIX   = local.hubs_history_prefix
     }
   }
 
@@ -692,8 +694,9 @@ resource "aws_lambda_function" "pathfinding" {
 
   environment {
     variables = {
-      DATA_BUCKET       = aws_s3_bucket.seng_3011_bkt.bucket
-      SCORES_TABLE_NAME = aws_dynamodb_table.scores.name
+      DATA_BUCKET           = aws_s3_bucket.seng_3011_bkt.bucket
+      HUB_GRAPH_RUNTIME_KEY = local.hub_graph_runtime_key
+      SCORES_TABLE_NAME     = aws_dynamodb_table.scores.name
     }
   }
 
