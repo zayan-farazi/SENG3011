@@ -1069,6 +1069,14 @@ output "daily_hub_sync_rule_name" {
   value = aws_cloudwatch_event_rule.daily_hub_sync.name
 }
 
+output "hub_sync_lambda_name" {
+  value = aws_lambda_function.hub_sync.function_name
+}
+
+output "data_bucket_name" {
+  value = aws_s3_bucket.seng_3011_bkt.bucket
+}
+
 output "weather_retrieve_raw_url_example" {
   value = "${local.api_base_url}/ese/v1/retrieve/raw/weather/${local.seeded_hub_id}?date=${local.seeded_date}"
 }

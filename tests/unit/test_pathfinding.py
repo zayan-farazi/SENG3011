@@ -1,4 +1,5 @@
 import json
+import os
 import pytest
 import boto3
 import networkx as nx
@@ -11,8 +12,7 @@ from lambdas.pathfinding.handler import (
     haversine_km,
     load_all_risk_scores,
     risk_scalar,
-    build_hub_graph,
-    get_cached_hub_graph,
+    load_precomputed_graph,
     path_details_json,
     lambda_handler,
 )
@@ -67,7 +67,7 @@ def test_load_all_risk_scores_skips_items_missing_score(setup_dynamodb):
 
 
 # ---------------------------------------------------------------------------
-# build_hub_graph
+# load_precomputed_graph
 # ---------------------------------------------------------------------------
 
 MOCK_HUBS = {
@@ -80,29 +80,57 @@ MOCK_HUBS = {
 MOCK_SCORES = {hub_id: 0.0 for hub_id in MOCK_HUBS}
 
 @pytest.fixture
-def mock_graph():
-    yield build_hub_graph(hubs=MOCK_HUBS, k=2, scores_by_hub=MOCK_SCORES)
+def mock_graph_artifact_s3(setup_s3):
+    setup_s3.put_object(
+        Bucket=os.environ["DATA_BUCKET"],
+        Key=constants.HUB_GRAPH_RUNTIME_KEY,
+        Body=json.dumps(
+            {
+                "nodes": {
+                    hub_id: {"name": hub["name"], "lat": float(hub["lat"]), "lon": float(hub["lon"])}
+                    for hub_id, hub in MOCK_HUBS.items()
+                },
+                "edges": {
+                    "A": [{"to": "B", "distance_km": 111.0}, {"to": "C", "distance_km": 222.0}],
+                    "B": [{"to": "A", "distance_km": 111.0}, {"to": "C", "distance_km": 111.0}],
+                    "C": [{"to": "B", "distance_km": 111.0}, {"to": "D", "distance_km": 111.0}],
+                    "D": [{"to": "C", "distance_km": 111.0}, {"to": "E", "distance_km": 111.0}],
+                    "E": [{"to": "D", "distance_km": 111.0}],
+                },
+                "k": 2,
+                "generated_at": "2026-04-21T10:00:00Z",
+            }
+        ),
+        ContentType="application/json",
+    )
+    return setup_s3
 
-def test_graph_has_all_hubs_as_nodes(mock_graph):
+def test_graph_has_all_hubs_as_nodes(mock_graph_artifact_s3):
+    _GRAPH_CACHE["loaded_at"] = 0.0
+    _GRAPH_CACHE["graph_key"] = None
+    _GRAPH_CACHE["token"] = None
+    _GRAPH_CACHE["graph"] = None
+    mock_graph = load_precomputed_graph(mock_graph_artifact_s3, os.environ["DATA_BUCKET"])
     assert set(mock_graph.nodes) == set(MOCK_HUBS.keys())
 
-def test_graph_edges_have_weight_and_distance(mock_graph):
+def test_graph_edges_have_distance(mock_graph_artifact_s3):
+    _GRAPH_CACHE["loaded_at"] = 0.0
+    _GRAPH_CACHE["graph_key"] = None
+    _GRAPH_CACHE["token"] = None
+    _GRAPH_CACHE["graph"] = None
+    mock_graph = load_precomputed_graph(mock_graph_artifact_s3, os.environ["DATA_BUCKET"])
+    assert isinstance(mock_graph, nx.DiGraph)
     for _, _, data in mock_graph.edges(data=True):
-        assert "weight" in data
         assert "distance_km" in data
 
-def test_graph_zero_risk_weight_equals_raw_distance(mock_graph):
-    for _, _, data in mock_graph.edges(data=True):
-        assert data["weight"] == pytest.approx(data["distance_km"])
-
-def test_get_cached_hub_graph_reuses_graph_for_same_inputs():
+def test_load_precomputed_graph_reuses_cache_for_same_artifact(mock_graph_artifact_s3):
     _GRAPH_CACHE["loaded_at"] = 0.0
-    _GRAPH_CACHE["hub_ids"] = None
-    _GRAPH_CACHE["score_items"] = None
+    _GRAPH_CACHE["graph_key"] = None
+    _GRAPH_CACHE["token"] = None
     _GRAPH_CACHE["graph"] = None
 
-    graph_1 = get_cached_hub_graph(hubs=MOCK_HUBS, k=2, scores_by_hub=MOCK_SCORES)
-    graph_2 = get_cached_hub_graph(hubs=MOCK_HUBS, k=2, scores_by_hub=MOCK_SCORES)
+    graph_1 = load_precomputed_graph(mock_graph_artifact_s3, os.environ["DATA_BUCKET"])
+    graph_2 = load_precomputed_graph(mock_graph_artifact_s3, os.environ["DATA_BUCKET"])
 
     assert graph_1 is graph_2
 
@@ -148,8 +176,25 @@ def test_handler_missing_hub_ids_returns_400(setup_s3_dynamodb):
 
 def test_handler_unknown_hub_ids_returns_400(setup_s3_dynamodb):
     dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
+    s3 = boto3.client("s3", region_name=constants.DEFAULT_REGION)
     with open(constants.HUBS_FILE_KEY) as f:
         hubs = json.load(f)
+    s3.put_object(
+        Bucket=os.environ["DATA_BUCKET"],
+        Key=constants.HUB_GRAPH_RUNTIME_KEY,
+        Body=json.dumps(
+            {
+                "nodes": {
+                    hub_id: {"name": hub["name"], "lat": float(hub["lat"]), "lon": float(hub["lon"])}
+                    for hub_id, hub in hubs.items()
+                },
+                "edges": {hub_id: [] for hub_id in hubs},
+                "k": 0,
+                "generated_at": "2026-04-21T10:00:00Z",
+            }
+        ),
+        ContentType="application/json",
+    )
     for hub_id in hubs:
         dynamodb.Table("scores").put_item(Item={"hub_id": hub_id, "risk_score": Decimal("0.1")})
     result = lambda_handler({"pathParameters": {"hub_id_1": "FAKE", "hub_id_2": "ALSO_FAKE"}}, {})
@@ -159,10 +204,31 @@ def test_handler_valid_route_returns_200_with_expected_keys(setup_s3_dynamodb):
     dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
     with open(constants.HUBS_FILE_KEY) as f:
         hubs = json.load(f)
+    s3 = boto3.client("s3", region_name=constants.DEFAULT_REGION)
+    hub_ids = list(hubs.keys())
+    s3.put_object(
+        Bucket=os.environ["DATA_BUCKET"],
+        Key=constants.HUB_GRAPH_RUNTIME_KEY,
+        Body=json.dumps(
+            {
+                "nodes": {
+                    hub_id: {"name": hub["name"], "lat": float(hub["lat"]), "lon": float(hub["lon"])}
+                    for hub_id, hub in hubs.items()
+                },
+                "edges": {
+                    hub_ids[i]: [{"to": hub_ids[i + 1], "distance_km": 100.0}]
+                    for i in range(len(hub_ids) - 1)
+                }
+                | {hub_ids[-1]: []},
+                "k": 1,
+                "generated_at": "2026-04-21T10:00:00Z",
+            }
+        ),
+        ContentType="application/json",
+    )
     for hub_id in hubs:
         dynamodb.Table("scores").put_item(Item={"hub_id": hub_id, "risk_score": Decimal("0.1")})
 
-    hub_ids = list(hubs.keys())
     result = lambda_handler({"pathParameters": {"hub_id_1": hub_ids[0], "hub_id_2": hub_ids[-1]}}, {})
 
     assert result["statusCode"] == 200

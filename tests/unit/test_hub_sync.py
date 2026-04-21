@@ -19,6 +19,7 @@ def _portwatch_response(features):
         "DATA_BUCKET": TEST_BUCKET_NAME,
         "PORTWATCH_HUBS_URL": "https://example.com/portwatch",
         "HUBS_RUNTIME_KEY": "runtime/hubs.json",
+        "HUB_GRAPH_RUNTIME_KEY": "runtime/hub_graph.json",
         "HUBS_SEED_KEY": "hubs.json",
         "HUBS_HISTORY_PREFIX": "history/hubs",
     },
@@ -60,11 +61,18 @@ def test_hub_sync_success(mock_get, setup_s3):
     body = json.loads(response["body"])
     assert body["hub_count"] == 2
     assert body["runtime_key"] == "runtime/hubs.json"
+    assert body["graph_runtime_key"] == "runtime/hub_graph.json"
 
     runtime_obj = setup_s3.get_object(Bucket=TEST_BUCKET_NAME, Key="runtime/hubs.json")
     runtime_hubs = json.loads(runtime_obj["Body"].read().decode("utf-8"))
     assert "H001" in runtime_hubs
     assert "PW_PORT999" in runtime_hubs
+
+    graph_obj = setup_s3.get_object(Bucket=TEST_BUCKET_NAME, Key="runtime/hub_graph.json")
+    graph_artifact = json.loads(graph_obj["Body"].read().decode("utf-8"))
+    assert set(graph_artifact["nodes"]) == set(runtime_hubs)
+    assert graph_artifact["k"] == 4
+    assert graph_artifact["edges"]["H001"]
 
     history_listing = setup_s3.list_objects_v2(Bucket=TEST_BUCKET_NAME, Prefix="history/hubs/")
     assert history_listing["KeyCount"] == 1
@@ -76,6 +84,7 @@ def test_hub_sync_success(mock_get, setup_s3):
         "DATA_BUCKET": TEST_BUCKET_NAME,
         "PORTWATCH_HUBS_URL": "https://example.com/portwatch",
         "HUBS_RUNTIME_KEY": "runtime/hubs.json",
+        "HUB_GRAPH_RUNTIME_KEY": "runtime/hub_graph.json",
         "HUBS_SEED_KEY": "hubs.json",
         "HUBS_HISTORY_PREFIX": "history/hubs",
     },
