@@ -22,7 +22,7 @@ SKIP_NAME_TERMS = (
     "buoy",
     "offshore oil",
 )
-DEFAULT_GRAPH_NEIGHBOUR_COUNT = 4
+DEFAULT_GRAPH_NEIGHBOUR_COUNT = 6
 
 
 def _response(status, body):
@@ -204,7 +204,7 @@ def _build_runtime_catalog(features, legacy_hubs):
 def build_graph_artifact(hubs, k=DEFAULT_GRAPH_NEIGHBOUR_COUNT):
     hub_ids = list(hubs.keys())
     nodes = {}
-    edges = {}
+    edge_map = {hub_id: {} for hub_id in hub_ids}
 
     for hub_id, hub in hubs.items():
         nodes[hub_id] = {
@@ -231,10 +231,17 @@ def build_graph_artifact(hubs, k=DEFAULT_GRAPH_NEIGHBOUR_COUNT):
             distances.append((other_hub_id, raw_distance))
 
         distances.sort(key=lambda item: item[1])
-        edges[hub_id] = [
+        for neighbour_hub_id, distance_km in distances[:k]:
+            edge_map[hub_id][neighbour_hub_id] = distance_km
+            edge_map[neighbour_hub_id][hub_id] = distance_km
+
+    edges = {
+        hub_id: [
             {"to": neighbour_hub_id, "distance_km": distance_km}
-            for neighbour_hub_id, distance_km in distances[:k]
+            for neighbour_hub_id, distance_km in sorted(neighbours.items())
         ]
+        for hub_id, neighbours in edge_map.items()
+    }
 
     return {
         "nodes": nodes,

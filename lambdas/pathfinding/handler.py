@@ -213,7 +213,7 @@ def lambda_handler(event, context):
     except nx.NodeNotFound:
         return response(constants.STATUS_BAD_REQUEST, {"error": f"One or both hub IDs not found: {hub_id_1}, {hub_id_2}"})
     except nx.NetworkXNoPath:
-        return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "graph construction error"})    
+        return response(constants.STATUS_NOT_FOUND, {"error": f"No path found between hubs: {hub_id_1}, {hub_id_2}"})
 
     result = path_details_json(path, G, scores_by_hub)
 

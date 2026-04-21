@@ -46,7 +46,7 @@ def test_hub_sync_generates_runtime_catalog_and_graph():
 
     graph_obj = s3.get_object(Bucket=DATA_BUCKET, Key=constants.HUB_GRAPH_RUNTIME_KEY)
     graph_artifact = json.loads(graph_obj["Body"].read().decode("utf-8"))
-    assert graph_artifact["k"] == 4
+    assert graph_artifact["k"] == 6
     assert "generated_at" in graph_artifact
     assert set(graph_artifact["nodes"]) == set(runtime_hubs)
     assert set(graph_artifact["edges"]) == set(runtime_hubs)

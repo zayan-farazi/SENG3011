@@ -237,3 +237,34 @@ def test_handler_valid_route_returns_200_with_expected_keys(setup_s3_dynamodb):
     assert "total_distance_km" in body
     assert body["route"][0]["hub_id"] == hub_ids[0]
     assert body["route"][-1]["hub_id"] == hub_ids[-1]
+
+
+def test_handler_no_path_returns_404(setup_s3_dynamodb):
+    dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
+    with open(constants.HUBS_FILE_KEY) as f:
+        hubs = json.load(f)
+    s3 = boto3.client("s3", region_name=constants.DEFAULT_REGION)
+    hub_ids = list(hubs.keys())
+    s3.put_object(
+        Bucket=os.environ["DATA_BUCKET"],
+        Key=constants.HUB_GRAPH_RUNTIME_KEY,
+        Body=json.dumps(
+            {
+                "nodes": {
+                    hub_id: {"name": hub["name"], "lat": float(hub["lat"]), "lon": float(hub["lon"])}
+                    for hub_id, hub in hubs.items()
+                },
+                "edges": {hub_id: [] for hub_id in hubs},
+                "k": 0,
+                "generated_at": "2026-04-21T10:00:00Z",
+            }
+        ),
+        ContentType="application/json",
+    )
+    for hub_id in hubs:
+        dynamodb.Table("scores").put_item(Item={"hub_id": hub_id, "risk_score": Decimal("0.1")})
+
+    result = lambda_handler({"pathParameters": {"hub_id_1": hub_ids[0], "hub_id_2": hub_ids[1]}}, {})
+
+    assert result["statusCode"] == constants.STATUS_NOT_FOUND
+    assert "No path found between hubs" in json.loads(result["body"])["error"]
