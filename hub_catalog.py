@@ -7,7 +7,7 @@ import botocore
 import constants
 
 
-_HUB_CATALOG_CACHE: dict[tuple[str, str], dict[str, Any]] = {}
+_HUB_CATALOG_CACHE = {}
 
 
 def _get_hub_keys():
