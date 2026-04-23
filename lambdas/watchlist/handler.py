@@ -43,21 +43,23 @@ def delete_email(hub_id, email, table):
 
     return response(constants.STATUS_OK, f"hub {hub_id} removed from {email} watchlist")
 
-def retrieve_messages(email, table): 
+def retrieve_messages(email, table):
     try:
         result = table.query(
             KeyConditionExpression=Key("email").eq(email),
-            ScanIndexForward=False 
+            ScanIndexForward=False,
         )
 
         return {
             "statusCode": constants.STATUS_OK,
             "body": json.dumps({
                 "messages": result.get("Items", [])
-            })}
+            }),
+        }
 
     except Exception:
         return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
+
 
 def retrieve_hubs(email, table):
     try:
@@ -70,7 +72,8 @@ def retrieve_hubs(email, table):
             "statusCode": constants.STATUS_OK,
             "body": json.dumps({
                 "hubs": hubs
-            })}
+            }),
+        }
     except Exception:
         return response(constants.STATUS_INTERNAL_SERVER_ERROR, {"error": "Database error"})
 
@@ -98,7 +101,6 @@ def lambda_handler(event, context):
     table = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
     messages_table = dynamodb.Table(os.environ.get("MESSAGE_TABLE_NAME", "messages"))
 
-
     http_method = get_http_method(event)
     path_params = event.get("pathParameters") or {}
 
@@ -120,7 +122,6 @@ def lambda_handler(event, context):
             return retrieve_hubs(email, table)
 
         return response(constants.STATUS_BAD_REQUEST, {"error": "Invalid GET route"})
-
 
     hub_id = path_params.get("hub_id")
     email = path_params.get("email")

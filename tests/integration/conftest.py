@@ -62,6 +62,8 @@ def setup_s3_dynamodb():
         os.environ["API_BASE_URL"] = TEST_BASE_URL
         os.environ["AWS_REGION"] = constants.DEFAULT_REGION
         _create_location_table(dynamodb)
+        _create_watchlist_table(dynamodb)
+        _create_messages_table(dynamodb)
 
         yield {"s3": s3, "bucket": bucket}
 
@@ -82,5 +84,37 @@ def _create_location_table(dynamodb):
                 "Projection": {"ProjectionType": "ALL"},
             }
         ],
+    )
+    table.wait_until_exists()
+
+
+def _create_watchlist_table(dynamodb):
+    table = dynamodb.create_table(
+        TableName="watchlist",
+        KeySchema=[
+            {"AttributeName": "email", "KeyType": "HASH"},
+            {"AttributeName": "hub_id", "KeyType": "RANGE"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "email", "AttributeType": "S"},
+            {"AttributeName": "hub_id", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+    )
+    table.wait_until_exists()
+
+
+def _create_messages_table(dynamodb):
+    table = dynamodb.create_table(
+        TableName="messages",
+        KeySchema=[
+            {"AttributeName": "email", "KeyType": "HASH"},
+            {"AttributeName": "timestamp", "KeyType": "RANGE"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "email", "AttributeType": "S"},
+            {"AttributeName": "timestamp", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
     )
     table.wait_until_exists()
