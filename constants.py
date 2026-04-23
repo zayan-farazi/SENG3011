@@ -19,6 +19,8 @@ MODEL_S3_KEY = "models/risk_model.joblib"
 INGEST_WEATHER_PATH = "ese/v1/ingest/weather"
 PROCESS_WEATHER_PATH = "ese/v1/process/weather"
 LOCATION_PATH = "ese/v1/location"
+WATCHLIST_PATH = "ese/v1/watchlist"
+PATHFINDING_PATH="ese/v1/pathfinding"
 MODEL_S3_KEY = "models/risk_model.joblib"
 
 DEFAULT_REGION = "ap-southeast-2"
