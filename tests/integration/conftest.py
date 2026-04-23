@@ -38,7 +38,7 @@ def reset_model_cache():
 
 
 @pytest.fixture
-def setup_s3():
+def setup_s3_dynamodb():
     with mock_aws():
         s3 = boto3.client("s3", region_name="us-east-1")
         bucket = TEST_BUCKET_NAME
