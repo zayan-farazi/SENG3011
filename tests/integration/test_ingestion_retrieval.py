@@ -1,13 +1,10 @@
 import json
-import boto3
-from decimal import Decimal
 from datetime import datetime, timezone
 from unittest.mock import patch
 from lambdas.ingestion.handler import lambda_handler as ingestion_handler
 from lambdas.retrieval.handler import lambda_handler as retrieval_handler
 from constants import DATE_FORMAT, STATUS_OK, STATUS_NOT_FOUND
 from tests.test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
-import constants
 
 def _mock_hub_info():
     return {"hub_id": HUB_ID_1, "name": "Test Hub", "lat": 1.264, "lon": 103.820}
@@ -15,10 +12,10 @@ def _mock_hub_info():
 @patch("lambdas.ingestion.handler.fetch_weather")
 def test_ingestion_then_retrieval(
     mock_fetch_weather,
-    setup_s3,
+    setup_s3_dynamodb,
 ):
-    s3 = setup_s3["s3"]
-    bucket = setup_s3["bucket"]
+    s3 = setup_s3_dynamodb["s3"]
+    bucket = setup_s3_dynamodb["bucket"]
 
     with open(RAW_WEATHER_DATA_H1, "r") as f:
         data = json.load(f)
@@ -59,7 +56,7 @@ def test_ingestion_then_retrieval(
 @patch("lambdas.ingestion.handler.fetch_weather")
 def test_multiple_ingestion_overwrite(
     mock_fetch_weather,
-    setup_s3
+    setup_s3_dynamodb
 ):
     with open(RAW_WEATHER_DATA_H1) as f:
         data = json.load(f)
@@ -87,7 +84,7 @@ def test_multiple_ingestion_overwrite(
 @patch("lambdas.ingestion.handler.fetch_weather")
 def test_ingestion_then_retrieval_not_found(
     mock_fetch_weather,
-    setup_s3
+    setup_s3_dynamodb
 ):
     with open(RAW_WEATHER_DATA_H1) as f:
         data = json.load(f)
@@ -103,39 +100,3 @@ def test_ingestion_then_retrieval_not_found(
     }
     resp = retrieval_handler(retrieval_event, None)
     assert resp["statusCode"] == STATUS_NOT_FOUND
-
-@patch("lambdas.ingestion.handler.fetch_weather")
-def test_dynamic_hub_ingestion_then_retrieval(
-    mock_fetch_weather,
-    setup_s3,
-):
-    table = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION).Table("locations")
-    table.put_item(
-        Item={
-            "hub_id": "LOC_TEST01",
-            "lat_lon": "12.345:67.890",
-            "name": "Dynamic Port",
-            "lat": Decimal("12.345"),
-            "lon": Decimal("67.890"),
-            "type": "dynamic",
-            "created_at": "2026-04-15T00:00:00Z",
-        }
-    )
-
-    with open(RAW_WEATHER_DATA_H1, "r") as f:
-        data = json.load(f)
-    mock_fetch_weather.return_value = json.dumps(data)
-
-    resp = ingestion_handler({"pathParameters": {"hub_id": "LOC_TEST01"}}, None)
-    assert resp["statusCode"] == STATUS_OK
-
-    date_str = datetime.now(timezone.utc).strftime(DATE_FORMAT)
-    retrieval_event = {
-        "rawPath": "/raw/LOC_TEST01",
-        "pathParameters": {"hub_id": "LOC_TEST01"},
-        "queryStringParameters": {"date": date_str}
-    }
-
-    ret_resp = retrieval_handler(retrieval_event, None)
-    assert ret_resp["statusCode"] == STATUS_OK
-    assert json.loads(ret_resp["body"]) == data

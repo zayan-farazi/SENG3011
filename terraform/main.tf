@@ -124,12 +124,13 @@ locals {
   pathfinding_zip_path = "${local.lambda_artifact_dir}/pathfinding.zip"
   auth_zip_path        = "${local.lambda_artifact_dir}/auth.zip"
 
-  analytics_zip_key   = "artifacts/lambdas/analytics.zip"
-  hubs_seed_key       = "hubs.json"
-  hubs_runtime_key    = "runtime/hubs.json"
-  hubs_history_prefix = "history/hubs"
-  model_s3_key        = "models/risk_model.joblib"
-  api_base_url        = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
+  analytics_zip_key     = "artifacts/lambdas/analytics.zip"
+  hubs_seed_key         = "hubs.json"
+  hubs_runtime_key      = "runtime/hubs.json"
+  hub_graph_runtime_key = "runtime/hub_graph.json"
+  hubs_history_prefix   = "history/hubs"
+  model_s3_key          = "models/risk_model.joblib"
+  api_base_url          = "https://${aws_apigatewayv2_api.weather_api.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_apigatewayv2_stage.api_stage.name}"
 
   location_routes = {
     list_locations = {
@@ -145,7 +146,7 @@ locals {
     create_location = {
       route_key     = "POST /ese/v1/location"
       path_pattern  = "POST/ese/v1/location"
-      auth_required = true
+      auth_required = false
     }
   }
 
@@ -182,25 +183,24 @@ locals {
   }
 
   watchlist_routes = {
-    list_notifications = {
-      route_key     = "GET /ese/v1/watchlist/notifications"
-      path_pattern  = "GET/ese/v1/watchlist/notifications"
-      auth_required = true
+    add_email = {
+      route_key    = "POST /ese/v1/watchlist/{hub_id}/{email}"
+      path_pattern = "POST/ese/v1/watchlist/*"
     }
-    list_watchlist = {
-      route_key     = "GET /ese/v1/watchlist"
-      path_pattern  = "GET/ese/v1/watchlist"
-      auth_required = true
+
+    remove_email = {
+      route_key    = "DELETE /ese/v1/watchlist/{hub_id}/{email}"
+      path_pattern = "DELETE/ese/v1/watchlist/*"
     }
-    add_watch = {
-      route_key     = "POST /ese/v1/watchlist/{hub_id}"
-      path_pattern  = "POST/ese/v1/watchlist/*"
-      auth_required = true
+
+    get_hubs = {
+      route_key    = "GET /ese/v1/watchlist/{email}"
+      path_pattern = "GET/ese/v1/watchlist/*"
     }
-    remove_watch = {
-      route_key     = "DELETE /ese/v1/watchlist/{hub_id}"
-      path_pattern  = "DELETE/ese/v1/watchlist/*"
-      auth_required = true
+
+    get_messages = {
+      route_key    = "GET /ese/v1/watchlist/messages/{email}"
+      path_pattern = "GET/ese/v1/watchlist/messages/*"
     }
   }
 
@@ -404,7 +404,7 @@ resource "aws_dynamodb_table" "watchlist" {
   name         = local.watchlist_table_name
   billing_mode = "PAY_PER_REQUEST"
 
-  hash_key  = "user_id"
+  hash_key  = "email"
   range_key = "hub_id"
 
   attribute {
@@ -413,15 +413,8 @@ resource "aws_dynamodb_table" "watchlist" {
   }
 
   attribute {
-    name = "user_id"
+    name = "email"
     type = "S"
-  }
-
-  global_secondary_index {
-    name            = "hub-id-index"
-    hash_key        = "hub_id"
-    range_key       = "user_id"
-    projection_type = "ALL"
   }
 
   tags = {
@@ -479,16 +472,16 @@ resource "aws_dynamodb_table" "scores" {
 resource "aws_dynamodb_table" "messages" {
   name         = local.messages_table_name
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "user_id"
-  range_key    = "sent_at"
+  hash_key     = "email"
+  range_key    = "timestamp"
 
   attribute {
-    name = "user_id"
+    name = "email"
     type = "S"
   }
 
   attribute {
-    name = "sent_at"
+    name = "timestamp"
     type = "S"
   }
 
@@ -669,7 +662,8 @@ resource "aws_lambda_function" "analytics" {
       API_BASE_URL         = local.api_base_url
       RISK_MODEL_KEY       = local.model_s3_key
       WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
-      MESSAGES_TABLE_NAME  = aws_dynamodb_table.messages.name
+      SCORES_TABLE_NAME    = aws_dynamodb_table.scores.name
+      MESSAGE_TABLE_NAME   = aws_dynamodb_table.messages.name
     }
   }
 
@@ -697,7 +691,7 @@ resource "aws_lambda_function" "watchlist" {
       DATA_BUCKET          = aws_s3_bucket.seng_3011_bkt.bucket
       API_BASE_URL         = local.api_base_url
       WATCHLIST_TABLE_NAME = aws_dynamodb_table.watchlist.name
-      MESSAGES_TABLE_NAME  = aws_dynamodb_table.messages.name
+      MESSAGE_TABLE_NAME   = aws_dynamodb_table.messages.name
     }
   }
 
@@ -736,7 +730,7 @@ resource "aws_lambda_function" "testing" {
   handler          = "lambdas.testing.handler.lambda_handler"
   filename         = local.testing_zip_path
   source_code_hash = filebase64sha256(local.testing_zip_path)
-  timeout          = 120
+  timeout          = 180
 
   environment {
     variables = {
@@ -765,12 +759,13 @@ resource "aws_lambda_function" "hub_sync" {
 
   environment {
     variables = {
-      DATA_BUCKET         = aws_s3_bucket.seng_3011_bkt.bucket
-      PORTWATCH_HUBS_URL  = var.portwatch_hubs_url
-      PORTWATCH_API_KEY   = var.portwatch_api_key
-      HUBS_RUNTIME_KEY    = local.hubs_runtime_key
-      HUBS_SEED_KEY       = local.hubs_seed_key
-      HUBS_HISTORY_PREFIX = local.hubs_history_prefix
+      DATA_BUCKET           = aws_s3_bucket.seng_3011_bkt.bucket
+      PORTWATCH_HUBS_URL    = var.portwatch_hubs_url
+      PORTWATCH_API_KEY     = var.portwatch_api_key
+      HUBS_RUNTIME_KEY      = local.hubs_runtime_key
+      HUB_GRAPH_RUNTIME_KEY = local.hub_graph_runtime_key
+      HUBS_SEED_KEY         = local.hubs_seed_key
+      HUBS_HISTORY_PREFIX   = local.hubs_history_prefix
     }
   }
 
@@ -795,8 +790,9 @@ resource "aws_lambda_function" "pathfinding" {
 
   environment {
     variables = {
-      DATA_BUCKET       = aws_s3_bucket.seng_3011_bkt.bucket
-      SCORES_TABLE_NAME = aws_dynamodb_table.scores.name
+      DATA_BUCKET           = aws_s3_bucket.seng_3011_bkt.bucket
+      HUB_GRAPH_RUNTIME_KEY = local.hub_graph_runtime_key
+      SCORES_TABLE_NAME     = aws_dynamodb_table.scores.name
     }
   }
 
@@ -1007,11 +1003,9 @@ resource "aws_apigatewayv2_route" "analytics" {
 resource "aws_apigatewayv2_route" "watchlist" {
   for_each = local.watchlist_routes
 
-  api_id             = aws_apigatewayv2_api.weather_api.id
-  route_key          = each.value.route_key
-  target             = "integrations/${aws_apigatewayv2_integration.watchlist.id}"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+  api_id    = aws_apigatewayv2_api.weather_api.id
+  route_key = each.value.route_key
+  target    = "integrations/${aws_apigatewayv2_integration.watchlist.id}"
 }
 
 resource "aws_apigatewayv2_route" "testing" {
@@ -1262,6 +1256,14 @@ output "daily_all_hubs_ingestion_rule_name" {
 
 output "daily_hub_sync_rule_name" {
   value = aws_cloudwatch_event_rule.daily_hub_sync.name
+}
+
+output "hub_sync_lambda_name" {
+  value = aws_lambda_function.hub_sync.function_name
+}
+
+output "data_bucket_name" {
+  value = aws_s3_bucket.seng_3011_bkt.bucket
 }
 
 output "weather_retrieve_raw_url_example" {

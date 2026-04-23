@@ -3,7 +3,6 @@ import logging
 import math
 import os
 import tempfile
-import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from decimal import Decimal
@@ -496,40 +495,39 @@ def _build_vector(features: dict) -> list[float]:
 
 def notify_watchlist(hub_id: str) -> None:
     try:
-        region   = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
-        ses      = boto3.client("ses", region_name=region)
+        region = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
+        ses = boto3.client("ses", region_name=region)
         dynamodb = boto3.resource("dynamodb", region_name=region)
-        table    = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
-        messages = dynamodb.Table(os.environ.get("MESSAGES_TABLE_NAME", "messages"))
-        result   = table.query(
-            IndexName="hub-id-index",
-            KeyConditionExpression=Key("hub_id").eq(hub_id),
-        )
+        watchlist_table = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
+        messages_table = dynamodb.Table(os.environ.get("MESSAGE_TABLE_NAME", "messages"))
+        result = watchlist_table.scan(FilterExpression=Key("hub_id").eq(hub_id))
+
         for item in result.get("Items", []):
-            subject = f"Hub {hub_id} Alert"
-            body = "Critical risk level"
+            email = item["email"]
+            message = f"Hub {hub_id} has reached a critical level."
+            timestamp = datetime.now(timezone.utc).isoformat()
+            messages_table.put_item(
+                Item={
+                    "email": email,
+                    "timestamp": timestamp,
+                    "message": message,
+                }
+            )
             ses.send_email(
                 Source="alerts@yourdomain.com",
-                Destination={"ToAddresses": [item["notification_email"]]},
+                Destination={"ToAddresses": [item["email"]]},
                 Message={
-                    "Subject": {"Data": subject},
-                    "Body":    {"Text": {"Data": body}},
+                    "Subject": {"Data": f"Hub {hub_id} Alert"},
+                    "Body": {"Text": {"Data": "Critical risk level"}},
                 },
-            )
-            messages.put_item(
-                Item={
-                    "user_id": item["user_id"],
-                    "sent_at": f"{datetime.now(timezone.utc).isoformat()}#{uuid.uuid4().hex[:8]}",
-                    "hub_id": hub_id,
-                    "notification_email": item["notification_email"],
-                    "subject": subject,
-                    "message": body,
-                }
             )
     except Exception:
         return
 
 def store_risk_score(hub_id, score):
+    if not hub_id or score is None:
+        return
+
     try:
         region   = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
         dynamodb = boto3.resource("dynamodb", region_name=region)
@@ -541,7 +539,22 @@ def store_risk_score(hub_id, score):
             ExpressionAttributeValues={":s": Decimal(str(score))}
         )
     except Exception:
+        logger.exception(f"Failed to store risk score for hub {hub_id}")
         return
+
+
+def _extract_score_from_cached_response(adage_response: dict) -> Optional[float]:
+    for event in adage_response.get("events", []):
+        if event.get("event_type") != "seven_day_outlook":
+            continue
+
+        attribute = event.get("attribute", {})
+        for field in ("combined_risk_score", "outlook_risk_score"):
+            score = attribute.get(field)
+            if score is not None:
+                return float(score)
+
+    return None
 
 
 def _risk_level(score: float, hub_id: Optional[str] = None) -> str:
@@ -861,6 +874,9 @@ def _handle_api_event(event: dict) -> dict:
         cached = s3.get_object(Bucket=bucket, Key=f"risk/weather/{hub_id}/latest.json")
         adage_response = json.loads(cached["Body"].read())
         logger.info(f"Returning cached risk scores for hub {hub_id}")
+        cached_score = _extract_score_from_cached_response(adage_response)
+        if cached_score is not None:
+            store_risk_score(hub_id, cached_score)
         return response(constants.STATUS_OK, adage_response)
     except s3.exceptions.NoSuchKey:
         logger.info(f"No cached risk for {hub_id}, computing on demand")

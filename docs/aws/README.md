@@ -169,11 +169,13 @@ Frontend auth flow:
 - redirect users to the Cognito hosted UI
 - use OAuth authorization code flow with PKCE
 - send the Cognito ID token as `Authorization: Bearer <token>` to:
-  - `POST /ese/v1/location`
-  - all watchlist routes
   - `GET/PUT /ese/v1/auth/profile`
 - use `PUT /ese/v1/auth/password` with the current and new password to rotate credentials
-- use `GET /ese/v1/watchlist/notifications` to retrieve stored notification history
+- use the email-based watchlist routes for watched hubs and notification messages:
+  - `POST /ese/v1/watchlist/{hub_id}/{email}`
+  - `DELETE /ese/v1/watchlist/{hub_id}/{email}`
+  - `GET /ese/v1/watchlist/{email}`
+  - `GET /ese/v1/watchlist/messages/{email}`
 
 ```bash
 curl "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/retrieve/raw/weather/H001?date=10-03-2026"

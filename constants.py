@@ -3,6 +3,7 @@ PROCESSED_TIME_SLOTS = ["0000", "0600", "1200", "1800"]
 HUBS_FILE_KEY = "hubs.json"
 HUBS_SEED_KEY = HUBS_FILE_KEY
 HUBS_RUNTIME_KEY = "runtime/hubs.json"
+HUB_GRAPH_RUNTIME_KEY = "runtime/hub_graph.json"
 HUBS_HISTORY_PREFIX = "history/hubs"
 
 STATUS_OK = 200

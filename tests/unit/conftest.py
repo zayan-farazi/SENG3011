@@ -96,26 +96,18 @@ def _create_watchlist_table(dynamodb):
     table = dynamodb.create_table(
         TableName="watchlist",
         KeySchema=[
-            {"AttributeName": "user_id", "KeyType": "HASH"},
+            {"AttributeName": "email", "KeyType": "HASH"},
             {"AttributeName": "hub_id", "KeyType": "RANGE"},
         ],
         AttributeDefinitions=[
             {"AttributeName": "hub_id", "AttributeType": "S"},
-            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "email", "AttributeType": "S"},
         ],
         BillingMode="PAY_PER_REQUEST",
-        GlobalSecondaryIndexes=[
-            {
-                "IndexName": "hub-id-index",
-                "KeySchema": [
-                    {"AttributeName": "hub_id", "KeyType": "HASH"},
-                    {"AttributeName": "user_id", "KeyType": "RANGE"},
-                ],
-                "Projection": {"ProjectionType": "ALL"},
-            }
-        ],
     )
     table.wait_until_exists()
+
+
 def _create_scores_table(dynamodb):
     table = dynamodb.create_table(
         TableName="scores",
@@ -132,12 +124,12 @@ def _create_messages_table(dynamodb):
     table = dynamodb.create_table(
         TableName="messages",
         KeySchema=[
-            {"AttributeName": "user_id", "KeyType": "HASH"},
-            {"AttributeName": "sent_at", "KeyType": "RANGE"},
+            {"AttributeName": "email", "KeyType": "HASH"},
+            {"AttributeName": "timestamp", "KeyType": "RANGE"},
         ],
         AttributeDefinitions=[
-            {"AttributeName": "user_id", "AttributeType": "S"},
-            {"AttributeName": "sent_at", "AttributeType": "S"},
+            {"AttributeName": "email", "AttributeType": "S"},
+            {"AttributeName": "timestamp", "AttributeType": "S"},
         ],
         BillingMode="PAY_PER_REQUEST",
     )

@@ -139,9 +139,6 @@ paths:
       summary: Create a shared dynamic hub
       description: >
         Creates a shared dynamic `LOC_*` hub from latitude, longitude, and name.
-        Requires a valid Cognito ID token in the Authorization header.
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -171,12 +168,6 @@ paths:
                     type: string
         '400':
           description: Invalid input body or coordinates.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Missing or invalid bearer token.
           content:
             application/json:
               schema:
@@ -366,58 +357,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /ese/v1/watchlist:
+  /ese/v1/watchlist/{email}:
     get:
       tags:
         - Watchlist microservice
-      summary: List the authenticated user's watchlist
-      security:
-        - bearerAuth: []
+      summary: List hubs watched by an email address
+      parameters:
+        - $ref: '#/components/parameters/EmailPath'
       responses:
         '200':
-          description: Current user's watched hubs.
+          description: Watched hub IDs for the supplied email address.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/WatchlistResponse'
-        '401':
-          description: Missing or invalid bearer token.
+        '400':
+          description: Invalid email address.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /ese/v1/watchlist/notifications:
+  /ese/v1/watchlist/messages/{email}:
     get:
       tags:
         - Watchlist microservice
-      summary: List notification history for the authenticated user
-      security:
-        - bearerAuth: []
+      summary: List notification messages sent to an email address
+      parameters:
+        - $ref: '#/components/parameters/EmailPath'
       responses:
         '200':
-          description: Notifications previously sent to this user.
+          description: Notification messages stored for the supplied email address.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotificationHistoryResponse'
-        '401':
-          description: Missing or invalid bearer token.
+        '400':
+          description: Invalid email address.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /ese/v1/watchlist/{hub_id}:
+  /ese/v1/watchlist/{hub_id}/{email}:
     post:
       tags:
         - Watchlist microservice
-      summary: Add a hub to the authenticated user's watchlist
-      security:
-        - bearerAuth: []
+      summary: Add an email address to a hub watchlist
       parameters:
         - $ref: '#/components/parameters/HubIdPath'
+        - $ref: '#/components/parameters/EmailPath'
       responses:
         '200':
-          description: Watchlist entry added or already present.
+          description: Watchlist entry added.
           content:
             application/json:
               schema:
@@ -426,19 +416,7 @@ paths:
                   message:
                     type: string
         '400':
-          description: Invalid hub ID.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Missing or invalid bearer token.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Authenticated user does not have a verified email.
+          description: Invalid hub ID or email address.
           content:
             application/json:
               schema:
@@ -446,14 +424,13 @@ paths:
     delete:
       tags:
         - Watchlist microservice
-      summary: Remove a hub from the authenticated user's watchlist
-      security:
-        - bearerAuth: []
+      summary: Remove an email address from a hub watchlist
       parameters:
         - $ref: '#/components/parameters/HubIdPath'
+        - $ref: '#/components/parameters/EmailPath'
       responses:
         '200':
-          description: Watchlist entry removed or already absent.
+          description: Watchlist entry removed.
           content:
             application/json:
               schema:
@@ -462,19 +439,7 @@ paths:
                   message:
                     type: string
         '400':
-          description: Invalid hub ID.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Missing or invalid bearer token.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Authenticated user does not have a verified email.
+          description: Invalid hub ID or email address.
           content:
             application/json:
               schema:
@@ -559,6 +524,15 @@ components:
         type: string
         pattern: '^\d{2}-\d{2}-\d{4}$'
       example: 08-03-2026
+    EmailPath:
+      name: email
+      in: path
+      required: true
+      description: URL-encoded email address for watchlist subscriptions.
+      schema:
+        type: string
+        format: email
+      example: user%40example.com
 
   schemas:
     ErrorResponse:
@@ -591,36 +565,27 @@ components:
       properties:
         hub_id:
           type: string
-        notification_email:
-          type: string
-          format: email
-        created_at:
-          type: string
     WatchlistResponse:
       type: object
       properties:
         hubs:
           type: array
           items:
-            $ref: '#/components/schemas/WatchlistEntry'
+            type: string
     NotificationHistoryEntry:
       type: object
       properties:
-        sent_at:
-          type: string
-        hub_id:
-          type: string
-        notification_email:
+        email:
           type: string
           format: email
-        subject:
+        timestamp:
           type: string
         message:
           type: string
     NotificationHistoryResponse:
       type: object
       properties:
-        notifications:
+        messages:
           type: array
           items:
             $ref: '#/components/schemas/NotificationHistoryEntry'
