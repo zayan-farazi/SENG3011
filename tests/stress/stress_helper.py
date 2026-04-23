@@ -45,7 +45,7 @@ def create_location():
     try:
         res = requests.post(url, json=payload, timeout=MED_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
 
 def list_locations():
@@ -54,7 +54,7 @@ def list_locations():
     try:
         res = requests.get(url, timeout=HIGH_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
     
 def get_location():
@@ -63,7 +63,7 @@ def get_location():
     try:
         res = requests.get(url, timeout=MED_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
 # RETRIEVAL
 
@@ -73,7 +73,7 @@ def retrieve_raw():
     try:
         res = requests.get(url, params={"date": DATE_2}, timeout=LOW_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
     
 def retrieve_processed():
@@ -82,7 +82,7 @@ def retrieve_processed():
     try:
         res = requests.get(url, params={"date": DATE_2}, timeout=LOW_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
 
 # INGESTION
@@ -93,7 +93,7 @@ def ingest_weather():
     try:
         res = requests.post(url, timeout=MED_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
     
 # PROCESSING
@@ -105,7 +105,7 @@ def process_weather():
     try:
         res = requests.post(url, json=data, timeout=HIGH_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
 
 # ANALYTICS
@@ -115,7 +115,7 @@ def risk_location():
     try:
         res = requests.get(url,params={"date": DATE_2}, timeout=MED_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
 
 # WATCHLIST
@@ -125,7 +125,7 @@ def add_watchlist():
     try:
         res = requests.post(url, timeout=LOW_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
 
 def remove_watchlist():
@@ -134,7 +134,7 @@ def remove_watchlist():
     try:
         res = requests.delete(url, timeout=LOW_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
 
 def get_watchlist_hubs():
@@ -143,7 +143,7 @@ def get_watchlist_hubs():
     try:
         res = requests.get(url, timeout=MED_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
 
 def get_watchlist_messages():
@@ -152,18 +152,18 @@ def get_watchlist_messages():
     try:
         res = requests.get(url, timeout=MED_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
 
 # PATHFINDING
 
 def optimal_path():
-    url = f"{BASE_URL}/ese/v1/pathfinding/{TEST_HUB_ID}/{TEST_HUB_ID_2}"
+    url = f"{BASE_URL}/{PATHFINDING_PATH}/{TEST_HUB_ID}/{TEST_HUB_ID_2}"
     start = time.time()
     try:
         res = requests.get(url, timeout=HIGH_TIME_OUT)
         return {"success": res.status_code == STATUS_OK, "latency": time.time() - start}
-    except:
+    except Exception:
         return {"success": False}
 
 
