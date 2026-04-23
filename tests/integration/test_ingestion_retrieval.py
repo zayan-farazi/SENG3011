@@ -1,13 +1,10 @@
 import json
-import boto3
-from decimal import Decimal
 from datetime import datetime, timezone
 from unittest.mock import patch
 from lambdas.ingestion.handler import lambda_handler as ingestion_handler
 from lambdas.retrieval.handler import lambda_handler as retrieval_handler
 from constants import DATE_FORMAT, STATUS_OK, STATUS_NOT_FOUND
 from tests.test_constants import HUB_ID_1, RAW_WEATHER_DATA_H1
-import constants
 
 def _mock_hub_info():
     return {"hub_id": HUB_ID_1, "name": "Test Hub", "lat": 1.264, "lon": 103.820}
