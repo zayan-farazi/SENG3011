@@ -131,6 +131,7 @@ jobs:
     environment: staging
     env:
       AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'ap-southeast-2' }}
+      AUTH_ID_TOKEN: ${{ secrets.AUTH_ID_TOKEN }}
       DATA_BUCKET_NAME: ${{ needs.deploy.outputs.data_bucket_name }}
       DEV_BASE_URL: ${{ needs.deploy.outputs.staging_base_url }}
       HUB_SYNC_LAMBDA_NAME: ${{ needs.deploy.outputs.hub_sync_lambda_name }}

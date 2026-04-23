@@ -119,6 +119,12 @@ Add this GitHub secret to all three environments:
 
 - `PIRATE_WEATHER_API_KEY=<your-pirate-weather-key>`
 
+Optional for staging system tests:
+
+- `AUTH_ID_TOKEN=<valid Cognito ID token for a staging test user>`
+
+If `AUTH_ID_TOKEN` is not set, the auth system tests still verify protected routes reject unauthenticated requests, and skip the authenticated profile/password checks.
+
 The shared trust policy can cover all three environments. A common release flow is:
 
 - `dev` on non-`main` branch pushes
