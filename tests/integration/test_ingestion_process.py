@@ -18,10 +18,10 @@ def _mock_hub_info():
 def test_ingestion_to_processing_success(
     mock_fetch_weather,
     mock_get_hub_info_from_pos,
-    setup_s3
+    setup_s3_dynamodb
 ):
-    s3 = setup_s3["s3"]
-    bucket = setup_s3["bucket"]
+    s3 = setup_s3_dynamodb["s3"]
+    bucket = setup_s3_dynamodb["bucket"]
 
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
 
@@ -67,10 +67,10 @@ def test_ingestion_to_processing_success(
 def test_processing_multiple_overwrite(
     mock_fetch_weather,
     mock_get_hub_info_from_pos,
-    setup_s3
+    setup_s3_dynamodb
 ):
-    s3 = setup_s3["s3"]
-    bucket = setup_s3["bucket"]
+    s3 = setup_s3_dynamodb["s3"]
+    bucket = setup_s3_dynamodb["bucket"]
 
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
 
@@ -121,10 +121,10 @@ def test_processing_multiple_overwrite(
 def test_process_bad_data_ingested(
     mock_fetch_weather,
     mock_get_hub_info_from_pos,
-    setup_s3
+    setup_s3_dynamodb
 ):
-    s3 = setup_s3["s3"]
-    bucket = setup_s3["bucket"]
+    s3 = setup_s3_dynamodb["s3"]
+    bucket = setup_s3_dynamodb["bucket"]
 
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
 
@@ -157,7 +157,7 @@ def test_process_bad_data_ingested(
 def test_processing_missing_env_config(
     mock_fetch_weather,
     mock_get_hub_info_from_pos,
-    setup_s3
+    setup_s3_dynamodb
 ):
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
 

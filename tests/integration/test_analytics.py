@@ -130,7 +130,7 @@ def test_full_pipeline_with_geopolitical_risk(
     mock_get_hub_info_from_pos,
     mock_validate_hub_id,
     mock_get_api_key,
-    setup_s3,
+    setup_s3_dynamodb,
 ):
     """
     End-to-end pipeline: ingest → process → analytics.
@@ -141,8 +141,8 @@ def test_full_pipeline_with_geopolitical_risk(
       - geopolitical_risk_assessment event (with keyword breakdowns)
       - All three risk dimensions stored independently
     """
-    s3 = setup_s3["s3"]
-    bucket = setup_s3["bucket"]
+    s3 = setup_s3_dynamodb["s3"]
+    bucket = setup_s3_dynamodb["bucket"]
 
     # Setup mocks for ingestion
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
@@ -288,7 +288,7 @@ def test_s3_trigger_simulates_automated_pipeline(
     mock_get_hub_info_from_pos,
     mock_validate_hub_id,
     mock_get_api_key,
-    setup_s3,
+    setup_s3_dynamodb,
 ):
     """
     Simulates the automated S3 trigger (like the 6-hour EventBridge cron):
@@ -299,8 +299,8 @@ def test_s3_trigger_simulates_automated_pipeline(
     This mimics exactly what happens in production when EventBridge fires
     ingestion → S3 trigger → processing → S3 trigger → analytics.
     """
-    s3 = setup_s3["s3"]
-    bucket = setup_s3["bucket"]
+    s3 = setup_s3_dynamodb["s3"]
+    bucket = setup_s3_dynamodb["bucket"]
 
     # Setup ingestion mocks
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
@@ -389,7 +389,7 @@ def test_degrades_to_weather_only_when_no_api_key(
     mock_get_hub_info_from_pos,
     mock_validate_hub_id,
     mock_get_api_key,
-    setup_s3,
+    setup_s3_dynamodb,
 ):
     """
     When the news API key is unavailable, the handler should:
@@ -398,8 +398,8 @@ def test_degrades_to_weather_only_when_no_api_key(
       - Set combined = weather-only (not the 65/35 blend)
       - Mark data_available = False
     """
-    s3 = setup_s3["s3"]
-    bucket = setup_s3["bucket"]
+    s3 = setup_s3_dynamodb["s3"]
+    bucket = setup_s3_dynamodb["bucket"]
 
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Port of Singapore"}
 
@@ -481,10 +481,10 @@ def test_ingestion_processing_analytics(
     mock_fetch_weather,
     mock_get_hub_info_from_pos,
     mock_get_requests,
-    setup_s3,
+    setup_s3_dynamodb,
 ):
-    s3 = setup_s3["s3"]
-    bucket = setup_s3["bucket"]
+    s3 = setup_s3_dynamodb["s3"]
+    bucket = setup_s3_dynamodb["bucket"]
 
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Test Hub"}
 
@@ -540,10 +540,10 @@ def test_processing_to_analytics_schema_break(
     mock_fetch_weather,
     mock_get_hub_info_from_pos,
     mock_get,
-    setup_s3,
+    setup_s3_dynamodb,
 ):
-    s3 = setup_s3["s3"]
-    bucket = setup_s3["bucket"]
+    s3 = setup_s3_dynamodb["s3"]
+    bucket = setup_s3_dynamodb["bucket"]
 
     mock_get_hub_info_from_pos.return_value = {"hub_id": HUB_ID_1, "hub_name": "Test Hub"}
 
