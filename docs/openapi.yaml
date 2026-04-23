@@ -20,11 +20,217 @@ servers:
       stage:
         default: dev
 tags:
+  - name: Auth microservice
+  - name: Location microservice
   - name: Data collection microservice
   - name: Data retrieval microservice
   - name: Data processing microservice
   - name: Analytics microservice
+  - name: Watchlist microservice
 paths:
+  /ese/v1/auth/profile:
+    get:
+      tags:
+        - Auth microservice
+      summary: Retrieve the authenticated user's profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current Cognito-backed user profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Auth microservice
+      summary: Update the authenticated user's profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                company_name:
+                  type: string
+      responses:
+        '200':
+          description: Profile updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: No supported fields provided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/auth/password:
+    put:
+      tags:
+        - Auth microservice
+      summary: Change the authenticated user's password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - current_password
+                - new_password
+              properties:
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+      responses:
+        '200':
+          description: Password updated successfully.
+        '400':
+          description: Invalid password payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Current password is incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/location:
+    post:
+      tags:
+        - Location microservice
+      summary: Create a shared dynamic hub
+      description: >
+        Creates a shared dynamic `LOC_*` hub from latitude, longitude, and name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - lat
+                - lon
+                - name
+              properties:
+                lat:
+                  type: number
+                lon:
+                  type: number
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Dynamic hub created or existing matching hub returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hub_id:
+                    type: string
+        '400':
+          description: Invalid input body or coordinates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/location/list:
+    get:
+      tags:
+        - Location microservice
+      summary: List dynamic and monitored hubs
+      description: >
+        Lists all hubs by default. Supports filtering by type and truncating the
+        returned list with `limit`.
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [dynamic, monitored]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Matching hubs sorted by hub ID.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hubs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HubSummary'
+        '400':
+          description: Invalid query parameter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/location/{hub_id}:
+    get:
+      tags:
+        - Location microservice
+      summary: Fetch a hub by ID
+      parameters:
+        - $ref: '#/components/parameters/HubIdPath'
+      responses:
+        '200':
+          description: Hub details for a monitored or dynamic hub.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HubDetail'
+        '404':
+          description: Hub not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /ese/v1/ingest/weather/{hub_id}:
     post:
       tags:
@@ -151,6 +357,93 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/watchlist/{email}:
+    get:
+      tags:
+        - Watchlist microservice
+      summary: List hubs watched by an email address
+      parameters:
+        - $ref: '#/components/parameters/EmailPath'
+      responses:
+        '200':
+          description: Watched hub IDs for the supplied email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistResponse'
+        '400':
+          description: Invalid email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/watchlist/messages/{email}:
+    get:
+      tags:
+        - Watchlist microservice
+      summary: List notification messages sent to an email address
+      parameters:
+        - $ref: '#/components/parameters/EmailPath'
+      responses:
+        '200':
+          description: Notification messages stored for the supplied email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationHistoryResponse'
+        '400':
+          description: Invalid email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /ese/v1/watchlist/{hub_id}/{email}:
+    post:
+      tags:
+        - Watchlist microservice
+      summary: Add an email address to a hub watchlist
+      parameters:
+        - $ref: '#/components/parameters/HubIdPath'
+        - $ref: '#/components/parameters/EmailPath'
+      responses:
+        '200':
+          description: Watchlist entry added.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid hub ID or email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Watchlist microservice
+      summary: Remove an email address from a hub watchlist
+      parameters:
+        - $ref: '#/components/parameters/HubIdPath'
+        - $ref: '#/components/parameters/EmailPath'
+      responses:
+        '200':
+          description: Watchlist entry removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid hub ID or email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /ese/v1/risk/region:
     get:
       tags:
@@ -199,6 +492,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   parameters:
     HubIdPath:
       name: hub_id
@@ -226,6 +524,15 @@ components:
         type: string
         pattern: '^\d{2}-\d{2}-\d{4}$'
       example: 08-03-2026
+    EmailPath:
+      name: email
+      in: path
+      required: true
+      description: URL-encoded email address for watchlist subscriptions.
+      schema:
+        type: string
+        format: email
+      example: user%40example.com
 
   schemas:
     ErrorResponse:
@@ -234,6 +541,66 @@ components:
         error:
           type: string
           example: Invalid date format. Use DD-MM-YYYY
+    HubSummary:
+      type: object
+      properties:
+        hub_id:
+          type: string
+        name:
+          type: string
+        lat:
+          type: number
+        lon:
+          type: number
+    HubDetail:
+      allOf:
+        - $ref: '#/components/schemas/HubSummary'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [dynamic, monitored]
+    WatchlistEntry:
+      type: object
+      properties:
+        hub_id:
+          type: string
+    WatchlistResponse:
+      type: object
+      properties:
+        hubs:
+          type: array
+          items:
+            type: string
+    NotificationHistoryEntry:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        timestamp:
+          type: string
+        message:
+          type: string
+    NotificationHistoryResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationHistoryEntry'
+    UserProfile:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        email_verified:
+          type: boolean
+        company_name:
+          type: string
     RawWeatherResponse:
       type: object
       description: Placeholder schema for the raw Pirate Weather API payload.

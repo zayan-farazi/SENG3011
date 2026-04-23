@@ -2,8 +2,9 @@
 
 This repo currently deploys:
 
-- six Lambdas: location, retrieval, ingestion, processing, analytics, and watchlist
-- one HTTP API with location, retrieval, ingestion, processing, risk, and watchlist routes
+- seven Lambdas: auth, location, retrieval, ingestion, processing, analytics, and watchlist
+- one HTTP API with auth, location, retrieval, ingestion, processing, risk, and watchlist routes
+- one Cognito user pool, app client, and hosted UI domain for end-user auth
 - one daily EventBridge rule at `02:00 UTC` that invokes ingestion for all hubs
 - one application data bucket chosen per AWS account
 - one ML model artifact at `models/risk_model.joblib`
@@ -147,12 +148,34 @@ terraform init \
 ```bash
 terraform apply \
   -var='data_bucket_name=<your-app-bucket-name>' \
-  -var='pirate_weather_api_key=<your-pirate-weather-key>'
+  -var='pirate_weather_api_key=<your-pirate-weather-key>' \
+  -var='cognito_callback_urls=["http://localhost:3000/callback"]' \
+  -var='cognito_logout_urls=["http://localhost:3000"]'
 ```
 
 ## 6. Test the live endpoints
 
 After apply, use the Terraform outputs or call the expected URLs directly.
+
+Relevant auth outputs:
+
+- `cognito_user_pool_id`
+- `cognito_user_pool_client_id`
+- `cognito_hosted_ui_url`
+- `cognito_issuer_url`
+
+Frontend auth flow:
+
+- redirect users to the Cognito hosted UI
+- use OAuth authorization code flow with PKCE
+- send the Cognito ID token as `Authorization: Bearer <token>` to:
+  - `GET/PUT /ese/v1/auth/profile`
+- use `PUT /ese/v1/auth/password` with the current and new password to rotate credentials
+- use the email-based watchlist routes for watched hubs and notification messages:
+  - `POST /ese/v1/watchlist/{hub_id}/{email}`
+  - `DELETE /ese/v1/watchlist/{hub_id}/{email}`
+  - `GET /ese/v1/watchlist/{email}`
+  - `GET /ese/v1/watchlist/messages/{email}`
 
 ```bash
 curl "https://<api-id>.execute-api.ap-southeast-2.amazonaws.com/dev/ese/v1/retrieve/raw/weather/H001?date=10-03-2026"

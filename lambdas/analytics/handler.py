@@ -495,22 +495,22 @@ def _build_vector(features: dict) -> list[float]:
 
 def notify_watchlist(hub_id: str) -> None:
     try:
-        region   = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
-        ses      = boto3.client("ses", region_name=region)
+        region = os.environ.get("AWS_REGION", constants.DEFAULT_REGION)
+        ses = boto3.client("ses", region_name=region)
         dynamodb = boto3.resource("dynamodb", region_name=region)
-        watchlist_table    = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
-        messages_table =dynamodb.Table(os.environ.get("MESSAGE_TABLE_NAME", "messages"))
-        result   = watchlist_table.scan(FilterExpression=Key("hub_id").eq(hub_id))
-        
+        watchlist_table = dynamodb.Table(os.environ.get("WATCHLIST_TABLE_NAME", "watchlist"))
+        messages_table = dynamodb.Table(os.environ.get("MESSAGE_TABLE_NAME", "messages"))
+        result = watchlist_table.scan(FilterExpression=Key("hub_id").eq(hub_id))
+
         for item in result.get("Items", []):
             email = item["email"]
             message = f"Hub {hub_id} has reached a critical level."
             timestamp = datetime.now(timezone.utc).isoformat()
             messages_table.put_item(
                 Item={
-                    "email": email, 
+                    "email": email,
                     "timestamp": timestamp,
-                    "message": message
+                    "message": message,
                 }
             )
             ses.send_email(
@@ -518,7 +518,7 @@ def notify_watchlist(hub_id: str) -> None:
                 Destination={"ToAddresses": [item["email"]]},
                 Message={
                     "Subject": {"Data": f"Hub {hub_id} Alert"},
-                    "Body":    {"Text": {"Data": "Critical risk level"}},
+                    "Body": {"Text": {"Data": "Critical risk level"}},
                 },
             )
     except Exception:

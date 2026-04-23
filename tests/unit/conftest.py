@@ -41,6 +41,7 @@ def setup_dynamodb():
         _create_location_table(dynamodb)
         _create_watchlist_table(dynamodb)
         _create_scores_table(dynamodb)
+        _create_messages_table(dynamodb)
         os.environ["API_BASE_URL"] = "http://test-api"
         yield
 
@@ -58,6 +59,8 @@ def setup_s3_dynamodb():
         dynamodb = boto3.resource("dynamodb", region_name=constants.DEFAULT_REGION)
         _create_location_table(dynamodb)
         _create_scores_table(dynamodb)
+        _create_watchlist_table(dynamodb)
+        _create_messages_table(dynamodb)
 
         yield s3
 
@@ -90,11 +93,11 @@ def _create_location_table(dynamodb):
     table.wait_until_exists()
 
 def _create_watchlist_table(dynamodb):
-    dynamodb.create_table(
+    table = dynamodb.create_table(
         TableName="watchlist",
         KeySchema=[
-            {"AttributeName": "hub_id", "KeyType": "HASH"},
-            {"AttributeName": "email", "KeyType": "RANGE"},
+            {"AttributeName": "email", "KeyType": "HASH"},
+            {"AttributeName": "hub_id", "KeyType": "RANGE"},
         ],
         AttributeDefinitions=[
             {"AttributeName": "hub_id", "AttributeType": "S"},
@@ -102,6 +105,9 @@ def _create_watchlist_table(dynamodb):
         ],
         BillingMode="PAY_PER_REQUEST",
     )
+    table.wait_until_exists()
+
+
 def _create_scores_table(dynamodb):
     table = dynamodb.create_table(
         TableName="scores",
@@ -113,3 +119,18 @@ def _create_scores_table(dynamodb):
     )
     table.wait_until_exists()
 
+
+def _create_messages_table(dynamodb):
+    table = dynamodb.create_table(
+        TableName="messages",
+        KeySchema=[
+            {"AttributeName": "email", "KeyType": "HASH"},
+            {"AttributeName": "timestamp", "KeyType": "RANGE"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "email", "AttributeType": "S"},
+            {"AttributeName": "timestamp", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+    )
+    table.wait_until_exists()

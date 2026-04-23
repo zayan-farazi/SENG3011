@@ -49,6 +49,7 @@ build_lambda() {
   fi
 
   cp "$ROOT_DIR/constants.py" "$stage_dir/constants.py"
+  cp "$ROOT_DIR/auth_context.py" "$stage_dir/auth_context.py"
   cp "$ROOT_DIR/hub_catalog.py" "$stage_dir/hub_catalog.py"
   cp "$ROOT_DIR/hub_lookup.py" "$stage_dir/hub_lookup.py"
   cp "$ROOT_DIR/lambdas/__init__.py" "$stage_dir/lambdas/__init__.py"
@@ -72,6 +73,7 @@ build_lambda "processing" "processing.zip"
 build_lambda "analytics" "analytics.zip"
 build_lambda "hub_sync" "hub_sync.zip"
 build_lambda "watchlist" "watchlist.zip"
+build_lambda "auth" "auth.zip"
 build_lambda "testing" "testing.zip"
 build_lambda "pathfinding" "pathfinding.zip"
 
