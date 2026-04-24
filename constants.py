@@ -22,6 +22,7 @@ INGEST_WEATHER_PATH = "ese/v1/ingest/weather"
 PROCESS_WEATHER_PATH = "ese/v1/process/weather"
 LOCATION_PATH = "ese/v1/location"
 WATCHLIST_PATH = "ese/v1/watchlist"
+PATHFINDING_PATH="ese/v1/pathfinding"
 AUTH_PATH = "ese/v1/auth"
 MODEL_S3_KEY = "models/risk_model.joblib"
 

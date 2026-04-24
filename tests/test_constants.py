@@ -21,3 +21,11 @@ PROCESSED_WEATHER_DATA_FILE = "tests/data/processed_sample.json"
 
 RAW_WEATHER_DATA_H1 = "tests/data/pirate_weather_raw_h1.json"
 PROCESSED_WEATHER_DATA_H1 = "tests/data/processed_sample_h1.json"
+
+MAX_WORKERS = 300
+CONCURRENT_WORKERS=30
+LOW_TIME_OUT = 5
+MED_TIME_OUT = 10 
+HIGH_TIME_OUT = 15 
+MAX_TIME_OUT = 90
+
